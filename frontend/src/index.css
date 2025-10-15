@@ -1,0 +1,114 @@
+:root {
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #333;
+  background-color: #f8f9fa;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --header-bg: linear-gradient(120deg, #1a2a3a 0%, #2c3e50 100%);
+}
+
+/* Light Theme */
+.theme-light {
+  --bg-color: #f8f9fa;
+  --text-color: #333;
+  --header-bg: linear-gradient(120deg, #1a2a3a 0%, #2c3e50 100%);
+}
+
+/* Dim Theme */
+.theme-dim {
+  --bg-color: #2c3e50;
+  --text-color: #ecf0f1;
+  --header-bg: linear-gradient(120deg, #1a2a3a 0%, #2c3e50 100%);
+}
+
+/* Dark Theme */
+.theme-dark {
+  --bg-color: #1a1a2e;
+  --text-color: #ecf0f1;
+  --header-bg: linear-gradient(120deg, #0f1523 0%, #1a1a2e 100%);
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: block;
+  min-width: 320px;
+  min-height: 100vh;
+  transition: background-color 0.3s ease;
+}
+
+.theme-light body {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+}
+
+.theme-dim body {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+}
+
+.theme-dark body {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+h1 {
+  font-size: 2.2em;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  margin: 0;
+}
+
+button {
+  border-radius: 8px;
+  border: none;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #3498db;
+  color: white;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+button:focus,
+button:focus-visible {
+  outline: 2px auto #3498db;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #3498db;
+    color: white;
+  }
+}

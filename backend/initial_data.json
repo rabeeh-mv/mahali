@@ -1,0 +1,34 @@
+[
+  {
+    "model": "society.area",
+    "pk": 1,
+    "fields": {
+      "name": "North Zone",
+      "description": "Northern area of the society"
+    }
+  },
+  {
+    "model": "society.area",
+    "pk": 2,
+    "fields": {
+      "name": "South Zone",
+      "description": "Southern area of the society"
+    }
+  },
+  {
+    "model": "society.collection",
+    "pk": 1,
+    "fields": {
+      "name": "Maintenance",
+      "description": "Monthly maintenance fees"
+    }
+  },
+  {
+    "model": "society.collection",
+    "pk": 2,
+    "fields": {
+      "name": "Festival",
+      "description": "Festival celebration funds"
+    }
+  }
+]
