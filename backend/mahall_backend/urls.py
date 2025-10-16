@@ -18,12 +18,18 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import TemplateView
+from django.http import HttpResponse
+
+# Simple view to return a basic response for the root URL
+def home_view(request):
+    return HttpResponse("Mahali Backend API Server is running. Access API endpoints at /api/")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('society.urls')),
-    path('', TemplateView.as_view(template_name='index.html'), name='home'),
+    # In production (Electron app), we don't serve the frontend through Django
+    # The React frontend is served statically by Electron
+    path('', home_view, name='home'),
 ]
 
 # Serve media files during development

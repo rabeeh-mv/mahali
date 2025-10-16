@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -119,9 +120,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [
-    BASE_DIR / '../frontend/dist',  # React build files
-]
+# In development, look for React build files in the frontend dist directory
+# In production (Electron), static files will be served by Electron
+if DEBUG:
+    STATICFILES_DIRS = [
+        BASE_DIR / '../frontend/dist',  # React build files in development
+    ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files

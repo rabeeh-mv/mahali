@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { memberAPI, houseAPI, areaAPI, collectionAPI, subcollectionAPI, obligationAPI, eventAPI } from '../api'
+import { memberAPI, houseAPI, areaAPI, collectionAPI, subcollectionAPI, obligationAPI, eventAPI, api } from '../api'
 import Sidebar from './Sidebar'
 import Dashboard from './Dashboard'
 import Areas from './Areas'
@@ -59,7 +59,9 @@ function App() {
     setLoading(true)
     setError(null)
     try {
-      // Load minimal data for initial dashboard
+      // Check if the backend API is accessible by calling the root endpoint
+      await api.get('/')
+      // If successful, load minimal data for initial dashboard
       const areasRes = await areaAPI.getAll()
       setAreas(areasRes.data)
       setRetryCount(0) // Reset retry count on successful load

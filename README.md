@@ -56,22 +56,34 @@ A comprehensive community management application built with Django (backend) and
 
 ### Building the Desktop Application
 
-To build the standalone Electron application:
+The project uses a multi-stage build process:
 
-1. Build the Django executable:
+1. **Build the React frontend:**
+   ```
+   cd frontend
+   npm run build
+   ```
+
+2. **Build the Django backend executable:**
    ```
    cd backend
    python build_django_exe.py
-   cd ..
    ```
+   This creates `django_server.exe` and `mahall_backup_restore.exe` in the `backend/dist/` directory.
 
-2. Package the Electron app:
+3. **Package the Electron app:**
+   ```
+   cd frontend
+   npm run build-electron
+   ```
+   This creates the installer in `frontend/dist-electron/` directory.
+
+4. **Alternative: Build everything at once:**
    ```
    cd frontend
    npm run package-app
    ```
-
-3. Find the installer in `frontend/dist-electron/` directory.
+   This runs all the above steps in sequence.
 
 ### Installation Script
 
@@ -132,6 +144,24 @@ Mahall Software/
 - **Desktop**: Electron 33
 - **Database**: SQLite
 - **Packaging**: PyInstaller, electron-builder
+
+## Build Process Details
+
+### Backend Build (Django)
+- Uses PyInstaller to create standalone executables
+- Creates `django_server.exe` for the main server
+- Creates `mahall_backup_restore.exe` for backup/restore functionality
+- Configuration in `django_server.spec` file
+
+### Frontend Build (React)
+- Uses Vite for fast builds
+- Base path set to './' for Electron compatibility
+- Output in `frontend/dist/` directory
+
+### Electron Packaging
+- Uses electron-builder for packaging
+- Includes both frontend build and backend executables
+- Creates Windows installer (.exe) in `frontend/dist-electron/`
 
 ## License
 

@@ -74,6 +74,9 @@ export const settingsAPI = {
   getAll: () => api.get('/settings/'),
   create: (data) => api.post('/settings/', data),
   update: (id, data) => api.put(`/settings/${id}/`, data),
+  delete: (id) => api.delete(`/settings/${id}/`),
 };
 
+// Export the api instance as well
+export { api };
 export default api;
