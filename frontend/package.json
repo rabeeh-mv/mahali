@@ -13,7 +13,9 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "build-django": "cd ../backend && python build_django_exe.py",
-    "package-app": "npm run build && cd ../backend && python build_django_exe.py && cd ../frontend && electron-builder"
+    "build-django-clean": "cd ../backend && python clean_build.py",
+    "package-app": "npm run build && cd ../backend && python clean_build.py && cd ../frontend && electron-builder",
+    "package-app-clean": "npm run build && cd ../backend && python clean_build.py && cd ../frontend && electron-builder"
   },
   "main": "electron-main.js",
   "dependencies": {
