@@ -176,5 +176,6 @@ yarn.lock
 
 # Electron build files
 frontend/dist-electron/
+frontend/dist-electron.zip
 frontend/build/
 release/
