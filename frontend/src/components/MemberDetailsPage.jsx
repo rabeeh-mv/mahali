@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { memberAPI, houseAPI, areaAPI } from '../api';
+import { memberAPI, houseAPI, areaAPI, obligationAPI, subcollectionAPI } from '../api';
 import { FaUser, FaHome, FaMapMarkerAlt, FaPhone, FaBirthdayCake, FaEdit, FaTrash, FaArrowLeft } from 'react-icons/fa';
 import MemberModal from './MemberModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
@@ -16,6 +16,8 @@ const MemberDetailsPage = ({ members, houses, areas, setEditing, deleteItem, loa
   const [memberToDelete, setMemberToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [obligations, setObligations] = useState([]);
+  const [subcollections, setSubcollections] = useState([]);
 
   // Use useMemo to ensure we have a stable reference to memberId
   const stableMemberId = useMemo(() => memberId, [memberId]);
@@ -38,6 +40,18 @@ const MemberDetailsPage = ({ members, houses, areas, setEditing, deleteItem, loa
             setArea(areaResponse.data);
           }
         }
+        
+        // Fetch obligations for this member
+        const obligationsResponse = await obligationAPI.getAll();
+        const memberObligations = obligationsResponse.data.filter(obligation => 
+          obligation.member === memberResponse.data.member_id ||
+          (typeof obligation.member === 'object' && obligation.member.member_id === memberResponse.data.member_id)
+        );
+        setObligations(memberObligations);
+        
+        // Fetch subcollections
+        const subcollectionsResponse = await subcollectionAPI.getAll();
+        setSubcollections(subcollectionsResponse.data);
       } catch (error) {
         console.error('Failed to load member data:', error);
       } finally {
@@ -98,10 +112,10 @@ const MemberDetailsPage = ({ members, houses, areas, setEditing, deleteItem, loa
     setIsEditModalOpen(false);
   };
 
-  const handleEditSuccess = () => {
+  const handleEditSuccess = async () => {
     // Reload the member data after successful edit
     if (stableMemberId) {
-      loadMemberData();
+      await loadMemberData();
     }
   };
 
@@ -135,22 +149,17 @@ const MemberDetailsPage = ({ members, houses, areas, setEditing, deleteItem, loa
     (typeof house.area === 'object' ? house.area : null) : 
     null);
 
-  // Prepare member data for table display
+  // Prepare member data for table display (excluding fields already shown in ATM cards)
   const memberData = [
     { label: 'Member ID', value: `#${member?.member_id || 'N/A'}` },
-    { label: 'Full Name', value: member?.name || 'Unknown Member' },
-    { label: 'Status', value: member?.status?.charAt(0).toUpperCase() + (member?.status?.slice(1) || '') },
-    { label: 'Date of Birth', value: member?.date_of_birth ? new Date(member.date_of_birth).toLocaleDateString() : 'N/A' },
-    { label: 'Date of Death', value: member?.date_of_death ? new Date(member.date_of_death).toLocaleDateString() : 'N/A' },
     { label: 'Aadhar Number', value: member?.adhar || 'N/A' },
-    { label: 'Phone', value: member?.phone || 'N/A' },
     { label: 'WhatsApp', value: member?.whatsapp || 'N/A' },
     { label: 'House ID', value: `#${house?.home_id || 'N/A'}` },
-    { label: 'House Name', value: house?.house_name || 'N/A' },
-    { label: 'Area', value: houseArea?.name || 'N/A' },
     { label: 'Father\'s Name', value: member?.father_name ? `${member.father_name} ${member.father_surname || ''}` : 'N/A' },
     { label: 'Mother\'s Name', value: member?.mother_name ? `${member.mother_name} ${member.mother_surname || ''}` : 'N/A' },
-    { label: 'Guardian', value: member?.isGuardian ? 'Yes' : 'No' }
+    { label: 'Guardian', value: member?.isGuardian ? 'Yes' : 'No' },
+    { label: 'Date of Death', value: member?.date_of_death ? new Date(member.date_of_death).toLocaleDateString() : 'N/A' },
+    { label: 'Address', value: house?.address || 'N/A' }
   ];
 
   return (
@@ -291,7 +300,7 @@ const MemberDetailsPage = ({ members, houses, areas, setEditing, deleteItem, loa
           </div>
         </div>
         
-        {/* Member Full Details Section in Table Format */}
+        {/* Member Full Details Section in Grid Format */}
         <div className="member-full-details">
           <div className="section-header">
             <h3>Member Information</h3>
@@ -303,19 +312,11 @@ const MemberDetailsPage = ({ members, houses, areas, setEditing, deleteItem, loa
             </button>
           </div>
           
-          <div className="details-table">
+          <div className="member-details-grid">
             {memberData.map((item, index) => (
-              <div className="table-row" key={index}>
-                <div className="table-cell">
-                  <div className="detail-label">{item.label}</div>
-                  <div className="detail-value">{item.value}</div>
-                </div>
-                {memberData[index + 1] && (
-                  <div className="table-cell">
-                    <div className="detail-label">{memberData[index + 1].label}</div>
-                    <div className="detail-value">{memberData[index + 1].value}</div>
-                  </div>
-                )}
+              <div className="detail-item" key={index}>
+                <div className="detail-label">{item.label}</div>
+                <div className="detail-value">{item.value}</div>
               </div>
             ))}
           </div>
@@ -325,7 +326,41 @@ const MemberDetailsPage = ({ members, houses, areas, setEditing, deleteItem, loa
         <div className="dues-section">
           <h3>Obligations</h3>
           <div className="dues-content">
-            <p>No obligations found</p>
+            {obligations.length > 0 ? (
+              <div className="table-container-no-bg">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Subcollection</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {obligations.map(obligation => {
+                      // Find the subcollection details for this obligation
+                      const subcollection = subcollections.find(sc => sc.id === obligation.subcollection || sc.id === obligation.subcollection?.id);
+                      
+                      return (
+                        <tr key={obligation.id}>
+                          <td>{subcollection?.name || 'N/A'}</td>
+                          <td>₹{obligation.amount || 0}</td>
+                          <td>
+                            <span className={`status-badge ${obligation.paid_status === 'paid' ? 'active' : obligation.paid_status === 'pending' ? 'pending' : 'overdue'}`}>
+                              {obligation.paid_status?.charAt(0).toUpperCase() + obligation.paid_status?.slice(1)}
+                            </span>
+                          </td>
+                          <td>{obligation.created_at ? new Date(obligation.created_at).toLocaleDateString() : 'N/A'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p>No obligations found for this member</p>
+            )}
           </div>
         </div>
       </div>

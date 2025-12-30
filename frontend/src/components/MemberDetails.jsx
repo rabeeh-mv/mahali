@@ -220,7 +220,7 @@ const MemberDetails = ({ member, house, area, onViewHouse, onEditMember }) => {
       <div className="dues-section">
         <h3>Obligations</h3>
         <div className="dues-content">
-          <p>No obligations found</p>
+          <p>Not obligations found</p>
         </div>
       </div>
     </div>

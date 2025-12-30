@@ -108,27 +108,40 @@ const FirebaseData = () => {
       return <div className="no-data">No data found in Firebase collection</div>;
     }
 
-    // Get all unique keys for table headers
+    // Get all unique keys for table headers and normalize them to avoid visual duplication
     const allKeys = new Set();
     firebaseData.forEach(item => {
       Object.keys(item).forEach(key => allKeys.add(key));
     });
+    
+    // Convert Set to Array to maintain consistent order
+    const keysArray = Array.from(allKeys);
+    
+    // Function to normalize key for display
+    const normalizeKey = (key) => {
+      return key
+        .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+        .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
+        .trim();
+    };
 
     return (
       <div className="table-container">
         <table className="data-table">
           <thead>
             <tr>
-              {Array.from(allKeys).map(key => (
-                <th key={key}>{key}</th>
+              {keysArray.map(key => (
+                <th key={key} title={`Original field name: ${key}`}>
+                  {normalizeKey(key)}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {firebaseData.map((item, index) => (
               <tr key={item.id || index}>
-                {Array.from(allKeys).map(key => (
-                  <td key={key}>
+                {keysArray.map(key => (
+                  <td key={`${key}-${index}`}>
                     {typeof item[key] === 'object' ? JSON.stringify(item[key]) : String(item[key] || '')}
                   </td>
                 ))}

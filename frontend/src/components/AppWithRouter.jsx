@@ -5,9 +5,10 @@ import Sidebar from './Sidebar'
 import Dashboard from './Dashboard'
 import Areas from './Areas'
 import Houses from './Houses'
-import HouseDetail from './HouseDetail'
+import HouseDetailsPage from './HouseDetailsPage'
 import Members from './Members'
 import MemberDetails from './MemberDetails'
+import MemberDetailsPage from './MemberDetailsPage'
 import Collections from './Collections'
 import Subcollections from './Subcollections'
 import Obligations from './Obligations'
@@ -416,10 +417,13 @@ function AppWithRouter() {
                 />
               } />
               <Route path="/houses/:houseId" element={
-                <HouseDetail 
+                <HouseDetailsPage 
                   houses={houses}
                   members={members}
                   areas={areas}
+                  subcollections={subcollections}
+                  setEditing={setEditing}
+                  loadDataForTab={loadDataForTab}
                 />
               } />
               <Route path="/members" element={
@@ -431,7 +435,7 @@ function AppWithRouter() {
                 />
               } />
               <Route path="/members/:memberId" element={
-                <MemberDetails 
+                <MemberDetailsPage 
                   members={members}
                   houses={houses}
                   areas={areas}
