@@ -607,7 +607,7 @@ function createMainWindow() {
   });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5174');
+    mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
     // In development mode, we assume Django is already running
     console.log('Development mode: Assuming Django server is already running on http://127.0.0.1:8000');

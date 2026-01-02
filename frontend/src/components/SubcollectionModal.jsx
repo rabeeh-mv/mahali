@@ -23,6 +23,7 @@ const SubcollectionModal = ({ isOpen, onClose, onSubmit, initialData, selectedCo
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedArea, setSelectedArea] = useState('');
   const [birthYear, setBirthYear] = useState('');
+  const [guardianFilter, setGuardianFilter] = useState(''); // '' for all, 'true' for guardian, 'false' for non-guardian
 
   useEffect(() => {
     if (isOpen) {
@@ -106,6 +107,13 @@ const SubcollectionModal = ({ isOpen, onClose, onSubmit, initialData, selectedCo
       );
     }
     
+    // Apply guardian filter
+    if (guardianFilter !== '') {
+      filtered = filtered.filter(member => 
+        String(member.isGuardian) === guardianFilter
+      );
+    }
+    
     // Only show live members
     filtered = filtered.filter(member => member.status === 'live');
     
@@ -116,7 +124,7 @@ const SubcollectionModal = ({ isOpen, onClose, onSubmit, initialData, selectedCo
     if (isOpen) {
       applyFilters();
     }
-  }, [searchTerm, selectedArea, birthYear, members, isOpen]);
+  }, [searchTerm, selectedArea, birthYear, guardianFilter, members, isOpen]);
 
   const handleMemberSelect = (memberId) => {
     if (selectedMembers.includes(memberId)) {
@@ -287,6 +295,21 @@ const SubcollectionModal = ({ isOpen, onClose, onSubmit, initialData, selectedCo
                   min="1900"
                   max={new Date().getFullYear()}
                 />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="guardian-filter">Filter by Guardian</label>
+                <select
+                  id="guardian-filter"
+                  value={guardianFilter}
+                  onChange={(e) => setGuardianFilter(e.target.value)}
+                  className="filter-select"
+                  disabled={loading}
+                >
+                  <option value="">All Members</option>
+                  <option value="true">Guardians Only</option>
+                  <option value="false">Non-Guardians Only</option>
+                </select>
               </div>
             </div>
             

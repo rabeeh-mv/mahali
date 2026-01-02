@@ -6,6 +6,7 @@ const BulkObligationModal = ({ isOpen, onClose, onSubmit, selectedSubcollection,
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [guardianFilter, setGuardianFilter] = useState(''); // '' for all, 'true' for guardian, 'false' for non-guardian
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -47,6 +48,13 @@ const BulkObligationModal = ({ isOpen, onClose, onSubmit, selectedSubcollection,
       );
     }
     
+    // Apply guardian filter
+    if (guardianFilter !== '') {
+      filtered = filtered.filter(member => 
+        String(member.isGuardian) === guardianFilter
+      );
+    }
+    
     // Only show live members
     filtered = filtered.filter(member => member.status === 'live');
     
@@ -57,7 +65,7 @@ const BulkObligationModal = ({ isOpen, onClose, onSubmit, selectedSubcollection,
     if (isOpen) {
       applyFilters();
     }
-  }, [searchTerm, members, isOpen]);
+  }, [searchTerm, guardianFilter, members, isOpen]);
 
   const handleMemberSelect = (memberId) => {
     // Don't allow selection of already added members
@@ -158,6 +166,21 @@ const BulkObligationModal = ({ isOpen, onClose, onSubmit, selectedSubcollection,
                   placeholder="Search by name..."
                   disabled={loading}
                 />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="guardian-filter">Guardian Filter</label>
+                <select
+                  id="guardian-filter"
+                  value={guardianFilter}
+                  onChange={(e) => setGuardianFilter(e.target.value)}
+                  className="filter-select"
+                  disabled={loading}
+                >
+                  <option value="">All Members</option>
+                  <option value="true">Guardians Only</option>
+                  <option value="false">Non-Guardians Only</option>
+                </select>
               </div>
               
               <div className="bulk-selection-controls">

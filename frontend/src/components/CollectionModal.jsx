@@ -51,8 +51,11 @@ const CollectionModal = ({ isOpen, onClose, onSubmit, initialData }) => {
         throw new Error('Collection name is required');
       }
       
+      // Prepare the data to submit
+      const submitData = { ...formData };
+      
       // Call the onSubmit function
-      await onSubmit(formData, initialData);
+      await onSubmit(submitData, initialData);
       
       setSuccess('Collection saved successfully!');
       

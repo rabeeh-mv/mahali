@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react'
 import { memberAPI, houseAPI, areaAPI, collectionAPI, subcollectionAPI, obligationAPI, eventAPI } from './api'
 import MemberDetails from './components/MemberDetails'
+import Collections from './components/Collections'
+import Subcollections from './components/Subcollections'
+import Obligations from './components/Obligations'
+import BulkObligationModal from './components/BulkObligationModal'
+import CollectionModal from './components/CollectionModal'
+import SubcollectionModal from './components/SubcollectionModal'
+import ObligationModal from './components/ObligationModal'
+import MemberModal from './components/MemberModal'
+import AreaModal from './components/AreaModal'
+import HouseModal from './components/HouseModal'
 import { FaArrowLeft, FaPlus } from 'react-icons/fa'
 import './App.css'
 import PaymentConfirmModal from './components/PaymentConfirmModal'
@@ -27,6 +37,7 @@ function App() {
   // State for PaymentConfirmModal
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [obligationToPay, setObligationToPay] = useState(null)
+  const [isBulkObligationModalOpen, setIsBulkObligationModalOpen] = useState(false)
   
   // Member search and filter states
   const [memberSearchTerm, setMemberSearchTerm] = useState('')
@@ -153,23 +164,28 @@ function App() {
 
   const handleAddBulkObligation = () => {
     // This would open the bulk obligation modal
-    console.log('Add bulk obligation')
-    // For now, just show an alert
-    alert('Bulk obligation creation would open here')
+    setIsBulkObligationModalOpen(true)
   }
 
-  const handleSubmit = async (type) => {
+  const handleSubmit = async (type, data) => {
     try {
-      if (editing) {
-        await updateItem(type, editing.id, formData)
+      // Check if we're editing an existing item by checking if the original data had an id
+      if (editing && editing.data && editing.data.id) {
+        // Update existing item
+        await updateItem(type, editing.data.id, data);
+      } else if (editing && editing.id) {
+        // Update existing item (alternative format)
+        await updateItem(type, editing.id, data);
       } else {
-        await createItem(type, formData)
+        // Create new item
+        await createItem(type, data);
       }
-      setFormData({})
-      setEditing(null)
-      loadData()
+      
+      setFormData({});
+      setEditing(null);
+      loadData();
     } catch (error) {
-      console.error(`Failed to ${editing ? 'update' : 'create'} ${type}:`, error)
+      console.error(`Failed to ${editing ? 'update' : 'create'} ${type}:`, error);
     }
   }
 
@@ -183,7 +199,7 @@ function App() {
       obligations: obligationAPI, 
       events: eventAPI 
     }
-    await apis[type].create(data)
+    return await apis[type].create(data)
   }
 
   const updateItem = async (type, id, data) => {
@@ -196,7 +212,7 @@ function App() {
       obligations: obligationAPI, 
       events: eventAPI 
     }
-    await apis[type].update(id, data)
+    return await apis[type].update(id, data)
   }
 
   const deleteItem = async (type, id) => {
@@ -211,15 +227,17 @@ function App() {
     }
     
     // Special handling for members and houses which use custom ID fields
+    let result;
     if (type === 'members') {
-      await apis[type].delete(id) // member_id is the lookup field
+      result = await apis[type].delete(id) // member_id is the lookup field
     } else if (type === 'houses') {
-      await apis[type].delete(id) // home_id is the lookup field
+      result = await apis[type].delete(id) // home_id is the lookup field
     } else {
-      await apis[type].delete(id)
+      result = await apis[type].delete(id)
     }
     
     loadData()
+    return result;
   }
 
   const exportData = async () => {
@@ -550,108 +568,28 @@ function App() {
   )
 
   const renderCollections = () => (
-    <div className="data-section">
-      <div className="section-header">
-        <h2>📂 Collections</h2>
-        <button onClick={() => setEditing({ type: 'collections', data: {} })} className="add-btn">
-          <FaPlus />
-        </button>
-      </div>
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Subcollections</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {collections.map(collection => (
-              <tr key={collection.id}>
-                <td>#{collection.id}</td>
-                <td>{collection.name}</td>
-                <td>{collection.description || 'N/A'}</td>
-                <td>{collection.subcollections?.length || 0}</td>
-                <td>
-                  <button onClick={() => {
-                    setSelectedCollection(collection);
-                    setActiveTab('subcollections');
-                  }} className="view-btn">👁️ View</button>
-                  <button onClick={() => setEditing({ type: 'collections', data: collection })} className="edit-btn">✏️ Edit</button>
-                  <button onClick={() => deleteItem('collections', collection.id)} className="delete-btn">🗑️ Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {collections.length === 0 && (
-          <div className="empty-state">
-            <p>No collections found. Add a new collection to get started.</p>
-          </div>
-        )}
-      </div>
-    </div>
+    <Collections
+      collections={collections}
+      setEditing={setEditing}
+      deleteItem={deleteItem}
+      setSelectedCollection={setSelectedCollection}
+      loadDataForTab={loadDataForTab}
+      setActiveTab={setActiveTab}
+    />
   )
 
   const renderSubcollections = () => (
-    <div className="data-section">
-      <div className="section-header">
-        <div className="header-content">
-          <button onClick={() => setActiveTab('collections')} className="back-btn">
-            <FaArrowLeft />
-          </button>
-          <h2>Subcollections - {selectedCollection?.name}</h2>
-        </div>
-        <button onClick={() => setEditing({ type: 'subcollections', data: {} })} className="add-btn">
-          <FaPlus />
-        </button>
-      </div>
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Year</th>
-              <th>Amount</th>
-              <th>Due Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subcollections
-              .filter(sc => sc.collection?.id === selectedCollection?.id)
-              .map(subcollection => (
-                <tr key={subcollection.id}>
-                  <td>#{subcollection.id}</td>
-                  <td>{subcollection.name}</td>
-                  <td>{subcollection.year}</td>
-                  <td>₹{subcollection.amount}</td>
-                  <td>{subcollection.due_date ? new Date(subcollection.due_date).toLocaleDateString() : 'N/A'}</td>
-                  <td>
-                    <button onClick={() => {
-                      console.log('View subcollection clicked:', subcollection);
-                      setSelectedSubcollection(subcollection);
-                      console.log('Setting active tab to obligations');
-                      setActiveTab('obligations');
-                    }} className="view-btn">👁️ View</button>
-                    <button onClick={() => setEditing({ type: 'subcollections', data: subcollection })} className="edit-btn">✏️ Edit</button>
-                    <button onClick={() => deleteItem('subcollections', subcollection.id)} className="delete-btn">🗑️ Delete</button>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-        {subcollections.filter(sc => sc.collection?.id === selectedCollection?.id).length === 0 && (
-          <div className="empty-state">
-            <p>No subcollections found for this collection.</p>
-          </div>
-        )}
-      </div>
-    </div>
+    <Subcollections
+      subcollections={subcollections}
+      selectedCollection={selectedCollection}
+      setEditing={setEditing}
+      deleteItem={deleteItem}
+      setSelectedSubcollection={setSelectedSubcollection}
+      handleEditSubcollection={(subcollection) => setEditing({ type: 'subcollections', data: subcollection })}
+      handleAddSubcollection={() => setEditing({ type: 'subcollections', data: {} })}
+      loadDataForTab={loadDataForTab}
+      setActiveTab={setActiveTab}
+    />
   )
 
   const renderObligations = () => (
@@ -779,6 +717,130 @@ function App() {
     </div>
   )
 
+  const renderForm = () => {
+    if (!editing) return null;
+    
+    const { type, data } = editing;
+    
+    // Import the appropriate modal component based on the type
+    switch (type) {
+      case 'collections':
+        return (
+          <CollectionModal 
+            isOpen={!!editing}
+            onClose={() => setEditing(null)} 
+            onSubmit={(formData, initialData) => handleSubmit('collections', formData)}
+            initialData={data && data.id ? data : null}
+          />
+        );
+      case 'subcollections':
+        return (
+          <SubcollectionModal 
+            isOpen={!!editing}
+            onClose={() => setEditing(null)} 
+            onSubmit={async (formData, selectedMembers, initialData) => {
+              try {
+                let createdSubcollection;
+                
+                // Create or update the subcollection
+                if (initialData && initialData.id) {
+                  // Update existing subcollection
+                  await updateItem('subcollections', initialData.id, {
+                    ...formData,
+                    collection: selectedCollection?.id
+                  });
+                } else {
+                  // Create new subcollection
+                  const result = await createItem('subcollections', {
+                    ...formData,
+                    collection: selectedCollection?.id
+                  });
+                  createdSubcollection = result.data;
+                }
+                
+                // If there are selected members and this is a new subcollection, create obligations
+                if (selectedMembers && selectedMembers.length > 0 && !initialData) {
+                  const subcollectionId = createdSubcollection ? createdSubcollection.id : null;
+                  
+                  if (subcollectionId) {
+                    // Create obligations for selected members
+                    const obligationsData = selectedMembers.map(memberId => ({
+                      member: memberId,
+                      subcollection: subcollectionId,
+                      amount: formData.amount,
+                      paid_status: 'pending'
+                    }));
+                    
+                    // Use bulk create API to create all obligations at once
+                    await obligationAPI.bulkCreate({ obligations: obligationsData });
+                  }
+                }
+                
+                setFormData({});
+                setEditing(null);
+                loadData();
+              } catch (error) {
+                console.error('Failed to save subcollection:', error);
+                throw error;
+              }
+            }}
+            initialData={data}
+            selectedCollection={selectedCollection}
+            collections={collections}
+          />
+        );
+      case 'obligations':
+        // For obligations, we need to ensure we have a selected subcollection
+        if (!selectedSubcollection) {
+          return null;
+        }
+        return (
+          <ObligationModal 
+            isOpen={!!editing}
+            onClose={() => setEditing(null)} 
+            onSubmit={(formData) => handleSubmit('obligations', {
+              ...formData,
+              subcollection: selectedSubcollection.id
+            })}
+            initialData={data}
+            members={members}
+            subcollection={selectedSubcollection}
+          />
+        );
+      case 'members':
+        return (
+          <MemberModal 
+            isOpen={!!editing}
+            onClose={() => setEditing(null)} 
+            onSubmit={(formData) => handleSubmit('members', formData)}
+            initialData={data}
+            loadDataForTab={loadDataForTab}
+          />
+        );
+      case 'areas':
+        return (
+          <AreaModal 
+            isOpen={!!editing}
+            onClose={() => setEditing(null)} 
+            onSubmit={(formData) => handleSubmit('areas', formData)}
+            initialData={data}
+          />
+        );
+      case 'houses':
+        return (
+          <HouseModal 
+            isOpen={!!editing}
+            onClose={() => setEditing(null)} 
+            onSubmit={(formData) => handleSubmit('houses', formData)}
+            initialData={data}
+            areas={areas}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className={`app theme-${theme}`}>
       <div className="app-layout">
@@ -893,12 +955,28 @@ function App() {
             {activeTab === 'subcollections' && renderSubcollections()}
             {activeTab === 'obligations' && renderObligations()}
             {activeTab === 'data' && renderDataManagement()}
-            {renderForm()}
+
             <PaymentConfirmModal
               isOpen={isPaymentModalOpen}
               onClose={handlePaymentModalClose}
               onConfirm={handlePaymentConfirm}
               obligation={obligationToPay}
+            />
+            <BulkObligationModal
+              isOpen={isBulkObligationModalOpen}
+              onClose={() => setIsBulkObligationModalOpen(false)}
+              onSubmit={async (data) => {
+                try {
+                  await obligationAPI.bulkCreate(data);
+                  loadDataForTab('obligations', true);
+                  setIsBulkObligationModalOpen(false);
+                } catch (error) {
+                  console.error('Failed to create bulk obligations:', error);
+                  throw error;
+                }
+              }}
+              selectedSubcollection={selectedSubcollection}
+              existingObligations={memberObligations.filter(ob => ob.subcollection === selectedSubcollection?.id)}
             />
           </main>
         </div>
