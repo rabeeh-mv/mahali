@@ -45,21 +45,21 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
       if (initialData) {
         setFormData({
           name: initialData.name || '',
-          surname: initialData.surname || '',  // Added surname field
-          house: initialData.house?.home_id || initialData.house || '',
-          status: initialData.status || 'live',
+          surname: initialData.surname || initialData.sur_name || '',  // Added surname field
+          house: initialData.house?.home_id || initialData.house?.id || initialData.house || '',
+          status: initialData.status || initialData.member_status || 'live',
           date_of_birth: initialData.date_of_birth || '',
           date_of_death: initialData.date_of_death || '',
           mother_name: initialData.mother_name || '',
           mother_surname: initialData.mother_surname || '',
-          mother: initialData.mother?.member_id || initialData.mother || '',
+          mother: initialData.mother?.member_id || initialData.mother?.id || initialData.mother || '',
           father_name: initialData.father_name || '',
           father_surname: initialData.father_surname || '',
-          father: initialData.father?.member_id || initialData.father || '',
+          father: initialData.father?.member_id || initialData.father?.id || initialData.father || '',
           adhar: initialData.adhar || '',
           phone: initialData.phone || '',
           whatsapp: initialData.whatsapp || '',
-          isGuardian: initialData.isGuardian || false,
+          isGuardian: initialData.isGuardian || initialData.isguardian || initialData.is_guardian || false,
           photo: null
         });
       } else {
@@ -236,6 +236,22 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
         delete submitData.house;
       }
       
+      // Handle potential field name variations for API compatibility
+      if (submitData.sur_name && !submitData.surname) {
+        submitData.surname = submitData.sur_name;
+        delete submitData.sur_name;
+      }
+      
+      if (submitData.member_status && !submitData.status) {
+        submitData.status = submitData.member_status;
+        delete submitData.member_status;
+      }
+      
+      if (submitData.is_guardian !== undefined && submitData.isGuardian === undefined) {
+        submitData.isGuardian = submitData.is_guardian;
+        delete submitData.is_guardian;
+      }
+      
       if (initialData) {
         // Update existing member
         await memberAPI.update(initialData.member_id, submitData);
@@ -334,7 +350,9 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
               <div className="select-display">
                 {formData.house ? (
                   <span>
-                    {houses.find(h => h.home_id === formData.house)?.house_name || 'Unknown House'} 
+                    {houses && Array.isArray(houses) ? 
+                      (houses.find(h => h.home_id === formData.house)?.house_name || 'Unknown House') :
+                      'Loading...'} 
                     (#{formData.house})
                   </span>
                 ) : (
@@ -474,7 +492,9 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
               <div className="select-display">
                 {formData.father ? (
                   <span>
-                    {allMembers.find(m => m.member_id === formData.father)?.name || 'Unknown Member'} 
+                    {allMembers && Array.isArray(allMembers) ? 
+                      (allMembers.find(m => m.member_id === formData.father)?.name || 'Unknown Member') :
+                      'Loading...'} 
                     (#{formData.father})
                   </span>
                 ) : (
@@ -569,7 +589,9 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
               <div className="select-display">
                 {formData.mother ? (
                   <span>
-                    {allMembers.find(m => m.member_id === formData.mother)?.name || 'Unknown Member'} 
+                    {allMembers && Array.isArray(allMembers) ? 
+                      (allMembers.find(m => m.member_id === formData.mother)?.name || 'Unknown Member') :
+                      'Loading...'} 
                     (#{formData.mother})
                   </span>
                 ) : (

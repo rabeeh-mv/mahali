@@ -145,8 +145,17 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
   }
 
   const handleEditMember = (member) => {
-    setCurrentMember(member)
-    setIsModalOpen(true)
+    // Transform member data to match the expected format for the modal
+    const transformedMember = {
+      ...member,
+      house: member.house?.home_id || member.house || '',
+      father: member.father?.member_id || member.father || '',
+      mother: member.mother?.member_id || member.mother || '',
+      isGuardian: member.isGuardian || member.isguardian || false
+    };
+    
+    setCurrentMember(transformedMember);
+    setIsModalOpen(true);
   }
 
   const handleDeleteMember = (member) => {
