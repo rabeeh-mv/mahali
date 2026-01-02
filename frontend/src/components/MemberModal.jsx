@@ -5,7 +5,7 @@ import { FaUser, FaSearch, FaTimes, FaUpload } from 'react-icons/fa';
 const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab }) => {
   const [formData, setFormData] = useState({
     name: '',
-    surname: '',  // Added surname field
+    surname: '',
     house: '',
     status: 'live',
     date_of_birth: '',
@@ -22,30 +22,47 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
     isGuardian: false,
     photo: null
   });
+
   const [houses, setHouses] = useState([]);
   const [allMembers, setAllMembers] = useState([]);
   const [filteredHouses, setFilteredHouses] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
+
   const [showHouseSearch, setShowHouseSearch] = useState(false);
   const [showFatherSearch, setShowFatherSearch] = useState(false);
   const [showMotherSearch, setShowMotherSearch] = useState(false);
+
   const [houseSearchTerm, setHouseSearchTerm] = useState('');
   const [fatherSearchTerm, setFatherSearchTerm] = useState('');
   const [motherSearchTerm, setMotherSearchTerm] = useState('');
+
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false); // For houses/members loading
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
-      // Load houses and members when modal opens
-      loadHouses();
-      loadMembers();
-      
+      setDataLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      // Reset search states
+      setHouseSearchTerm('');
+      setFatherSearchTerm('');
+      setMotherSearchTerm('');
+      setFilteredHouses([]);
+      setFilteredMembers([]);
+
+      // Load data
+      Promise.all([loadHouses(), loadMembers()])
+        .finally(() => setDataLoading(false));
+
+      // Set form data from initialData (if editing)
       if (initialData) {
         setFormData({
           name: initialData.name || '',
-          surname: initialData.surname || initialData.sur_name || '',  // Added surname field
+          surname: initialData.surname || initialData.sur_name || '',
           house: initialData.house?.home_id || initialData.house?.id || initialData.house || '',
           status: initialData.status || initialData.member_status || 'live',
           date_of_birth: initialData.date_of_birth || '',
@@ -63,9 +80,10 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
           photo: null
         });
       } else {
+        // Reset form for new member
         setFormData({
           name: '',
-          surname: '',  // Added surname field
+          surname: '',
           house: '',
           status: 'live',
           date_of_birth: '',
@@ -83,46 +101,43 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
           photo: null
         });
       }
-      // Reset status messages when modal opens
-      setError(null);
-      setSuccess(null);
-      // Reset search states
-      setHouseSearchTerm('');
-      setFatherSearchTerm('');
-      setMotherSearchTerm('');
-      setFilteredHouses([]);
-      setFilteredMembers([]);
     }
   }, [initialData, isOpen]);
 
   const loadHouses = async () => {
     try {
       const response = await houseAPI.getAll();
-      setHouses(response.data);
-      setFilteredHouses(response.data);
+      const houseList = response.data || [];
+      setHouses(houseList);
+      setFilteredHouses(houseList);
     } catch (err) {
       console.error('Failed to load houses:', err);
+      setHouses([]);
+      setFilteredHouses([]);
     }
   };
 
   const loadMembers = async () => {
     try {
       const response = await memberAPI.getAll();
-      setAllMembers(response.data);
-      setFilteredMembers(response.data);
+      const memberList = response.data || [];
+      setAllMembers(memberList);
+      setFilteredMembers(memberList);
     } catch (err) {
       console.error('Failed to load members:', err);
+      setAllMembers([]);
+      setFilteredMembers([]);
     }
   };
 
   const handleHouseSearch = (term) => {
     setHouseSearchTerm(term);
-    if (!term) {
+    if (!term.trim()) {
       setFilteredHouses(houses);
     } else {
-      const filtered = houses.filter(house => 
-        house.house_name.toLowerCase().includes(term.toLowerCase()) ||
-        house.home_id.includes(term)
+      const filtered = houses.filter(house =>
+        house.house_name?.toLowerCase().includes(term.toLowerCase()) ||
+        house.home_id?.includes(term)
       );
       setFilteredHouses(filtered);
     }
@@ -130,35 +145,28 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
 
   const handleFatherSearch = (term) => {
     setFatherSearchTerm(term);
-    if (!term) {
-      setFilteredMembers(allMembers);
-    } else {
-      const filtered = allMembers.filter(member => 
-        (member.name && member.name.toLowerCase().includes(term.toLowerCase())) ||
-        member.member_id.includes(term)
-      );
-      setFilteredMembers(filtered);
-    }
+    filterMembers(term, setFilteredMembers);
   };
 
   const handleMotherSearch = (term) => {
     setMotherSearchTerm(term);
-    if (!term) {
-      setFilteredMembers(allMembers);
+    filterMembers(term, setFilteredMembers);
+  };
+
+  const filterMembers = (term, setter) => {
+    if (!term.trim()) {
+      setter(allMembers);
     } else {
-      const filtered = allMembers.filter(member => 
-        (member.name && member.name.toLowerCase().includes(term.toLowerCase())) ||
-        member.member_id.includes(term)
+      const filtered = allMembers.filter(member =>
+        member.name?.toLowerCase().includes(term.toLowerCase()) ||
+        member.member_id?.includes(term)
       );
-      setFilteredMembers(filtered);
+      setter(filtered);
     }
   };
 
   const selectHouse = (house) => {
-    setFormData(prev => ({
-      ...prev,
-      house: house.home_id
-    }));
+    setFormData(prev => ({ ...prev, house: house.home_id }));
     setShowHouseSearch(false);
     setHouseSearchTerm('');
   };
@@ -187,10 +195,7 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
 
   const handlePhotoChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData(prev => ({
-        ...prev,
-        photo: e.target.files[0]
-      }));
+      setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
     }
   };
 
@@ -207,80 +212,70 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
     setLoading(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
-      // Prepare data for submission
       const submitData = { ...formData };
-      
-      // Remove empty date_of_death if status is not 'dead'
-      if (submitData.status !== 'dead' && !submitData.date_of_death) {
+
+      if (submitData.status !== 'dead') {
         delete submitData.date_of_death;
       }
-      
-      // Remove photo from submitData if it's null (not used in API)
-      if (!submitData.photo) {
-        delete submitData.photo;
-      }
-      
-      // Remove empty father/mother IDs
-      if (!submitData.father) {
-        delete submitData.father;
-      }
-      
-      if (!submitData.mother) {
-        delete submitData.mother;
-      }
-      
-      // Remove empty house ID
-      if (!submitData.house) {
-        delete submitData.house;
-      }
-      
-      // Handle potential field name variations for API compatibility
+      if (!submitData.photo) delete submitData.photo;
+      if (!submitData.father) delete submitData.father;
+      if (!submitData.mother) delete submitData.mother;
+      if (!submitData.house) delete submitData.house;
+
+      // Field compatibility fixes
       if (submitData.sur_name && !submitData.surname) {
         submitData.surname = submitData.sur_name;
         delete submitData.sur_name;
       }
-      
       if (submitData.member_status && !submitData.status) {
         submitData.status = submitData.member_status;
         delete submitData.member_status;
       }
-      
-      if (submitData.is_guardian !== undefined && submitData.isGuardian === undefined) {
+      if (submitData.is_guardian !== undefined) {
         submitData.isGuardian = submitData.is_guardian;
         delete submitData.is_guardian;
       }
-      
+      if (submitData.isguardian !== undefined) {
+        submitData.isGuardian = submitData.isguardian;
+        delete submitData.isguardian;
+      }
+
       if (initialData) {
-        // Update existing member
         await memberAPI.update(initialData.member_id, submitData);
         setSuccess('Member updated successfully!');
       } else {
-        // Create new member (member_id will be auto-generated by backend)
         await memberAPI.create(submitData);
         setSuccess('Member created successfully!');
       }
-      
-      // Reload member data
+
       if (loadDataForTab) {
-        loadDataForTab('members', true); // Force reload
+        loadDataForTab('members', true);
       }
-      
-      // Close modal after a short delay
+
       setTimeout(() => {
         onClose();
         onSubmit && onSubmit(submitData);
       }, 1500);
     } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.message || err.response?.data || 'Failed to save member');
-      console.error('Error saving member:', err);
+      setError(err.response?.data?.detail || err.response?.data?.message || err.message || 'Failed to save member');
     } finally {
       setLoading(false);
     }
   };
 
   if (!isOpen) return null;
+
+  // Helper to get house name safely
+  const getHouseName = (houseId) => {
+    return houses?.find?.(h => h.home_id === houseId)?.house_name || 'Unknown House';
+  };
+
+  // Helper to get member name safely
+  const getMemberName = (memberId) => {
+    return allMembers?.find?.(m => m.member_id === memberId)?.name || 'Unknown Member';
+  };
 
   return (
     <div className="modal-overlay">
@@ -289,6 +284,9 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
           <h2><FaUser /> {initialData ? 'Edit Member' : 'Add New Member'}</h2>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
+
+        {dataLoading && <div className="status-message info">Loading data...</div>}
+
         <form onSubmit={handleSubmit}>
           <div className="form-row">
             <div className="form-group">
@@ -300,11 +298,10 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 value={formData.name}
                 onChange={handleChange}
                 required
-                disabled={loading}
+                disabled={loading || dataLoading}
                 placeholder="Enter full name"
               />
             </div>
-            
             <div className="form-group">
               <label htmlFor="surname">Surname</label>
               <input
@@ -313,73 +310,59 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="surname"
                 value={formData.surname}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 placeholder="Enter surname (optional)"
               />
             </div>
           </div>
-          
-          {/* Photo Upload Section */}
+
           <div className="form-group">
             <label htmlFor="photo">Photo (Optional)</label>
             <div className="photo-upload-container">
               <input
                 type="file"
                 id="photo"
-                name="photo"
                 accept="image/*"
                 onChange={handlePhotoChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 className="photo-input"
               />
               <label htmlFor="photo" className="photo-upload-label">
                 <FaUpload /> Choose Photo
               </label>
-              {formData.photo && (
-                <span className="photo-selected">
-                  {formData.photo.name}
-                </span>
-              )}
+              {formData.photo && <span className="photo-selected">{formData.photo.name}</span>}
             </div>
           </div>
-          
-          {/* House Selection with Search */}
+
           <div className="form-group">
             <label>House</label>
             <div className="searchable-select">
               <div className="select-display">
                 {formData.house ? (
                   <span>
-                    {houses && Array.isArray(houses) ? 
-                      (houses.find(h => h.home_id === formData.house)?.house_name || 'Unknown House') :
-                      'Loading...'} 
-                    (#{formData.house})
+                    {getHouseName(formData.house)} (#{formData.house})
                   </span>
                 ) : (
                   <span>Select a house</span>
                 )}
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="search-btn"
                   onClick={() => setShowHouseSearch(true)}
-                  disabled={loading}
+                  disabled={loading || dataLoading}
                 >
                   <FaSearch />
                 </button>
               </div>
             </div>
           </div>
-          
-          {/* House Search Modal */}
+
           {showHouseSearch && (
             <div className="search-modal-overlay">
               <div className="search-modal">
                 <div className="search-modal-header">
                   <h3>Select House</h3>
-                  <button 
-                    className="close-btn" 
-                    onClick={() => setShowHouseSearch(false)}
-                  >
+                  <button className="close-btn" onClick={() => setShowHouseSearch(false)}>
                     <FaTimes />
                   </button>
                 </div>
@@ -390,12 +373,13 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                     value={houseSearchTerm}
                     onChange={(e) => handleHouseSearch(e.target.value)}
                     className="search-input"
+                    autoFocus
                   />
                   <div className="search-results">
                     {filteredHouses.length > 0 ? (
                       filteredHouses.map(house => (
-                        <div 
-                          key={house.home_id} 
+                        <div
+                          key={house.home_id}
                           className="search-result-item"
                           onClick={() => selectHouse(house)}
                         >
@@ -411,7 +395,7 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
               </div>
             </div>
           )}
-          
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="status">Status *</label>
@@ -421,14 +405,13 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 value={formData.status}
                 onChange={handleChange}
                 required
-                disabled={loading}
+                disabled={loading || dataLoading}
               >
                 <option value="live">Live</option>
                 <option value="dead">Dead</option>
                 <option value="terminated">Terminated</option>
               </select>
             </div>
-            
             <div className="form-group">
               <label htmlFor="date_of_birth">Date of Birth *</label>
               <input
@@ -438,11 +421,11 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 value={formData.date_of_birth}
                 onChange={handleChange}
                 required
-                disabled={loading}
+                disabled={loading || dataLoading}
               />
             </div>
           </div>
-          
+
           {formData.status === 'dead' && (
             <div className="form-group">
               <label htmlFor="date_of_death">Date of Death</label>
@@ -452,11 +435,11 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="date_of_death"
                 value={formData.date_of_death}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
               />
             </div>
           )}
-          
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="father_name">Father's Name</label>
@@ -466,11 +449,10 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="father_name"
                 value={formData.father_name}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 placeholder="Father's first name"
               />
             </div>
-            
             <div className="form-group">
               <label htmlFor="father_surname">Father's Surname</label>
               <input
@@ -479,49 +461,41 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="father_surname"
                 value={formData.father_surname}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 placeholder="Father's surname"
               />
             </div>
           </div>
-          
-          {/* Father Selection with Search */}
+
           <div className="form-group">
             <label>Link to Father (Optional)</label>
             <div className="searchable-select">
               <div className="select-display">
                 {formData.father ? (
                   <span>
-                    {allMembers && Array.isArray(allMembers) ? 
-                      (allMembers.find(m => m.member_id === formData.father)?.name || 'Unknown Member') :
-                      'Loading...'} 
-                    (#{formData.father})
+                    {getMemberName(formData.father)} (#{formData.father})
                   </span>
                 ) : (
                   <span>Select a father</span>
                 )}
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="search-btn"
                   onClick={() => setShowFatherSearch(true)}
-                  disabled={loading}
+                  disabled={loading || dataLoading}
                 >
                   <FaSearch />
                 </button>
               </div>
             </div>
           </div>
-          
-          {/* Father Search Modal */}
+
           {showFatherSearch && (
             <div className="search-modal-overlay">
               <div className="search-modal">
                 <div className="search-modal-header">
                   <h3>Select Father</h3>
-                  <button 
-                    className="close-btn" 
-                    onClick={() => setShowFatherSearch(false)}
-                  >
+                  <button className="close-btn" onClick={() => setShowFatherSearch(false)}>
                     <FaTimes />
                   </button>
                 </div>
@@ -532,16 +506,17 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                     value={fatherSearchTerm}
                     onChange={(e) => handleFatherSearch(e.target.value)}
                     className="search-input"
+                    autoFocus
                   />
                   <div className="search-results">
                     {filteredMembers.length > 0 ? (
                       filteredMembers.map(member => (
-                        <div 
-                          key={member.member_id} 
+                        <div
+                          key={member.member_id}
                           className="search-result-item"
                           onClick={() => selectFather(member)}
                         >
-                          <div className="search-result-title">{member.name || 'Unknown Member'}</div>
+                          <div className="search-result-title">{member.name || 'Unknown'}</div>
                           <div className="search-result-subtitle">ID: #{member.member_id}</div>
                         </div>
                       ))
@@ -553,7 +528,7 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
               </div>
             </div>
           )}
-          
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="mother_name">Mother's Name</label>
@@ -563,11 +538,10 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="mother_name"
                 value={formData.mother_name}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 placeholder="Mother's first name"
               />
             </div>
-            
             <div className="form-group">
               <label htmlFor="mother_surname">Mother's Surname</label>
               <input
@@ -576,49 +550,41 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="mother_surname"
                 value={formData.mother_surname}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 placeholder="Mother's surname"
               />
             </div>
           </div>
-          
-          {/* Mother Selection with Search */}
+
           <div className="form-group">
             <label>Link to Mother (Optional)</label>
             <div className="searchable-select">
               <div className="select-display">
                 {formData.mother ? (
                   <span>
-                    {allMembers && Array.isArray(allMembers) ? 
-                      (allMembers.find(m => m.member_id === formData.mother)?.name || 'Unknown Member') :
-                      'Loading...'} 
-                    (#{formData.mother})
+                    {getMemberName(formData.mother)} (#{formData.mother})
                   </span>
                 ) : (
                   <span>Select a mother</span>
                 )}
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="search-btn"
                   onClick={() => setShowMotherSearch(true)}
-                  disabled={loading}
+                  disabled={loading || dataLoading}
                 >
                   <FaSearch />
                 </button>
               </div>
             </div>
           </div>
-          
-          {/* Mother Search Modal */}
+
           {showMotherSearch && (
             <div className="search-modal-overlay">
               <div className="search-modal">
                 <div className="search-modal-header">
                   <h3>Select Mother</h3>
-                  <button 
-                    className="close-btn" 
-                    onClick={() => setShowMotherSearch(false)}
-                  >
+                  <button className="close-btn" onClick={() => setShowMotherSearch(false)}>
                     <FaTimes />
                   </button>
                 </div>
@@ -629,16 +595,17 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                     value={motherSearchTerm}
                     onChange={(e) => handleMotherSearch(e.target.value)}
                     className="search-input"
+                    autoFocus
                   />
                   <div className="search-results">
                     {filteredMembers.length > 0 ? (
                       filteredMembers.map(member => (
-                        <div 
-                          key={member.member_id} 
+                        <div
+                          key={member.member_id}
                           className="search-result-item"
                           onClick={() => selectMother(member)}
                         >
-                          <div className="search-result-title">{member.name || 'Unknown Member'}</div>
+                          <div className="search-result-title">{member.name || 'Unknown'}</div>
                           <div className="search-result-subtitle">ID: #{member.member_id}</div>
                         </div>
                       ))
@@ -650,7 +617,7 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
               </div>
             </div>
           )}
-          
+
           <div className="form-group">
             <label htmlFor="adhar">Aadhar Number</label>
             <input
@@ -659,12 +626,12 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
               name="adhar"
               value={formData.adhar}
               onChange={handleChange}
-              disabled={loading}
+              disabled={loading || dataLoading}
               placeholder="12-digit Aadhar number"
               maxLength="12"
             />
           </div>
-          
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="phone">Phone Number</label>
@@ -674,11 +641,10 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 placeholder="Phone number"
               />
             </div>
-            
             <div className="form-group">
               <label htmlFor="whatsapp">WhatsApp Number</label>
               <input
@@ -687,12 +653,12 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="whatsapp"
                 value={formData.whatsapp}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 placeholder="WhatsApp number"
               />
             </div>
           </div>
-          
+
           <div className="form-group checkbox-group">
             <label className="checkbox-label">
               <input
@@ -700,32 +666,32 @@ const MemberModal = ({ isOpen, onClose, onSubmit, initialData, loadDataForTab })
                 name="isGuardian"
                 checked={formData.isGuardian}
                 onChange={handleChange}
-                disabled={loading}
+                disabled={loading || dataLoading}
                 className="checkbox-input"
               />
               <span className="checkbox-text">Is Guardian of the Family</span>
             </label>
           </div>
-          
+
           {(error || success) && (
             <div className={`status-message ${error ? 'error' : 'success'}`}>
               {error || success}
             </div>
           )}
-          
+
           <div className="form-actions">
-            <button 
-              type="button" 
-              className="cancel-btn" 
+            <button
+              type="button"
+              className="cancel-btn"
               onClick={onClose}
-              disabled={loading}
+              disabled={loading || dataLoading}
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="save-btn"
-              disabled={loading}
+              disabled={loading || dataLoading}
             >
               {loading ? (
                 <>
