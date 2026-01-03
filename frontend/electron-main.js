@@ -624,7 +624,14 @@ function createMainWindow() {
     ipcMain.on('django-ready', () => {
       // Load the React frontend build
       const frontendPath = path.join(__dirname, 'dist', 'index.html');
-      mainWindow.loadFile(frontendPath);
+      
+      // Check if the frontend build exists
+      if (fs.existsSync(frontendPath)) {
+        mainWindow.loadFile(frontendPath);
+      } else {
+        // If the build doesn't exist, serve from the development server
+        mainWindow.loadURL('http://localhost:5173');
+      }
       
       // Clean up the temporary file
       try {
