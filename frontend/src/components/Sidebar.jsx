@@ -11,7 +11,11 @@ import {
   FaCog, // Settings icon
   FaSun,
   FaMoon,
-  FaAdjust
+  FaAdjust,
+  FaChevronLeft,
+  FaChevronRight,
+  FaArrowRight,
+  FaArrowLeft
 } from 'react-icons/fa';
 import { settingsAPI } from '../api';
 
@@ -27,6 +31,7 @@ const Sidebar = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [appSettings, setAppSettings] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     loadAppSettings();
@@ -152,15 +157,28 @@ const Sidebar = ({
   console.log('Sidebar: appSettings:', appSettings);
   console.log('Sidebar: isFirebaseConfigured:', isFirebaseConfigured);
 
+  const toggleSidebar = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    console.log('Sidebar collapsed state:', newState);
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <div className="logo-container">
           <div className="logo-icon-wrapper">
             <img src="/logo.png" alt="" className="logo-icon" />
           </div>
-          <h2>Mahal<span>i</span></h2>
+          {!isCollapsed && <h2>Mahal<span>i</span></h2>}
         </div>
+        <button
+          className="collapse-toggle"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isCollapsed ? <FaChevronRight className='arrow-btn' /> : <FaChevronLeft className='arrow-btn' />}
+        </button>
       </div>
 
       <nav className="sidebar-nav">
@@ -170,7 +188,7 @@ const Sidebar = ({
           disabled={disabled}
         >
           <FaHome className="tab-icon" />
-          <span>Overview</span>
+          {!isCollapsed && <span>Overview</span>}
         </button>
         <button
           className={activeTab === 'areas' ? 'active' : ''}
@@ -178,7 +196,7 @@ const Sidebar = ({
           disabled={disabled}
         >
           <FaMapMarkerAlt className="tab-icon" />
-          <span>Regional Areas</span>
+          {!isCollapsed && <span>Regional Areas</span>}
         </button>
         <button
           className={activeTab === 'houses' ? 'active' : ''}
@@ -186,7 +204,7 @@ const Sidebar = ({
           disabled={disabled}
         >
           <FaHouseUser className="tab-icon" />
-          <span>House Units</span>
+          {!isCollapsed && <span>House Units</span>}
         </button>
 
         {isFirebaseConfigured && (
@@ -196,7 +214,7 @@ const Sidebar = ({
             disabled={disabled}
           >
             <FaFire className="tab-icon pulse" style={{ color: '#ff4b2b' }} />
-            <span>Digital Requests</span>
+            {!isCollapsed && <span>Digital Requests</span>}
           </button>
         )}
 
@@ -206,7 +224,7 @@ const Sidebar = ({
           disabled={disabled}
         >
           <FaUsers className="tab-icon" />
-          <span>Member Directory</span>
+          {!isCollapsed && <span>Member Directory</span>}
         </button>
 
         <button
@@ -215,7 +233,7 @@ const Sidebar = ({
           disabled={disabled}
         >
           <FaFolder className="tab-icon" />
-          <span>Financial Vaults</span>
+          {!isCollapsed && <span>Financial Vaults</span>}
         </button>
 
         <div className="sidebar-divider"></div>
@@ -226,7 +244,7 @@ const Sidebar = ({
           disabled={disabled}
         >
           <FaDatabase className="tab-icon" />
-          <span>Data Core</span>
+          {!isCollapsed && <span>Data Core</span>}
         </button>
 
         <button
@@ -235,38 +253,40 @@ const Sidebar = ({
           disabled={disabled}
         >
           <FaCog className="tab-icon" />
-          <span>Environment</span>
+          {!isCollapsed && <span>Environment</span>}
         </button>
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="theme-compact-selector">
-          <button
-            className={theme === 'light' ? 'active' : ''}
-            onClick={() => handleThemeChange('light')}
-            title="Sleek Light"
-            disabled={disabled}
-          >
-            <FaSun />
-          </button>
-          <button
-            className={theme === 'dim' ? 'active' : ''}
-            onClick={() => handleThemeChange('dim')}
-            title="Relaxing Dim"
-            disabled={disabled}
-          >
-            <FaAdjust />
-          </button>
-          <button
-            className={theme === 'dark' ? 'active' : ''}
-            onClick={() => handleThemeChange('dark')}
-            title="Premium Dark"
-            disabled={disabled}
-          >
-            <FaMoon />
-          </button>
+      {!isCollapsed && (
+        <div className="sidebar-footer">
+          <div className="theme-compact-selector">
+            <button
+              className={theme === 'light' ? 'active' : ''}
+              onClick={() => handleThemeChange('light')}
+              title="Sleek Light"
+              disabled={disabled}
+            >
+              <FaSun />
+            </button>
+            <button
+              className={theme === 'dim' ? 'active' : ''}
+              onClick={() => handleThemeChange('dim')}
+              title="Relaxing Dim"
+              disabled={disabled}
+            >
+              <FaAdjust />
+            </button>
+            <button
+              className={theme === 'dark' ? 'active' : ''}
+              onClick={() => handleThemeChange('dark')}
+              title="Premium Dark"
+              disabled={disabled}
+            >
+              <FaMoon />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 };

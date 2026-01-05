@@ -4,6 +4,7 @@ import { memberAPI, houseAPI, areaAPI, collectionAPI, subcollectionAPI, obligati
 import { FaUser, FaEdit } from 'react-icons/fa'
 import Sidebar from './Sidebar'
 import Dashboard from './Dashboard'
+import LoadingScreen from './LoadingScreen'
 import Areas from './Areas'
 import Houses from './Houses'
 import HouseDetailsPage from './HouseDetailsPage'
@@ -28,10 +29,10 @@ import './App.css'
 const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
 
 // Create a wrapper component to force re-render on location change
-const AppRoutes = ({ 
+const AppRoutes = ({
   houses, areas, members, collections, subcollections, memberObligations,
-  setEditing, deleteItem, loadDataForTab, setSelectedCollection, 
-  setSelectedSubcollection, exportData, importData, exportProgress, 
+  setEditing, deleteItem, loadDataForTab, setSelectedCollection,
+  setSelectedSubcollection, exportData, importData, exportProgress,
   importProgress, isBusy, setFormData, formData, handleSubmit,
   isModalOpen, setIsModalOpen, isDeleteModalOpen, setIsDeleteModalOpen,
   currentMember, setCurrentMember, memberToDelete, setMemberToDelete,
@@ -58,13 +59,13 @@ const AppRoutes = ({
   handleAddBulkObligation
 }) => {
   const location = useLocation();
-  
+
   return (
     <Routes location={location} key={location.key}>
       <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route path="/dashboard" element={<Dashboard key="dashboard" />} />
       <Route path="/areas" element={
-        <Areas 
+        <Areas
           key="areas"
           areas={areas}
           setEditing={setEditing}
@@ -73,7 +74,7 @@ const AppRoutes = ({
         />
       } />
       <Route path="/houses" element={
-        <Houses 
+        <Houses
           key="houses"
           areas={areas}
           setEditing={setEditing}
@@ -82,7 +83,7 @@ const AppRoutes = ({
         />
       } />
       <Route path="/houses/:houseId" element={
-        <HouseDetailsPage 
+        <HouseDetailsPage
           key={`house-${location.pathname}`}
           houses={houses}
           members={members}
@@ -91,7 +92,7 @@ const AppRoutes = ({
         />
       } />
       <Route path="/members" element={
-        <Members 
+        <Members
           key="members"
           members={members}
           setEditing={setEditing}
@@ -100,7 +101,7 @@ const AppRoutes = ({
         />
       } />
       <Route path="/members/:memberId" element={
-        <MemberDetailsPage 
+        <MemberDetailsPage
           key={`member-${location.pathname}`}
           members={members}
           houses={houses}
@@ -111,7 +112,7 @@ const AppRoutes = ({
         />
       } />
       <Route path="/collections" element={
-        <Collections 
+        <Collections
           key="collections"
           collections={collections}
           setEditing={setEditing}
@@ -123,7 +124,7 @@ const AppRoutes = ({
         />
       } />
       <Route path="/subcollections" element={
-        <Subcollections 
+        <Subcollections
           key="subcollections"
           subcollections={subcollections}
           selectedCollection={selectedCollection}
@@ -136,7 +137,7 @@ const AppRoutes = ({
         />
       } />
       <Route path="/obligations" element={
-        <Obligations 
+        <Obligations
           key="obligations"
           memberObligations={memberObligations}
           selectedSubcollection={selectedSubcollection}
@@ -150,7 +151,7 @@ const AppRoutes = ({
         />
       } />
       <Route path="/data" element={
-        <DataManagement 
+        <DataManagement
           key="data"
           exportData={exportData}
           importData={importData}
@@ -186,29 +187,29 @@ function App() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [currentMember, setCurrentMember] = useState(null)
   const [memberToDelete, setMemberToDelete] = useState(null)
-  
+
   // State for SubcollectionModal
   const [isSubcollectionModalOpen, setIsSubcollectionModalOpen] = useState(false)
   const [currentSubcollection, setCurrentSubcollection] = useState(null)
-  
+
   // State for CollectionModal
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false)
   const [currentCollection, setCurrentCollection] = useState(null)
-  
+
   // State for ObligationModal
   const [isObligationModalOpen, setIsObligationModalOpen] = useState(false)
   const [currentObligation, setCurrentObligation] = useState(null)
-  
+
   // State for Bulk Obligation Modal
   const [isBulkObligationModalOpen, setIsBulkObligationModalOpen] = useState(false)
-  
+
   // State for PaymentConfirmModal
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [obligationToPay, setObligationToPay] = useState(null)
-  
+
   // Track which tabs have been loaded
   const [loadedTabs, setLoadedTabs] = useState(new Set(['dashboard']))
-  
+
   // Tab-specific loading states
   const [tabLoadingStates, setTabLoadingStates] = useState({
     dashboard: false,
@@ -224,10 +225,10 @@ function App() {
   const loadDataForTab = async (tab, force = false) => {
     // If tab is already loaded and not forced, don't load again
     if (!force && loadedTabs.has(tab)) return
-    
+
     // Set loading state for this specific tab
     setTabLoadingStates(prev => ({ ...prev, [tab]: true }))
-    
+
     try {
       switch (tab) {
         case 'areas':
@@ -262,7 +263,7 @@ function App() {
           // Other tabs don't need specific data loading
           break
       }
-      
+
       // Mark tab as loaded (only if not forced)
       if (!force) {
         setLoadedTabs(prev => new Set(prev).add(tab))
@@ -325,43 +326,43 @@ function App() {
   }
 
   const createItem = async (type, data) => {
-    const apis = { 
-      members: memberAPI, 
-      houses: houseAPI, 
-      areas: areaAPI, 
-      collections: collectionAPI, 
-      subcollections: subcollectionAPI, 
-      obligations: obligationAPI, 
-      events: eventAPI 
+    const apis = {
+      members: memberAPI,
+      houses: houseAPI,
+      areas: areaAPI,
+      collections: collectionAPI,
+      subcollections: subcollectionAPI,
+      obligations: obligationAPI,
+      events: eventAPI
     }
     await apis[type].create(data)
   }
 
   const updateItem = async (type, id, data) => {
-    const apis = { 
-      members: memberAPI, 
-      houses: houseAPI, 
-      areas: areaAPI, 
-      collections: collectionAPI, 
-      subcollections: subcollectionAPI, 
-      obligations: obligationAPI, 
-      events: eventAPI 
+    const apis = {
+      members: memberAPI,
+      houses: houseAPI,
+      areas: areaAPI,
+      collections: collectionAPI,
+      subcollections: subcollectionAPI,
+      obligations: obligationAPI,
+      events: eventAPI
     }
     await apis[type].update(id, data)
   }
 
   const deleteItem = async (type, id) => {
-    const apis = { 
-      members: memberAPI, 
-      houses: houseAPI, 
-      areas: areaAPI, 
-      collections: collectionAPI, 
-      subcollections: subcollectionAPI, 
-      obligations: obligationAPI, 
-      events: eventAPI 
+    const apis = {
+      members: memberAPI,
+      houses: houseAPI,
+      areas: areaAPI,
+      collections: collectionAPI,
+      subcollections: subcollectionAPI,
+      obligations: obligationAPI,
+      events: eventAPI
     }
     await apis[type].delete(id)
-    
+
     // Reload data for the specific tab that corresponds to the deleted item type
     switch (type) {
       case 'areas':
@@ -393,18 +394,18 @@ function App() {
     setIsExporting(true);
     try {
       setExportProgress({ status: 'starting', message: 'Starting export...', progress: 0 });
-      
+
       // Real progress - Collecting data
       setExportProgress({ status: 'processing', message: 'Collecting database...', progress: 20 });
-      
+
       const response = await obligationAPI.exportData()
-      
+
       // Progress - Packaging files
       setExportProgress({ status: 'processing', message: 'Packaging files...', progress: 60 });
-      
+
       // Progress - Compressing archive
       setExportProgress({ status: 'processing', message: 'Compressing archive...', progress: 80 });
-      
+
       // Create download link and trigger download
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const a = document.createElement('a')
@@ -414,7 +415,7 @@ function App() {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
-      
+
       setExportProgress({ status: 'completed', message: 'Export completed!', progress: 100 })
       setTimeout(() => {
         setExportProgress(null)
@@ -440,18 +441,18 @@ function App() {
 
     try {
       setImportProgress({ status: 'starting', message: 'Starting import...', progress: 0 });
-      
+
       // Real progress - Validating file
       setImportProgress({ status: 'processing', message: 'Validating file...', progress: 10 });
-      
+
       // Real progress - Extracting data
       setImportProgress({ status: 'processing', message: 'Extracting data...', progress: 30 });
-      
+
       await obligationAPI.importData(formData);
-      
+
       // Progress - Importing records
       setImportProgress({ status: 'processing', message: 'Importing records...', progress: 75 });
-      
+
       setImportProgress({ status: 'completed', message: 'Import completed!', progress: 100 });
       setTimeout(() => {
         setImportProgress(null);
@@ -530,10 +531,10 @@ function App() {
         // Create new collection
         result = await collectionAPI.create(collectionData)
       }
-      
+
       // Reload collections data
       loadDataForTab('collections', true)
-      
+
       return result
     } catch (error) {
       console.error('Failed to save collection:', error)
@@ -567,7 +568,7 @@ function App() {
         // Create new subcollection
         result = await subcollectionAPI.create(subcollectionData)
       }
-      
+
       // If we have selected members, create obligations for them
       if (selectedMembers && selectedMembers.length > 0) {
         // Create obligations in bulk for better performance
@@ -576,14 +577,14 @@ function App() {
           member: memberId,
           amount: subcollectionData.amount
         }));
-        
+
         await obligationAPI.bulkCreate({ obligations: obligationsData });
       }
-      
+
       // Reload subcollections and obligations data
       loadDataForTab('subcollections', true)
       loadDataForTab('obligations', true)
-      
+
       return result
     } catch (error) {
       console.error('Failed to save subcollection:', error)
@@ -617,10 +618,10 @@ function App() {
         // Create new obligation
         result = await obligationAPI.create(obligationData)
       }
-      
+
       // Reload obligations data
       loadDataForTab('obligations', true)
-      
+
       return result
     } catch (error) {
       console.error('Failed to save obligation:', error)
@@ -640,7 +641,7 @@ function App() {
       throw error
     }
   }
-  
+
   const handleAddBulkObligation = () => {
     if (!selectedSubcollection) {
       alert('Please navigate to obligations from a specific subcollection. Go to Collections → Subcollections and select a subcollection first.')
@@ -648,11 +649,11 @@ function App() {
     }
     setIsBulkObligationModalOpen(true)
   }
-  
+
   const handleBulkObligationModalClose = () => {
     setIsBulkObligationModalOpen(false)
   }
-  
+
   // Handler functions for payment confirmation
   const handlePayObligation = (obligation) => {
     setObligationToPay(obligation)
@@ -671,15 +672,15 @@ function App() {
       const updateData = {
         paid_status: 'paid'
       };
-      
+
       await obligationAPI.partialUpdate(obligationToPay.id, updateData);
-      
+
       // Reload obligations data
       loadDataForTab('obligations', true);
-      
+
       // Close the modal
       handlePaymentModalClose();
-      
+
       return Promise.resolve();
     } catch (error) {
       console.error('Failed to process payment:', error);
@@ -693,14 +694,7 @@ function App() {
     setTimeout(() => setLoading(false), 1000) // Simulate loading
   }
 
-  if (loading) return (
-    <div className={`app theme-${theme}`}>
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Loading data...{retryCount > 0 && ` (Retrying ${retryCount}/3)`}</p>
-      </div>
-    </div>
-  )
+  if (loading) return <LoadingScreen retryCount={retryCount} />
 
   if (error) return (
     <div className={`app theme-${theme}`}>
@@ -714,7 +708,7 @@ function App() {
 
   // Show loading indicator for specific tabs
   const isTabLoading = tabLoadingStates.dashboard // We only need to check dashboard loading now
-  
+
   // Disable interactions during export/import
   const isBusy = isExporting || isImporting || loading || isTabLoading
 
@@ -722,7 +716,7 @@ function App() {
     <Router>
       <div className={`app theme-${theme}`}>
         <div className="app-layout">
-          <Sidebar 
+          <Sidebar
             theme={theme}
             setTheme={setTheme}
             areasCount={areas.length}
@@ -731,7 +725,7 @@ function App() {
             collectionsCount={collections.length}
             disabled={isBusy}
           />
-          
+
           <div className="main-content">
             <AppRoutes
               houses={houses}
@@ -797,7 +791,7 @@ function App() {
               handlePayObligation={handlePayObligation}
               handleAddBulkObligation={handleAddBulkObligation}
             />
-            
+
             {editing && editing.type !== 'collections' && editing.type !== 'subcollections' && editing.type !== 'obligations' && (
               <EditForm
                 editing={editing}
@@ -808,14 +802,14 @@ function App() {
                 disabled={isBusy}
               />
             )}
-            
+
             <MemberModal
               isOpen={isModalOpen}
               onClose={handleModalClose}
               initialData={currentMember}
               loadDataForTab={loadDataForTab}
             />
-            
+
             <DeleteConfirmModal
               isOpen={isDeleteModalOpen}
               onClose={handleDeleteModalClose}
@@ -823,7 +817,7 @@ function App() {
               item={memberToDelete}
               itemType="members"
             />
-            
+
             <SubcollectionModal
               isOpen={isSubcollectionModalOpen}
               onClose={handleSubcollectionModalClose}
@@ -832,14 +826,14 @@ function App() {
               selectedCollection={selectedCollection}
               collections={collections}
             />
-            
+
             <CollectionModal
               isOpen={isCollectionModalOpen}
               onClose={handleCollectionModalClose}
               onSubmit={handleCollectionSubmit}
               initialData={currentCollection}
             />
-            
+
             <ObligationModal
               isOpen={isObligationModalOpen}
               onClose={handleObligationModalClose}
@@ -847,7 +841,7 @@ function App() {
               initialData={currentObligation}
               selectedSubcollection={selectedSubcollection}
             />
-            
+
             <BulkObligationModal
               isOpen={isBulkObligationModalOpen}
               onClose={handleBulkObligationModalClose}
@@ -855,7 +849,7 @@ function App() {
               selectedSubcollection={selectedSubcollection}
               existingObligations={memberObligations.filter(ob => ob.subcollection === selectedSubcollection?.id)}
             />
-            
+
             <PaymentConfirmModal
               isOpen={isPaymentModalOpen}
               onClose={handlePaymentModalClose}
@@ -864,7 +858,7 @@ function App() {
             />
           </div>
         </div>
-        
+
         {/* Overlay to prevent interactions during export/import */}
         {isBusy && (
           <div className="busy-overlay">
