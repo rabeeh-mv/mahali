@@ -13,7 +13,7 @@ import MemberDetailsPage from './MemberDetailsPage'
 import Collections from './Collections'
 import Subcollections from './Subcollections'
 import Obligations from './Obligations'
-import DataManagement from './DataManagement'
+
 import EditForm from './EditForm'
 
 import DeleteConfirmModal from './DeleteConfirmModal'
@@ -60,7 +60,7 @@ function AppWithRouter() {
     collections: false,
     subcollections: false,
     obligations: false,
-    data: false
+
   })
 
   const loadDataForTab = async (tab, force = false) => {
@@ -154,10 +154,10 @@ function AppWithRouter() {
   const handleTabChange = (tab) => {
     setActiveTab(tab)
     // Load data for the new tab if not already loaded
-    if (tab !== 'dashboard' && tab !== 'data') {
+    if (tab !== 'dashboard') {
       loadDataForTab(tab)
     } else {
-      // Mark dashboard and data tabs as loaded since they don't need data
+      // Mark dashboard as loaded since it does not need data
       setLoadedTabs(prev => new Set(prev).add(tab))
     }
   }
@@ -481,16 +481,15 @@ function AppWithRouter() {
                   setActiveTab={setActiveTab}
                 />
               } />
-              <Route path="/data" element={
-                <DataManagement
+              <Route path="/settings" element={
+                <Settings
                   exportData={exportData}
                   importData={importData}
                   exportProgress={exportProgress}
                   importProgress={importProgress}
                   disabled={isBusy}
                 />
-              } />
-              <Route path="/settings" element={<Settings />} /> {/* Settings route */}
+              } /> {/* Settings route */}
             </Routes>
 
             {editing && (

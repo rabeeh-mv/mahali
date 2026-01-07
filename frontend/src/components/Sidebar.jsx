@@ -6,7 +6,7 @@ import {
   FaHouseUser,
   FaUsers,
   FaFolder,
-  FaDatabase,
+
   FaFire, // Firebase icon
   FaCog, // Settings icon
   FaSun,
@@ -108,7 +108,7 @@ const Sidebar = ({
     if (location.pathname.startsWith('/collections')) return 'collections';
     if (location.pathname.startsWith('/subcollections')) return 'subcollections';
     if (location.pathname.startsWith('/obligations')) return 'obligations';
-    if (location.pathname.startsWith('/data')) return 'data';
+
     if (location.pathname.startsWith('/settings')) return 'settings';
     return 'dashboard';
   };
@@ -139,9 +139,7 @@ const Sidebar = ({
       case 'obligations':
         navigate('/obligations');
         break;
-      case 'data':
-        navigate('/data');
-        break;
+
       case 'settings':
         navigate('/settings');
         break;
@@ -238,14 +236,7 @@ const Sidebar = ({
 
         <div className="sidebar-divider"></div>
 
-        <button
-          className={activeTab === 'data' ? 'active' : ''}
-          onClick={() => handleTabChange('data')}
-          disabled={disabled}
-        >
-          <FaDatabase className="tab-icon" />
-          {!isCollapsed && <span>Data Core</span>}
-        </button>
+
 
         <button
           className={activeTab === 'settings' ? 'active' : ''}
