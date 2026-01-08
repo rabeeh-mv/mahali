@@ -1,0 +1,339 @@
+/* House Details Page Layout - Mirrored from MemberDetailsPage */
+.house-details-wrapper {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    /* Fixed sidebar width, flexible content */
+    gap: 24px;
+    padding: 24px;
+    height: calc(100vh - 80px);
+    /* Adjust based on your header height */
+    overflow-y: auto;
+    background-color: var(--background-secondary, #f8f9fa);
+}
+
+/* Common Card Style */
+.detail-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* === Left Column: House Details === */
+.left-column {
+    height: 100%;
+}
+
+.house-profile-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-header {
+    position: relative;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.1) 100%);
+    border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.back-btn-corner {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    background: white;
+    border: 1px solid var(--border-color, #eee);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s;
+}
+
+.back-btn-corner:hover {
+    color: var(--primary-color, #2563eb);
+    transform: translateX(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.house-avatar-large {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: white;
+    color: var(--primary-color, #2563eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin-bottom: 16px;
+    border: 4px solid white;
+}
+
+.house-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary, #333);
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.house-id-badge {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #666);
+    font-weight: 500;
+}
+
+.house-info-list {
+    padding: 24px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.info-item {
+    margin-bottom: 20px;
+}
+
+.info-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-secondary, #888);
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.info-value {
+    font-size: 0.95rem;
+    color: var(--text-primary, #333);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* === Right Column: Content === */
+.right-column {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 24px;
+    height: 100%;
+}
+
+/* Top Section: Family Members */
+.family-section-card {
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-title-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color, #eee);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-title-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-count {
+    background-color: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary-color, #2563eb);
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.family-grid-list {
+    padding: 24px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.resident-card {
+    border: 1px solid var(--border-color, #eee);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background-color: white;
+}
+
+.resident-card:hover {
+    border-color: var(--primary-color, #2563eb);
+    background-color: rgba(var(--primary-rgb), 0.02);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.resident-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background-color: #f3f4f6;
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.resident-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.resident-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary, #111);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.resident-role {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #666);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #ccc;
+    display: inline-block;
+}
+
+.status-dot.live {
+    background-color: #10b981;
+}
+
+.status-dot.dead {
+    background-color: #6b7280;
+}
+
+/* Bottom Section: Obligations */
+.obligations-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.search-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    width: 200px;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: var(--primary-color, #2563eb);
+}
+
+.table-wrapper {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+.obligations-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.obligations-table th {
+    text-align: left;
+    padding: 16px 24px;
+    background-color: #f9fafb;
+    border-bottom: 1px solid var(--border-color, #eee);
+    font-weight: 600;
+    color: var(--text-secondary, #666);
+    font-size: 0.85rem;
+    position: sticky;
+    top: 0;
+}
+
+.obligations-table td {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color, #eee);
+    color: var(--text-primary, #333);
+    font-size: 0.95rem;
+}
+
+.status-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-pill.paid {
+    background-color: #d1fae5;
+    color: #059669;
+}
+
+.status-pill.pending {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .house-details-wrapper {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+    }
+
+    .left-column {
+        height: auto;
+    }
+
+    .right-column {
+        grid-template-rows: auto;
+    }
+}
