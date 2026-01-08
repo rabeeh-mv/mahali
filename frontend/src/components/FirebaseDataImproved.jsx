@@ -1,104 +1,97 @@
 import React, { useState, useEffect } from 'react';
 import { settingsAPI, areaAPI, houseAPI, memberAPI } from '../api';
-import { FaSearch, FaTimes } from 'react-icons/fa';
+import {
+  FaSearch,
+  FaTimes,
+  FaHome,
+  FaUserFriends,
+  FaMapMarkerAlt,
+  FaCheck,
+  FaArrowRight,
+  FaTrash,
+  FaSync,
+  FaInfoCircle,
+  FaChild,
+  FaFemale,
+  FaMale
+} from 'react-icons/fa';
 import './FirebaseDataImproved.css';
 
 const FirebaseDataImproved = () => {
+  // App Config & Data
   const [firebaseConfig, setFirebaseConfig] = useState(null);
   const [firebaseData, setFirebaseData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [appSettings, setAppSettings] = useState(null);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [areas, setAreas] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Wizard State
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1); // 1: House, 2: Members, 3: Relationships
+  const [processingItem, setProcessingItem] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // Step 1: House Data
   const [houseData, setHouseData] = useState({
     house_name: '',
     family_name: '',
     location_name: '',
-    area: '',
+    area: '', // Will store area ID
     address: '',
     road_name: ''
   });
-  const [members, setMembers] = useState([]);
-  const [guardianId, setGuardianId] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
-  // New states for the tabbed workflow
-  const [activeTab, setActiveTab] = useState('house'); // 'house' or 'members'
-  const [houseAdded, setHouseAdded] = useState(false);
-  const [createdHouse, setCreatedHouse] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [fatherSearchTerm, setFatherSearchTerm] = useState({});
-  const [motherSearchTerm, setMotherSearchTerm] = useState({});
-  const [fatherSearchResults, setFatherSearchResults] = useState({});
-  const [motherSearchResults, setMotherSearchResults] = useState({});
-  const [showFatherSearch, setShowFatherSearch] = useState({});
-  const [showMotherSearch, setShowMotherSearch] = useState({});
-  const [showMembersModal, setShowMembersModal] = useState(false);
-  const [selectedMembers, setSelectedMembers] = useState(new Set()); // For multi-select
-  const [allMembers, setAllMembers] = useState([]); // Add this line to store all members
+  const [createdHouseId, setCreatedHouseId] = useState(null);
+
+  // Step 2: Member Data
+  const [availableMembers, setAvailableMembers] = useState([]); // Members from request
+  const [selectedMemberIds, setSelectedMemberIds] = useState(new Set());
+  const [savedMembers, setSavedMembers] = useState([]); // Members successfully saved to DB
+
+  // Step 3: Relationships
+  const [relationships, setRelationships] = useState({}); // Map memberId -> { fatherId, motherId, guardianId }
 
   useEffect(() => {
     loadAppSettings();
     loadAreas();
-    loadAllMembers(); // Add this line to load all members
-    
-    // Listen for settings updates from other components
+
+    // Listen for settings updates
     const handleSettingsUpdate = (event) => {
-      console.log('FirebaseData: Settings updated:', event.detail);
-      setAppSettings(event.detail);
-      if (event.detail.firebase_config && event.detail.firebase_config.trim() !== '') {
+      if (event.detail.firebase_config) {
         try {
-          const parsedConfig = JSON.parse(event.detail.firebase_config);
-          console.log('FirebaseData: Parsed updated Firebase config:', parsedConfig);
-          setFirebaseConfig(parsedConfig);
+          setFirebaseConfig(JSON.parse(event.detail.firebase_config));
         } catch (e) {
-          console.error('Failed to parse Firebase config:', e);
-          setError('Invalid Firebase configuration format');
-          setFirebaseConfig(null);
+          console.error('Invalid Firebase config update');
         }
-      } else {
-        console.log('FirebaseData: Firebase config removed from settings');
-        setFirebaseConfig(null);
       }
     };
-    
     window.addEventListener('settingsUpdated', handleSettingsUpdate);
-    
-    // Cleanup listener on component unmount
-    return () => {
-      window.removeEventListener('settingsUpdated', handleSettingsUpdate);
-    };
+    return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate);
   }, []);
+
+  useEffect(() => {
+    if (firebaseConfig) {
+      loadFirebaseData();
+    }
+  }, [firebaseConfig]);
 
   const loadAppSettings = async () => {
     try {
       const response = await settingsAPI.getAll();
       if (response.data.length > 0) {
         const settings = response.data[0];
-        console.log('FirebaseData: Loaded settings:', settings);
-        setAppSettings(settings);
-        if (settings.firebase_config && settings.firebase_config.trim() !== '') {
+        if (settings.firebase_config) {
           try {
-            const parsedConfig = JSON.parse(settings.firebase_config);
-            console.log('FirebaseData: Parsed Firebase config:', parsedConfig);
-            setFirebaseConfig(parsedConfig);
+            setFirebaseConfig(JSON.parse(settings.firebase_config));
           } catch (e) {
-            console.error('Failed to parse Firebase config:', e);
-            setError('Invalid Firebase configuration format');
-            setFirebaseConfig(null);
+            setError('Invalid Firebase configuration');
           }
         } else {
-          console.log('FirebaseData: No Firebase config found in settings');
-          setFirebaseConfig(null);
+          setError('Firebase not configured in settings');
         }
-      } else {
-        console.log('FirebaseData: No settings found');
       }
     } catch (error) {
-      console.error('Failed to load app settings:', error);
-      setError('Failed to load app settings: ' + error.message);
+      console.error('Failed to load settings:', error);
     }
   };
 
@@ -111,1333 +104,496 @@ const FirebaseDataImproved = () => {
     }
   };
 
-  // Add this function to load all members
-  const loadAllMembers = async () => {
-    try {
-      const response = await memberAPI.getAll();
-      // Ensure response.data is an array
-      if (response && Array.isArray(response.data)) {
-        setAllMembers(response.data);
-      } else {
-        console.warn('Unexpected response format for members:', response);
-        setAllMembers([]);
-      }
-    } catch (error) {
-      console.error('Failed to load all members:', error);
-      setAllMembers([]); // Set to empty array on error
-    }
-  };
-
   const loadFirebaseData = async () => {
-    if (!firebaseConfig) {
-      setError('Firebase is not configured');
-      return;
-    }
-
-    // Validate Firebase configuration
-    const requiredFields = ['apiKey', 'authDomain', 'projectId'];
-    const missingFields = requiredFields.filter(field => !firebaseConfig[field]);
-    
-    if (missingFields.length > 0) {
-      setError(`Invalid Firebase configuration: Missing required fields: ${missingFields.join(', ')}`);
-      return;
-    }
+    if (!firebaseConfig) return;
 
     setLoading(true);
-    setError(null);
-    
     try {
-      console.log('FirebaseData: Attempting to load Firebase SDKs');
-      // Dynamically import Firebase SDKs only when needed
+      // Dynamically import Firebase
       const { initializeApp } = await import('firebase/app');
       const { getFirestore, collection, getDocs } = await import('firebase/firestore');
-      
-      console.log('FirebaseData: Initializing Firebase with config:', firebaseConfig);
-      
-      // Initialize Firebase
+
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
-      
-      console.log('FirebaseData: Attempting to fetch data from families collection');
-      
-      // Fetch data from 'families' collection
+
       const querySnapshot = await getDocs(collection(db, 'families'));
       const dataList = [];
       querySnapshot.forEach((doc) => {
-        dataList.push({
-          id: doc.id,
-          ...doc.data()
-        });
+        dataList.push({ id: doc.id, ...doc.data() });
       });
-      
-      console.log('FirebaseData: Successfully fetched', dataList.length, 'documents');
+
       setFirebaseData(dataList);
+      setError(null);
     } catch (err) {
-      console.error('Error fetching Firebase data:', err);
-      // More detailed error handling
-      let errorMessage = 'Failed to fetch data from Firebase';
-      
-      // Handle different types of errors
-      if (err.code) {
-        switch (err.code) {
-          case 'permission-denied':
-            errorMessage = 'Permission denied: Check Firebase rules for families collection';
-            break;
-          case 'unauthenticated':
-            errorMessage = 'Authentication required: Check Firebase configuration';
-            break;
-          case 'failed-precondition':
-            errorMessage = 'Firebase not properly configured: Check project settings';
-            break;
-          case 'unavailable':
-            errorMessage = 'Firebase services unavailable: Check network connection';
-            break;
-          case 'cancelled':
-            errorMessage = 'Request cancelled: Network issue or timeout';
-            break;
-          default:
-            errorMessage = `Firebase error (${err.code}): ${err.message || 'Unknown error'}`;
-        }
-      } else if (err.name === 'FirebaseError') {
-        errorMessage = `Firebase error: ${err.message}`;
-      } else if (err.message) {
-        // Check for network-related errors
-        if (err.message.includes('Network Error') || err.message.includes('net::ERR_')) {
-          errorMessage = 'Network error: Check internet connection and firewall settings';
-        } else {
-          errorMessage = 'Failed to fetch data from Firebase: ' + err.message;
-        }
-      }
-      
-      console.error('FirebaseData Error:', errorMessage);
-      setError(errorMessage);
+      console.error('Firebase Error:', err);
+      const isNetworkError = err.code === 'unavailable' || err.message?.includes('offline') || err.message?.includes('ERR_NAME_NOT_RESOLVED');
+      setError(
+        isNetworkError
+          ? 'Network Error: Unable to connect to member request server. Please check your internet connection.'
+          : `Failed to load requests: ${err.message || 'Unknown error'}`
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    console.log('FirebaseData: firebaseConfig changed:', firebaseConfig);
-    if (firebaseConfig) {
-      console.log('FirebaseData: Loading Firebase data because config is available');
-      loadFirebaseData();
-    } else {
-      console.log('FirebaseData: Not loading Firebase data because config is not available');
-      setFirebaseData([]);
-    }
-  }, [firebaseConfig]);
+  // --- Wizard Logic ---
 
-  const handleRowClick = (item) => {
-    setSelectedItem(item);
-    setIsModalOpen(true);
-    
-    // Initialize house data with Firebase data
+  const openProcessWizard = (item) => {
+    setProcessingItem(item);
+    setCurrentStep(1);
+    setIsWizardOpen(true);
+    setCreatedHouseId(null);
+    setSavedMembers([]);
+    setRelationships({});
+
+    // Pre-fill House Data
     setHouseData({
       house_name: item.houseName || item.house_name || '',
       family_name: item.familyName || item.family_name || '',
-      location_name: item.locationName || item.location || item.location_name || '',
-      area: item.area || '',
-      address: item.address || '',
-      road_name: item.roadName || item.road_name || ''
-    });
-    
-    // Initialize members data with Firebase data
-    const firebaseMembers = item.members || [];
-    const initializedMembers = firebaseMembers.map((member, index) => ({
-      id: Date.now() + index, // Temporary ID
-      name: member.fullName || member.name || '',
-      surname: member.surname || '',
-      date_of_birth: member.dob || member.date_of_birth || '',
-      father_name: member.fatherName || member.father_name || '',
-      father_surname: member.fatherSurname || member.father_surname || '',
-      mother_name: member.motherName || member.mother_name || '',
-      mother_surname: member.motherSurname || member.mother_surname || '',
-      phone: member.phone || '',
-      whatsapp: member.whatsapp || '',
-      aadhar: member.aadhaar || member.aadhar || '',
-      status: member.status || 'live',
-      father_id: member.father_id || null,
-      mother_id: member.mother_id || null
-    }));
-    
-    // Auto-select all members by default since they came from Firebase
-    const allMemberIds = initializedMembers.map(member => member.id);
-    setSelectedMembers(new Set(allMemberIds));
-    
-    setMembers(initializedMembers);
-    
-    // Set guardian based on primaryMember data if available
-    let guardianIndex = 0; // Default to first member
-    if (item.primaryMember && item.primaryMember.name) {
-      // Try to find the member that matches the primary member
-      const primaryMemberName = item.primaryMember.name.toLowerCase();
-      const matchingMemberIndex = initializedMembers.findIndex(member => 
-        member.name.toLowerCase() === primaryMemberName || 
-        `${member.name} ${member.surname}`.toLowerCase() === primaryMemberName
-      );
-      if (matchingMemberIndex !== -1) {
-        guardianIndex = matchingMemberIndex;
-      }
-    }
-    setGuardianId(initializedMembers[guardianIndex]?.id || null);
-    // Reset states
-    setHouseAdded(false);
-    setCreatedHouse(null);
-    setActiveTab('house');
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedItem(null);
-    setHouseData({
-      house_name: '',
-      family_name: '',
-      location_name: '',
+      location_name: item.locationName || item.location || '',
       area: '',
-      address: '',
-      road_name: ''
+      address: item.address || '',
+      road_name: item.roadName || ''
     });
-    setMembers([]);
-    setGuardianId(null);
-    setSaveMessage('');
-    // Reset states
-    setHouseAdded(false);
-    setCreatedHouse(null);
-    setActiveTab('house');
-    setSelectedMembers(new Set());
-  };
 
-  const handleHouseDataChange = (field, value) => {
-    setHouseData(prev => ({
-      ...prev,
-      [field]: value
+    // Prepare Members
+    const rawMembers = item.members || [];
+    const processedMembers = rawMembers.map((m, idx) => ({
+      ...m,
+      tempId: `temp_${Date.now()}_${idx}`, // Temporary ID for selection
+      name: m.fullName || m.name,
+      surname: m.surname || '',
+      phone: m.phone || '',
+      whatsapp: m.whatsapp || '',
+      dob: m.dob || m.date_of_birth
     }));
+    setAvailableMembers(processedMembers);
+    // Auto-select all by default
+    setSelectedMemberIds(new Set(processedMembers.map(m => m.tempId)));
   };
 
-  const addMember = () => {
-    const newMember = {
-      id: Date.now(),
-      name: '',
-      surname: '',
-      date_of_birth: '',
-      father_name: '',
-      father_surname: '',
-      mother_name: '',
-      mother_surname: '',
-      phone: '',
-      whatsapp: '',
-      aadhar: '',
-      status: 'live',
-      father_id: null,
-      mother_id: null
-    };
-    setMembers(prev => [...prev, newMember]);
+  const closeWizard = () => {
+    if (window.confirm('Are you sure you want to close? Any unsaved progress will be lost.')) {
+      setIsWizardOpen(false);
+      setProcessingItem(null);
+    }
   };
 
-  const updateMember = (id, field, value) => {
-    setMembers(prev => prev.map(member => 
-      member.id === id ? { ...member, [field]: value } : member
-    ));
-  };
-
-  // Handle father search for a specific member
-  const handleFatherSearch = (memberId, term) => {
-    setFatherSearchTerm(prev => ({ ...prev, [memberId]: term }));
-    
-    // If term is empty, clear search results
-    if (!term) {
-      setFatherSearchResults(prev => ({ ...prev, [memberId]: [] }));
+  // Step 1: Save House
+  const handleSaveHouse = async () => {
+    if (!houseData.house_name || !houseData.family_name) {
+      alert('House Name and Family Name are required.');
       return;
     }
-    
-    // Search for members using API
-    memberAPI.search({ search: term })
-      .then(response => {
-        // Extract results from paginated response
-        const results = response.data.results || response.data;
-        // Limit to 10 results
-        const limitedResults = Array.isArray(results) ? results.slice(0, 10) : [];
-        setFatherSearchResults(prev => ({ ...prev, [memberId]: limitedResults }));
-      })
-      .catch(error => {
-        console.error('Error searching fathers:', error);
-        setFatherSearchResults(prev => ({ ...prev, [memberId]: [] }));
-      });
-  };
 
-  // Handle mother search for a specific member
-  const handleMotherSearch = (memberId, term) => {
-    setMotherSearchTerm(prev => ({ ...prev, [memberId]: term }));
-    
-    // If term is empty, clear search results
-    if (!term) {
-      setMotherSearchResults(prev => ({ ...prev, [memberId]: [] }));
-      return;
-    }
-    
-    // Search for members using API
-    memberAPI.search({ search: term })
-      .then(response => {
-        // Extract results from paginated response
-        const results = response.data.results || response.data;
-        // Limit to 10 results
-        const limitedResults = Array.isArray(results) ? results.slice(0, 10) : [];
-        setMotherSearchResults(prev => ({ ...prev, [memberId]: limitedResults }));
-      })
-      .catch(error => {
-        console.error('Error searching mothers:', error);
-        setMotherSearchResults(prev => ({ ...prev, [memberId]: [] }));
-      });
-  };
-
-  // Select father for a specific member
-  const selectFather = (memberId, father) => {
-    updateMember(memberId, 'father_id', father.member_id);
-    updateMember(memberId, 'father_name', father.name || '');
-    updateMember(memberId, 'father_surname', father.surname || '');
-    setShowFatherSearch(prev => ({ ...prev, [memberId]: false }));
-    setFatherSearchTerm(prev => ({ ...prev, [memberId]: '' }));
-    setFatherSearchResults(prev => ({ ...prev, [memberId]: [] }));
-  };
-
-  // Select mother for a specific member
-  const selectMother = (memberId, mother) => {
-    updateMember(memberId, 'mother_id', mother.member_id);
-    updateMember(memberId, 'mother_name', mother.name || '');
-    updateMember(memberId, 'mother_surname', mother.surname || '');
-    setShowMotherSearch(prev => ({ ...prev, [memberId]: false }));
-    setMotherSearchTerm(prev => ({ ...prev, [memberId]: '' }));
-    setMotherSearchResults(prev => ({ ...prev, [memberId]: [] }));
-  };
-
-
-  const removeMember = (id) => {
-    setMembers(prev => prev.filter(member => member.id !== id));
-    if (guardianId === id) {
-      setGuardianId(null);
-    }
-    // Remove from selected members if present
-    const newSelected = new Set(selectedMembers);
-    newSelected.delete(id);
-    setSelectedMembers(newSelected);
-  };
-
-  const setGuardian = (id) => {
-    setGuardianId(id);
-  };
-
-  // Toggle member selection
-  const toggleMemberSelection = (id) => {
-    const newSelected = new Set(selectedMembers);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedMembers(newSelected);
-  };
-
-  // Select all members
-  const selectAllMembers = () => {
-    const allMemberIds = members.map(member => member.id);
-    setSelectedMembers(new Set(allMemberIds));
-  };
-
-  // Deselect all members
-  const deselectAllMembers = () => {
-    setSelectedMembers(new Set());
-  };
-
-  // Fuzzy search function with improved matching
-  const fuzzySearch = (text, term) => {
-    if (!term) return true;
-    const lowerText = text.toLowerCase().trim();
-    const lowerTerm = term.toLowerCase().trim();
-    
-    // Exact match
-    if (lowerText === lowerTerm) return true;
-    
-    // Partial match
-    if (lowerText.includes(lowerTerm)) return true;
-    
-    // Split term into words and check if all words are present
-    const termWords = lowerTerm.split(/\s+/);
-    return termWords.every(word => lowerText.includes(word));
-  };
-
-  // Filter members based on search term
-  const filteredMembers = members.filter(member => 
-    fuzzySearch(`${member.name} ${member.surname}`, searchTerm)
-  );
-
-  // Filter members for father selection with improved search (from all members)
-  const getFilteredFathers = (memberId, term) => {
-    // Ensure allMembers is an array
-    if (!Array.isArray(allMembers)) {
-      console.warn('allMembers is not an array:', allMembers);
-      return [];
-    }
-    
-    return allMembers.filter(member => 
-      member.id !== memberId && 
-      (fuzzySearch(`${member.name} ${member.surname}`, term) || 
-       fuzzySearch(`${member.name}`, term) || 
-       fuzzySearch(`${member.surname}`, term))
-    );
-  };
-
-  // Filter members for mother selection with improved search (from all members)
-  const getFilteredMothers = (memberId, term) => {
-    // Ensure allMembers is an array
-    if (!Array.isArray(allMembers)) {
-      console.warn('allMembers is not an array:', allMembers);
-      return [];
-    }
-    
-    return allMembers.filter(member => 
-      member.id !== memberId && 
-      (fuzzySearch(`${member.name} ${member.surname}`, term) || 
-       fuzzySearch(`${member.name}`, term) || 
-       fuzzySearch(`${member.surname}`, term))
-    );
-  };
-
-  // Save house function
-  const saveHouse = async () => {
     setSaving(true);
-    setSaveMessage('');
-    
     try {
-      // Create the house with all fields
-      const houseResponse = await houseAPI.create({
-        house_name: houseData.house_name,
-        family_name: houseData.family_name,
-        location_name: houseData.location_name,
-        area: houseData.area,
-        address: houseData.address,
-        road_name: houseData.road_name
-      });
-      
-      const createdHouse = houseResponse.data;
-      console.log('House created:', createdHouse);
-      setCreatedHouse(createdHouse);
-      setHouseAdded(true);
-      setSaveMessage('House created successfully!');
-      // Switch to members tab
-      setActiveTab('members');
+      const response = await houseAPI.create(houseData);
+      setCreatedHouseId(response.data.id); // Save the real ID
+      setCurrentStep(2); // Move to members
     } catch (error) {
-      console.error('Error saving house:', error);
-      setSaveMessage('Error: ' + error.message);
+      alert('Failed to save house: ' + error.message);
     } finally {
       setSaving(false);
     }
   };
 
-  // Save selected members function
-  const saveSelectedMembers = async () => {
-    if (selectedMembers.size === 0) {
-      setSaveMessage('Please select at least one member to add');
+  // Step 2: Save Members
+  const handleSaveMembers = async () => {
+    const membersToSave = availableMembers.filter(m => selectedMemberIds.has(m.tempId));
+
+    if (membersToSave.length === 0) {
+      alert('Please select at least one member.');
       return;
     }
 
     setSaving(true);
-    setSaveMessage('');
-    
+    const successfullySaved = [];
+
     try {
-      // Create selected members
-      const selectedMembersArray = members.filter(member => selectedMembers.has(member.id));
-      const createdMembers = [];
-      
-      for (const member of selectedMembersArray) {
-        // Find father and mother objects for names
-        const father = members.find(m => m.id === member.father_id);
-        const mother = members.find(m => m.id === member.mother_id);
-        
-        const memberData = {
+      for (const member of membersToSave) {
+        const memberPayload = {
           name: member.name,
           surname: member.surname,
-          date_of_birth: member.date_of_birth,
-          father_name: member.father_name || (father ? `${father.name}` : ''),
-          father_surname: member.father_surname || (father ? `${father.surname}` : ''),
-          mother_name: member.mother_name || (mother ? `${mother.name}` : ''),
-          mother_surname: member.mother_surname || (mother ? `${mother.surname}` : ''),
+          date_of_birth: member.dob,
           phone: member.phone,
           whatsapp: member.whatsapp,
-          aadhar: member.aadhar,
-          status: member.status,
-          house: createdHouse.home_id,
-          isGuardian: member.id === guardianId
+          house: createdHouseId, // Link to the house just created
+          // Default others
+          status: 'live'
         };
-        
-        const memberResponse = await memberAPI.create(memberData);
-        createdMembers.push(memberResponse.data);
-        console.log('Member created:', memberResponse.data);
+
+        try {
+          const response = await memberAPI.create(memberPayload);
+          successfullySaved.push({
+            ...response.data, // Real DB data
+            tempId: member.tempId // Keep track of original ref
+          });
+        } catch (err) {
+          console.error(`Failed to save member ${member.name}`, err);
+          // Continue saving others even if one fails
+        }
       }
-      
-      setSaveMessage(`${createdMembers.length} members created successfully!`);
-      
-      // Close modal after a delay
-      setTimeout(() => {
-        closeModal();
-      }, 2000);
-      
+
+      setSavedMembers(successfullySaved);
+      if (successfullySaved.length > 0) {
+        setCurrentStep(3); // Move to relationships
+      } else {
+        alert('Failed to save any members. Please try again.');
+      }
     } catch (error) {
-      console.error('Error saving members:', error);
-      setSaveMessage('Error: ' + error.message);
+      alert('Critical error saving members.');
     } finally {
       setSaving(false);
     }
   };
 
-  const renderData = () => {
-    if (loading) {
-      return <div className="loading">Loading Firebase data...</div>;
-    }
-
-    if (error) {
-      return <div className="error">Error: {error}</div>;
-    }
-
-    if (firebaseData.length === 0) {
-      return <div className="no-data">No data found in Firebase collection</div>;
-    }
-
-    // Get all unique keys for table headers (excluding 'id' and 'members')
-    const allKeys = new Set();
-    firebaseData.forEach(item => {
-      Object.keys(item).forEach(key => {
-        if (key !== 'id' && key !== 'members') { // Exclude 'id' and 'members' columns
-          allKeys.add(key);
-        }
-      });
-    });
-
-    return (
-      <div className="table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Family Name</th>
-              <th>House Name</th>
-              <th>Location</th>
-              {Array.from(allKeys).map(key => (
-                <th key={key}>{key}</th>
-              ))}
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {firebaseData.map((item, index) => (
-              <tr key={item.id || index}>
-                <td>{item.familyName || item.family_name || 'N/A'}</td>
-                <td>{item.houseName || item.house_name || 'N/A'}</td>
-                <td>{item.locationName || item.location_name || 'N/A'}</td>
-                {Array.from(allKeys).map(key => (
-                  <td key={key}>
-                    {renderTableCell(item[key], key)}
-                  </td>
-                ))}
-                <td>
-                  <div className="actions-container">
-                    <button 
-                      className="action-btn"
-                      onClick={() => handleRowClick(item)}
-                    >
-                      Process
-                    </button>
-                    <button 
-                      className="view-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedItem(item);
-                        setShowMembersModal(true);
-                      }}
-                    >
-                      View Members ({(item.members || []).length})
-                    </button>
-                    <button 
-                      className="delete-btn"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (window.confirm('Are you sure you want to delete this item from Firebase?')) {
-                          await deleteFirebaseItem(item);
-                        }
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+  // Step 3: Update Relationships
+  const handleUpdateRelationships = (memberId, field, value) => {
+    setRelationships(prev => ({
+      ...prev,
+      [memberId]: {
+        ...prev[memberId],
+        [field]: value
+      }
+    }));
   };
 
-  // Function to delete item from Firebase
-  const deleteFirebaseItem = async (item) => {
+  const handleFinishWizard = async () => {
+    setSaving(true);
     try {
-      // Dynamically import Firebase SDKs only when needed
+      // 1. Update relationships in DB
+      for (const member of savedMembers) {
+        const rels = relationships[member.member_id];
+        if (rels) {
+          const updatePayload = {};
+          // Only include if they are valid IDs
+          if (rels.fatherId) updatePayload.father_id = rels.fatherId;
+          if (rels.motherId) updatePayload.mother_id = rels.motherId;
+
+          if (Object.keys(updatePayload).length > 0) {
+            await memberAPI.update(member.member_id, updatePayload);
+          }
+        }
+      }
+
+      // 2. Delete request from Firebase (Optional/User Choice)
+      if (window.confirm('Process Complete! Do you want to remove this request from the Digital Requests list (Firebase)?')) {
+        await deleteFirebaseItem(processingItem.id);
+      }
+
+      setIsWizardOpen(false);
+      // Refresh Lists
+      // You might want to trigger a global refresh here
+    } catch (error) {
+      console.error('Error finalizing:', error);
+      alert('Finished with some errors. Please check the directory.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteFirebaseItem = async (docId) => {
+    try {
       const { initializeApp } = await import('firebase/app');
       const { getFirestore, doc, deleteDoc } = await import('firebase/firestore');
-      
-      // Initialize Firebase
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
-      
-      // Delete the document
-      await deleteDoc(doc(db, 'families', item.id));
-      
-      // Reload the data
-      loadFirebaseData();
-      
-      console.log('Successfully deleted item from Firebase');
-    } catch (error) {
-      console.error('Error deleting item from Firebase:', error);
-      setError('Failed to delete item from Firebase: ' + error.message);
+      await deleteDoc(doc(db, 'families', docId));
+      loadFirebaseData(); // Reload list
+    } catch (e) {
+      console.error('Delete failed', e);
     }
   };
 
-  // Render member details in a clean format
-  // Render table cell content with special handling for member data
-  const renderTableCell = (value, key) => {
-    // Check if this is a member object (could be a parsed object or a JSON string)
-    let memberData = null;
-    
-    if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
-      // Try to parse JSON string
-      try {
-        memberData = JSON.parse(value);
-      } catch (e) {
-        // If parsing fails, treat as regular string
-        return String(value || '');
-      }
-    } else if (typeof value === 'object' && value !== null) {
-      // Already an object
-      memberData = value;
-    }
-    
-    // Check if this looks like member data
-    if (memberData && (memberData.name || memberData.phone || memberData.whatsapp)) {
-      return (
-        <div className="member-table-cell">
-          <div className="member-info">
-            <div className="member-avatar-small">
-              {memberData.photoURL ? (
-                <img src={memberData.photoURL} alt="" className="member-image" />
-              ) : (
-                <div className="member-icon">{memberData.name ? memberData.name.charAt(0).toUpperCase() : 'U'}</div>
-              )}
-            </div>
-            <div className="member-names">
-              <div className="member-name">{memberData.name || 'Unknown'}</div>
-              {memberData.surname && <div className="member-surname">{memberData.surname}</div>}
-            </div>
-          </div>
-          <div className="member-contact">
-            {memberData.phone && (
-              <button 
-                className="copy-btn-small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigator.clipboard.writeText(memberData.phone);
-                }}
-                title="Copy phone number"
-              >
-                📋
-              </button>
-            )}
-            {memberData.whatsapp && (
-              <button 
-                className="whatsapp-btn-small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(`https://wa.me/${memberData.whatsapp}`, '_blank');
-                }}
-                title="Message on WhatsApp"
-              >
-                💬
-              </button>
-            )}
-          </div>
-        </div>
-      );
-    }
-    
-    // For other data types, render normally
-    return typeof value === 'object' ? JSON.stringify(value) : String(value || '');
-  };
 
-  const renderMemberDetails = (member) => {
-    return (
-      <div className="member-detail-card">
-        <div className="member-basic-info">
-          <div className="member-avatar-large">
-            {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
-          </div>
-          <div className="member-identity">
-            <div className="member-full-name">
-              {member.name || 'Unknown Member'}
-              {member.surname && ` ${member.surname}`}
-            </div>
-            {(member.phone || member.whatsapp) && (
-              <div className="member-contact-info">
-                {member.phone && (
-                  <span className="contact-item">
-                    📞 {member.phone}
-                  </span>
-                )}
-                {member.whatsapp && (
-                  <span className="contact-item">
-                    💬 {member.whatsapp}
-                  </span>
-                )}
+  // --- Render Helpers ---
+
+  const renderGrid = () => (
+    <div className="requests-grid">
+      {firebaseData
+        .filter(item =>
+          !searchTerm ||
+          (item.familyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.houseName?.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+        .map(item => (
+          <div key={item.id} className="request-card">
+            <div className="request-card-header">
+              <div className="family-avatar">
+                {item.familyName ? item.familyName.charAt(0).toUpperCase() : 'F'}
               </div>
-            )}
+              <div className="member-count-badge">
+                <FaUserFriends /> {(item.members || []).length} Members
+              </div>
+            </div>
+
+            <div className="request-details">
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{item.familyName} Family</h3>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{item.houseName}</span>
+
+              <div className="detail-item" style={{ marginTop: '12px' }}>
+                <FaMapMarkerAlt className="detail-icon" />
+                <span>{item.locationName || 'No Location'}</span>
+              </div>
+            </div>
+
+            <div className="card-actions">
+              <button className="process-btn" onClick={() => openProcessWizard(item)}>
+                Process Request
+              </button>
+              <button className="delete-card-btn" onClick={() => {
+                if (window.confirm('Delete this request?')) deleteFirebaseItem(item.id)
+              }}>
+                <FaTrash />
+              </button>
+            </div>
           </div>
+        ))}
+    </div>
+  );
+
+  const renderStep1House = () => (
+    <div className="step-container">
+      <div className="info-banner">
+        <FaInfoCircle />
+        <span>Review and save the House details first. This will create a permanent House record.</span>
+      </div>
+      <div className="form-grid">
+        <div className="form-group">
+          <label>House Name</label>
+          <input
+            value={houseData.house_name}
+            onChange={e => setHouseData({ ...houseData, house_name: e.target.value })}
+            placeholder="e.g. Baitul Hamd"
+          />
         </div>
-        
-        <div className="member-additional-info">
-          {member.date_of_birth && (
-            <div className="info-row">
-              <span className="info-label">📅 Date of Birth:</span>
-              <span className="info-value">{member.date_of_birth}</span>
-            </div>
-          )}
-          
-          {(member.father_name || member.father_surname) && (
-            <div className="info-row">
-              <span className="info-label">👨 Father:</span>
-              <span className="info-value">
-                {member.father_name} {member.father_surname || ''}
-              </span>
-            </div>
-          )}
-          
-          {(member.mother_name || member.mother_surname) && (
-            <div className="info-row">
-              <span className="info-label">👩 Mother:</span>
-              <span className="info-value">
-                {member.mother_name} {member.mother_surname || ''}
-              </span>
-            </div>
-          )}
-          
-          {member.aadhar && (
-            <div className="info-row">
-              <span className="info-label">💳 Aadhar:</span>
-              <span className="info-value">{member.aadhar}</span>
-            </div>
-          )}
-          
-          <div className="info-row">
-            <span className="info-label">📊 Status:</span>
-            <span className="info-value">
-              <span className={`status-badge status-${member.status || 'live'}`}>
-                {member.status || 'live'}
-              </span>
-            </span>
-          </div>
+        <div className="form-group">
+          <label>Family Name</label>
+          <input
+            value={houseData.family_name}
+            onChange={e => setHouseData({ ...houseData, family_name: e.target.value })}
+          />
+        </div>
+        <div className="form-group">
+          <label>Area / Region</label>
+          <select
+            value={houseData.area}
+            onChange={e => setHouseData({ ...houseData, area: e.target.value })}
+          >
+            <option value="">Select Area...</option>
+            {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Location Name</label>
+          <input
+            value={houseData.location_name}
+            onChange={e => setHouseData({ ...houseData, location_name: e.target.value })}
+          />
+        </div>
+        <div className="form-group full-width">
+          <label>Address / Road</label>
+          <input
+            value={houseData.address}
+            onChange={e => setHouseData({ ...houseData, address: e.target.value })}
+          />
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
-  // Render members modal
-  const renderMembersModal = () => {
-    if (!showMembersModal || !selectedItem) return null;
-    
-    const members = selectedItem.members || [];
-    
-    return (
-      <div className="modal-overlay">
-        <div className="members-modal-content">
-          <div className="modal-header">
-            <h2>Family Members</h2>
-            <button className="close-btn" onClick={() => setShowMembersModal(false)}>×</button>
-          </div>
-          <div className="modal-body">
-            <div className="family-info">
-              <h3>{selectedItem.familyName || selectedItem.family_name || 'Unknown Family'}</h3>
-              <p>House: {selectedItem.houseName || selectedItem.house_name || 'N/A'}</p>
-            </div>
-            <div className="members-list-container">
-              {members.length > 0 ? (
-                members.map((member, index) => (
-                  <div key={index} className="member-card">
-                    {renderMemberDetails(member)}
-                  </div>
-                ))
-              ) : (
-                <div className="no-members">No members found for this family</div>
-              )}
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button className="cancel-btn" onClick={() => setShowMembersModal(false)}>
-              Close
-            </button>
-          </div>
-        </div>
+  const renderStep2Members = () => (
+    <div className="step-container">
+      <div className="info-banner">
+        <FaCheck />
+        <span>House Created! Now select members to add to this house.</span>
       </div>
-    );
-  };
+      <div className="members-selection-list">
+        {availableMembers.map(member => (
+          <div
+            key={member.tempId}
+            className={`member-select-item ${selectedMemberIds.has(member.tempId) ? 'selected' : ''}`}
+            onClick={() => {
+              const newSet = new Set(selectedMemberIds);
+              if (newSet.has(member.tempId)) newSet.delete(member.tempId);
+              else newSet.add(member.tempId);
+              setSelectedMemberIds(newSet);
+            }}
+          >
+            <div className="checkbox-visual">
+              {selectedMemberIds.has(member.tempId) && <FaCheck size={12} />}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="text-highlight">{member.name} {member.surname}</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {member.phone ? `📞 ${member.phone}` : ''}
+              </div>
+            </div>
+            <div className="stat-badge" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>
+              {member.dob || 'No DOB'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
+  const renderStep3Relationships = () => (
+    <div className="step-container">
+      <div className="info-banner">
+        <FaUserFriends />
+        <span>Members Saved! Now define family connections (Father, Mother) for the new members.</span>
+      </div>
+
+      <div className="relationship-editor">
+        {savedMembers.map(member => (
+          <div key={member.member_id} className="relationship-card">
+            <div className="relationship-header">
+              <div className="family-avatar" style={{ width: 32, height: 32, fontSize: '1rem' }}>
+                {member.name[0]}
+              </div>
+              <span className="text-highlight">{member.name} {member.surname}</span>
+            </div>
+
+            <div className="relationship-inputs">
+              <div className="form-group">
+                <label><FaMale /> Father</label>
+                <select
+                  onChange={(e) => handleUpdateRelationships(member.member_id, 'fatherId', e.target.value)}
+                >
+                  <option value="">Select Father...</option>
+                  {/* Filter to exclude self */}
+                  {savedMembers.filter(m => m.member_id !== member.member_id).map(potentialFather => (
+                    <option key={potentialFather.member_id} value={potentialFather.member_id}>
+                      {potentialFather.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label><FaFemale /> Mother</label>
+                <select
+                  onChange={(e) => handleUpdateRelationships(member.member_id, 'motherId', e.target.value)}
+                >
+                  <option value="">Select Mother...</option>
+                  {savedMembers.filter(m => m.member_id !== member.member_id).map(potentialMother => (
+                    <option key={potentialMother.member_id} value={potentialMother.member_id}>
+                      {potentialMother.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (loading && !isWizardOpen) return <div className="loading">Loading requests...</div>;
+  if (!firebaseConfig) return <div className="error">Firebase not configured in Settings.</div>;
 
   return (
-    <div className="data-section">
-      <div className="section-header">
-        <h2>🔥 Member Requests</h2>
-        <div className="header-actions">
-          <button onClick={loadFirebaseData} disabled={loading} className="reload-btn">
-            {loading ? 'Refreshing...' : 'Refresh Data'}
-          </button>
+    <div className="firebase-data-section">
+      {/* Header Dashboard */}
+      <div className="dashboard-header">
+        <h2><FaHome style={{ color: 'var(--primary)' }} /> Digital Requests</h2>
+        <div className="header-stats">
+          <div className="stat-badge">
+            <span>{firebaseData.length}</span> Pending
+          </div>
+          <div className="stat-badge">
+            <span>{firebaseData.reduce((acc, i) => acc + (i.members?.length || 0), 0)}</span> Members
+          </div>
         </div>
       </div>
-      
-      {firebaseConfig ? (
-        renderData()
-      ) : (
-        <div className="no-firebase-config">
-          <p>Firebase is not configured. Please add Firebase configuration in Settings.</p>
+
+      {/* Controls */}
+      <div className="controls-bar">
+        <div className="search-wrapper">
+          <FaSearch className="search-icon" />
+          <input
+            className="search-input"
+            placeholder="Search requests..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <button className="reload-btn" onClick={loadFirebaseData}>
+          <FaSync className={loading ? 'fa-spin' : ''} /> Refresh Data
+        </button>
+      </div>
+
+      {/* Main Grid Content */}
+      {renderGrid()}
+
+      {firebaseData.length === 0 && !loading && (
+        <div className="no-data" style={{ padding: '60px', textAlign: 'center' }}>
+          <FaCheck size={48} style={{ color: '#10b981', marginBottom: 20, opacity: 0.5 }} />
+          <h3>All Caught Up!</h3>
+          <p>No pending digital requests found.</p>
         </div>
       )}
 
-      {/* Modal for processing Firebase data */}
-      {isModalOpen && selectedItem && (
+      {/* 3-Step Wizard Modal */}
+      {isWizardOpen && (
         <div className="modal-overlay">
-          <div className="modal-content modal-content-wide">
-            <div className="modal-header">
-              <h2>Process Family Data</h2>
-              <button className="close-btn" onClick={closeModal}>×</button>
-            </div>
-            
-            <div className="modal-body">
-              {/* Tab Navigation */}
-              <div className="tab-navigation">
-                <button 
-                  className={`tab-btn ${activeTab === 'house' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('house')}
-                  disabled={!houseAdded}
-                >
-                  Step 1: House Details
-                </button>
-                <button 
-                  className={`tab-btn ${activeTab === 'members' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('members')}
-                  disabled={!houseAdded}
-                >
-                  Step 2: Add Members
-                </button>
+          <div className="process-modal">
+            <div className="modal-header-stepper">
+              <div className="modal-header-top">
+                <h2>Process Request</h2>
+                <button className="close-modal-btn" onClick={closeWizard}><FaTimes /></button>
               </div>
-              
-              {/* House Tab */}
-              {activeTab === 'house' && (
-                <div className="house-section">
-                  <h3>House Details</h3>
-                  <div className="house-details-grid">
-                    <div className="form-group">
-                      <label>House Name *</label>
-                      <input
-                        type="text"
-                        value={houseData.house_name}
-                        onChange={(e) => handleHouseDataChange('house_name', e.target.value)}
-                        className="form-input"
-                        disabled={houseAdded}
-                        placeholder="Enter house name"
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Family Name *</label>
-                      <input
-                        type="text"
-                        value={houseData.family_name}
-                        onChange={(e) => handleHouseDataChange('family_name', e.target.value)}
-                        className="form-input"
-                        disabled={houseAdded}
-                        placeholder="Enter family name"
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Location Name</label>
-                      <input
-                        type="text"
-                        value={houseData.location_name}
-                        onChange={(e) => handleHouseDataChange('location_name', e.target.value)}
-                        className="form-input"
-                        disabled={houseAdded}
-                        placeholder="Enter location name"
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Area</label>
-                      <select
-                        value={houseData.area}
-                        onChange={(e) => handleHouseDataChange('area', e.target.value)}
-                        className="form-input"
-                        disabled={houseAdded}
-                      >
-                        <option value="">Select Area</option>
-                        {areas.map(area => (
-                          <option key={area.id} value={area.id}>{area.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Road Name</label>
-                      <input
-                        type="text"
-                        value={houseData.road_name}
-                        onChange={(e) => handleHouseDataChange('road_name', e.target.value)}
-                        className="form-input"
-                        disabled={houseAdded}
-                        placeholder="Enter road name"
-                      />
-                    </div>
-                    
-                    <div className="form-group full-width">
-                      <label>Address</label>
-                      <textarea
-                        value={houseData.address}
-                        onChange={(e) => handleHouseDataChange('address', e.target.value)}
-                        className="form-input"
-                        rows="3"
-                        disabled={houseAdded}
-                        placeholder="Enter full address"
-                      />
-                    </div>
-                  </div>
-                  
-                  {houseAdded ? (
-                    <div className="house-added-status">
-                      <span className="added-badge">House Added</span>
-                    </div>
-                  ) : (
-                    <div className="house-actions">
-                      <button 
-                        className="save-btn full-width-btn" 
-                        onClick={saveHouse}
-                        disabled={saving || !houseData.house_name || !houseData.family_name || !houseData.area}
-                      >
-                        {saving ? 'Adding...' : 'Add House & Continue to Members'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Members Tab */}
-              {activeTab === 'members' && (
-                <div className="members-section">
-                  <div className="members-header">
-                    <h3>Add Family Members</h3>
-                  </div>
-                  
-                  {/* Search for members */}
-                  <div className="members-search">
-                    <input
-                      type="text"
-                      placeholder="Search members by name or surname..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="form-input search-input"
-                    />
-                    <p className="helper-text">Search and select members to add to the household. All members are pre-selected by default.</p>
-                  </div>
-                  
-                  {/* Action Buttons Row */}
-                  <div className="members-action-row">
-                    <div className="selection-buttons">
-                      <button className="select-all-btn small-btn" onClick={selectAllMembers}>
-                        Select All
-                      </button>
-                      <button className="deselect-all-btn small-btn" onClick={deselectAllMembers}>
-                        Deselect All
-                      </button>
-                    </div>
-                    <div className="add-member-container">
-                      <button className="add-member-btn" onClick={addMember}>
-                        + Add New Member
-                      </button>
-                    </div>
-                  </div>
-                  <p className="helper-text">Use the checkboxes to select members to add. Click "Set as Guardian" to designate the primary household member.</p>
-                  
-                  <div className="members-list-container">
-                    <div className="members-list">
-                      {filteredMembers.map((member, index) => (
-                        <div 
-                          key={member.id} 
-                          className={`member-card ${selectedMembers.has(member.id) ? 'selected' : ''}`}
-                          onClick={(e) => {
-                            // Prevent selection when clicking on form elements
-                            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
-                              toggleMemberSelection(member.id);
-                            }
-                          }}
-                        >
-                          <div className="member-header">
-                            <div className="member-select-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={selectedMembers.has(member.id)}
-                                onChange={() => toggleMemberSelection(member.id)}
-                              />
-                              <span>Member {index + 1}</span>
-                            </div>
-                            <div className="member-actions">
-                              <button 
-                                className={`guardian-btn ${guardianId === member.id ? 'active' : ''}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setGuardian(member.id);
-                                }}
-                              >
-                                {guardianId === member.id ? '✓ Guardian' : 'Set as Guardian'}
-                              </button>
-                              <button 
-                                className="remove-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeMember(member.id);
-                                }}
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="member-details-grid">
-                            {/* Name, Surname, Status, and Date of Birth */}
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label className="required">Full Name</label>
-                                <input
-                                  type="text"
-                                  value={member.name}
-                                  onChange={(e) => updateMember(member.id, 'name', e.target.value)}
-                                  className="form-input"
-                                  placeholder="Enter member's full name"
-                                />
-                                <span className="helper-text">Enter the member's complete given name(s)</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                <label>Family Surname</label>
-                                <input
-                                  type="text"
-                                  value={member.surname}
-                                  onChange={(e) => updateMember(member.id, 'surname', e.target.value)}
-                                  className="form-input"
-                                  placeholder="Enter family surname"
-                                />
-                                <span className="helper-text">Enter the family's shared surname</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                <label>Status</label>
-                                <select
-                                  value={member.status}
-                                  onChange={(e) => updateMember(member.id, 'status', e.target.value)}
-                                  className="form-input select-input"
-                                >
-                                  <option value="live">Live</option>
-                                  <option value="dead">Deceased</option>
-                                  <option value="terminated">Terminated</option>
-                                </select>
-                                <span className="helper-text">Select the current status of the member</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                <label>Date of Birth</label>
-                                <input
-                                  type="date"
-                                  value={member.date_of_birth}
-                                  onChange={(e) => updateMember(member.id, 'date_of_birth', e.target.value)}
-                                  className="form-input"
-                                />
-                                <span className="helper-text">Select the member's date of birth</span>
-                              </div>
-                            </div>
-                            
-                            {/* Aadhar, Phone, and WhatsApp */}
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label>Aadhar Number</label>
-                                <input
-                                  type="text"
-                                  value={member.aadhar}
-                                  onChange={(e) => updateMember(member.id, 'aadhar', e.target.value)}
-                                  className="form-input"
-                                  placeholder="12-digit Aadhar number"
-                                />
-                                <span className="helper-text">Enter 12-digit Aadhar card number</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                <label>Phone Number</label>
-                                <input
-                                  type="tel"
-                                  value={member.phone}
-                                  onChange={(e) => updateMember(member.id, 'phone', e.target.value)}
-                                  className="form-input"
-                                  placeholder="10-digit phone number"
-                                />
-                                <span className="helper-text">Enter 10-digit mobile number</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                <label>WhatsApp Number</label>
-                                <input
-                                  type="tel"
-                                  value={member.whatsapp}
-                                  onChange={(e) => updateMember(member.id, 'whatsapp', e.target.value)}
-                                  className="form-input"
-                                  placeholder="10-digit WhatsApp number"
-                                />
-                                <span className="helper-text">Enter 10-digit WhatsApp number (if different)</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                {/* Empty placeholder to maintain grid */}
-                              </div>
-                            </div>
-                            
-                            {/* Father and Mother Information */}
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label>Father's Full Name</label>
-                                <input
-                                  type="text"
-                                  value={member.father_name}
-                                  onChange={(e) => updateMember(member.id, 'father_name', e.target.value)}
-                                  className="form-input"
-                                  placeholder="Enter father's full name"
-                                />
-                                <span className="helper-text">Enter father's complete given name(s)</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                <label>Father's Surname</label>
-                                <input
-                                  type="text"
-                                  value={member.father_surname}
-                                  onChange={(e) => updateMember(member.id, 'father_surname', e.target.value)}
-                                  className="form-input"
-                                  placeholder="Enter father's family surname"
-                                />
-                                <span className="helper-text">Enter father's family surname</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                <label>Mother's Full Name</label>
-                                <input
-                                  type="text"
-                                  value={member.mother_name}
-                                  onChange={(e) => updateMember(member.id, 'mother_name', e.target.value)}
-                                  className="form-input"
-                                  placeholder="Enter mother's full name"
-                                />
-                                <span className="helper-text">Enter mother's complete given name(s)</span>
-                              </div>
-                              
-                              <div className="form-group">
-                                <label>Mother's Surname</label>
-                                <input
-                                  type="text"
-                                  value={member.mother_surname}
-                                  onChange={(e) => updateMember(member.id, 'mother_surname', e.target.value)}
-                                  className="form-input"
-                                  placeholder="Enter mother's family surname"
-                                />
-                                <span className="helper-text">Enter mother's family surname</span>
-                              </div>
-                            </div>
-                            
-                            {/* Father Selection with Search */}
-                            <div className="form-group">
-                              <label>Link to Father (Optional)</label>
-                              <div className="searchable-select">
-                                <div className="select-display">
-                                  {member.father_id ? (
-                                    <span>
-                                      {allMembers.find(m => m.id === member.father_id)?.name || 'Unknown Member'} 
-                                      (#{member.father_id})
-                                    </span>
-                                  ) : (
-                                    <span>Select a father</span>
-                                  )}
-                                  <button 
-                                    type="button" 
-                                    className="search-btn"
-                                    onClick={() => setShowFatherSearch(prev => ({ ...prev, [member.id]: true }))}
-                                  >
-                                    <FaSearch />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Father Search Modal */}
-                            {showFatherSearch[member.id] && (
-                              <div className="search-modal-overlay">
-                                <div className="search-modal">
-                                  <div className="search-modal-header">
-                                    <h3>Select Father</h3>
-                                    <button 
-                                      className="close-btn" 
-                                      onClick={() => setShowFatherSearch(prev => ({ ...prev, [member.id]: false }))}
-                                    >
-                                      <FaTimes />
-                                    </button>
-                                  </div>
-                                  <div className="search-modal-content">
-                                    <input
-                                      type="text"
-                                      placeholder="Search by name or ID..."
-                                      value={fatherSearchTerm[member.id] || ''}
-                                      onChange={(e) => handleFatherSearch(member.id, e.target.value)}
-                                      className="search-input"
-                                    />
-                                    <div className="search-results">
-                                      {(fatherSearchResults[member.id] && fatherSearchResults[member.id].length > 0) ? (
-                                        fatherSearchResults[member.id].map(father => (
-                                          <div 
-                                            key={father.member_id} 
-                                            className="search-result-item"
-                                            onClick={() => selectFather(member.id, father)}
-                                          >
-                                            <div className="search-result-title">{father.name || 'Unknown Member'}</div>
-                                            <div className="search-result-subtitle">ID: #{father.member_id} {father.surname ? `(${father.surname})` : ''}</div>
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <div className="no-results">No members found</div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Mother Selection with Search */}
-                            <div className="form-group">
-                              <label>Link to Mother (Optional)</label>
-                              <div className="searchable-select">
-                                <div className="select-display">
-                                  {member.mother_id ? (
-                                    <span>
-                                      {allMembers.find(m => m.id === member.mother_id)?.name || 'Unknown Member'} 
-                                      (#{member.mother_id})
-                                    </span>
-                                  ) : (
-                                    <span>Select a mother</span>
-                                  )}
-                                  <button 
-                                    type="button" 
-                                    className="search-btn"
-                                    onClick={() => setShowMotherSearch(prev => ({ ...prev, [member.id]: true }))}
-                                  >
-                                    <FaSearch />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Mother Search Modal */}
-                            {showMotherSearch[member.id] && (
-                              <div className="search-modal-overlay">
-                                <div className="search-modal">
-                                  <div className="search-modal-header">
-                                    <h3>Select Mother</h3>
-                                    <button 
-                                      className="close-btn" 
-                                      onClick={() => setShowMotherSearch(prev => ({ ...prev, [member.id]: false }))}
-                                    >
-                                      <FaTimes />
-                                    </button>
-                                  </div>
-                                  <div className="search-modal-content">
-                                    <input
-                                      type="text"
-                                      placeholder="Search by name or ID..."
-                                      value={motherSearchTerm[member.id] || ''}
-                                      onChange={(e) => handleMotherSearch(member.id, e.target.value)}
-                                      className="search-input"
-                                    />
-                                    <div className="search-results">
-                                      {(motherSearchResults[member.id] && motherSearchResults[member.id].length > 0) ? (
-                                        motherSearchResults[member.id].map(mother => (
-                                          <div 
-                                            key={mother.member_id} 
-                                            className="search-result-item"
-                                            onClick={() => selectMother(member.id, mother)}
-                                          >
-                                            <div className="search-result-title">{mother.name || 'Unknown Member'}</div>
-                                            <div className="search-result-subtitle">ID: #{mother.member_id} {mother.surname ? `(${mother.surname})` : ''}</div>
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <div className="no-results">No members found</div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
 
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Selected Members Count */}
-                  <div className="selected-members-info">
-                    {selectedMembers.size > 0 ? (
-                      <p>{selectedMembers.size} member(s) selected for addition</p>
-                    ) : (
-                      <p>No members selected</p>
-                    )}
-                  </div>
-                  
-                  {/* Add Selected Members Button */}
-                  <div className="add-selected-button-container">
-                    <button 
-                      className="save-btn full-width-btn" 
-                      onClick={saveSelectedMembers}
-                      disabled={saving || selectedMembers.size === 0}
-                    >
-                      {saving ? 'Adding Members...' : `Add ${selectedMembers.size} Selected Member(s)`}
-                    </button>
-                  </div>
+              {/* Stepper Visual */}
+              <div className="stepper">
+                <div className={`step ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}>
+                  <div className="step-circle">{currentStep > 1 ? <FaCheck /> : 1}</div>
+                  <span className="step-label">Save House</span>
                 </div>
-              )}
-              
-              {saveMessage && (
-                <div className={`message ${saveMessage.includes('Error') ? 'error' : 'success'}`}>
-                  {saveMessage}
+                <div className={`step ${currentStep >= 2 ? 'active' : ''} ${currentStep > 2 ? 'completed' : ''}`}>
+                  <div className="step-circle">{currentStep > 2 ? <FaCheck /> : 2}</div>
+                  <span className="step-label">Add Members</span>
                 </div>
-              )}
-              
-              <div className="modal-footer">
-                <button className="cancel-btn" onClick={closeModal}>
-                  Cancel
-                </button>
+                <div className={`step ${currentStep >= 3 ? 'active' : ''} ${currentStep > 3 ? 'completed' : ''}`}>
+                  <div className="step-circle">{currentStep > 3 ? <FaCheck /> : 3}</div>
+                  <span className="step-label">Relationships</span>
+                </div>
               </div>
+            </div>
+
+            <div className="modal-content-body">
+              {currentStep === 1 && renderStep1House()}
+              {currentStep === 2 && renderStep2Members()}
+              {currentStep === 3 && renderStep3Relationships()}
+            </div>
+
+            <div className="modal-footer-actions">
+              <div className="status-indicator">
+                {saving ? <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}><div className="loading-spinner" style={{ width: 16, height: 16, border: '2px solid #ccc', borderTopColor: '#333' }}></div> Processing...</span> : <span>Step {currentStep} of 3</span>}
+              </div>
+
+              {currentStep === 1 && (
+                <button className="next-step-btn" onClick={handleSaveHouse} disabled={saving}>
+                  Create House & Next <FaArrowRight style={{ marginLeft: 8 }} />
+                </button>
+              )}
+              {currentStep === 2 && (
+                <button className="next-step-btn" onClick={handleSaveMembers} disabled={saving}>
+                  Save Members & Next <FaArrowRight style={{ marginLeft: 8 }} />
+                </button>
+              )}
+              {currentStep === 3 && (
+                <button className="next-step-btn" onClick={handleFinishWizard} disabled={saving} style={{ backgroundColor: '#10b981' }}>
+                  <FaCheck style={{ marginRight: 8 }} /> Finish Processing
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
-      
-      {/* Members Modal */}
-      {renderMembersModal()}
     </div>
   );
 };
