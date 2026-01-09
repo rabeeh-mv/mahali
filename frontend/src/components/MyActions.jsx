@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { recentActionsAPI, settingsAPI, houseAPI, memberAPI, api } from '../api';
+import { recentActionsAPI, settingsAPI, houseAPI, memberAPI, obligationAPI, subcollectionAPI, api } from '../api';
 import './MyActions.css';
-import { FaHistory, FaCloudUploadAlt, FaCheck, FaTrash, FaSearch, FaSync, FaExclamationTriangle } from 'react-icons/fa';
+import { FaHistory, FaCloudUploadAlt, FaCheck, FaTrash, FaSearch, FaSync, FaExclamationTriangle, FaTimes } from 'react-icons/fa';
 
 const MyActions = () => {
     const [actions, setActions] = useState([]);
@@ -12,10 +12,14 @@ const MyActions = () => {
     const [syncing, setSyncing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [firebaseConfig, setFirebaseConfig] = useState(null);
+    const [showSyncModal, setShowSyncModal] = useState(false);
 
     // Cloud Data Filtering & Selection
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCloudIds, setSelectedCloudIds] = useState(new Set());
+
+    // Cache for subcollections to map names
+    const [subcollectionMap, setSubcollectionMap] = useState({});
 
     const loadActions = async () => {
         setLoading(true);
@@ -65,9 +69,23 @@ const MyActions = () => {
         }
     };
 
+    const loadSubcollections = async () => {
+        try {
+            const res = await subcollectionAPI.getAll();
+            const map = {};
+            if (res.data) {
+                res.data.forEach(s => map[s.id] = s.name);
+            }
+            setSubcollectionMap(map);
+        } catch (error) {
+            console.error("Failed to load subcollections", error);
+        }
+    };
+
     useEffect(() => {
         loadActions();
         loadAppSettings();
+        loadSubcollections();
     }, []);
 
     // Load cloud data once config is available
@@ -109,7 +127,30 @@ const MyActions = () => {
         );
     };
 
-    const performSync = async () => {
+    const handleRemoveFromSync = async (actionId) => {
+        // Optimistic update to remove from list immediately
+        setActions(prev => prev.map(a => a.id === actionId ? { ...a, is_sync_pending: false } : a));
+        try {
+            await recentActionsAPI.update(actionId, { is_sync_pending: false });
+        } catch (err) {
+            console.error("Failed to remove sync pending status", err);
+            // Revert by reloading to ensure consistency
+            loadActions();
+        }
+    };
+
+    const openSyncModal = () => {
+        const pending = actions.filter(a => a.is_sync_pending);
+        if (pending.length === 0) {
+            alert("No pending actions to sync.");
+            return;
+        }
+        setShowSyncModal(true);
+    };
+
+    const closeSyncModal = () => setShowSyncModal(false);
+
+    const executeSync = async () => {
         if (!firebaseConfig) {
             alert("Firebase not configured in Settings.");
             return;
@@ -118,10 +159,9 @@ const MyActions = () => {
         const pendingActions = actions.filter(a => a.is_sync_pending);
         if (pendingActions.length === 0) {
             alert("No pending actions to sync.");
+            closeSyncModal();
             return;
         }
-
-        if (!window.confirm(`About to sync ${pendingActions.length} changes to Cloud. Continue?`)) return;
 
         setSyncing(true);
         try {
@@ -146,10 +186,6 @@ const MyActions = () => {
 
                             if (targetDocId) {
                                 // STRICT PAYLOAD: 1. houseId, 2. houseName
-                                // Note: For House update, we might not update members if not avail, 
-                                // but ideally we should to be safe? 
-                                // Let's keep it minimal for House update unless requested otherwise.
-                                // Minimal update preserves other fields in Firestore if using {merge: true}.
                                 payload = {
                                     houseId: house.home_id,
                                     houseName: house.house_name,
@@ -173,12 +209,9 @@ const MyActions = () => {
                                 targetDocId = house.firebase_id || house.home_id;
 
                                 // 2. Fetch ALL members of this house to ensure list is accurate
-                                // We filter by 'search' with house name as a heuristic since no direct ID filter is guaranteed in frontend API
                                 let allHouseMembers = [];
                                 const membersSearch = await memberAPI.search({ search: house.house_name });
                                 if (membersSearch.data && membersSearch.data.results) {
-                                    // Strictly filter results to match this house ID
-                                    // Make sure we compare strings/numbers correctly.
                                     allHouseMembers = membersSearch.data.results.filter(m => String(m.house) === String(house.home_id) || m.house === house.id);
                                 } else if (membersSearch.data && Array.isArray(membersSearch.data)) {
                                     allHouseMembers = membersSearch.data.filter(m => String(m.house) === String(house.home_id) || m.house === house.id);
@@ -188,6 +221,44 @@ const MyActions = () => {
                                     // Calculate Guardian
                                     const guardian = allHouseMembers.find(m => m.isGuardian) || allHouseMembers[0] || {};
 
+                                    // Fetch Pending Obligations for Guardian
+                                    let pendingObligationsPayload = [];
+                                    if (guardian.member_id) {
+                                        try {
+                                            // Search obligations for this guardian with status=pending
+                                            // The API search param 'search' usually matches member name/id, but precise ID match is better if possible.
+                                            // Assuming search query works for Member ID.
+                                            const obRes = await obligationAPI.search({
+                                                search: guardian.member_id,
+                                                paid_status: 'pending'
+                                            });
+
+                                            let pendingObs = [];
+                                            if (obRes.data && obRes.data.results) {
+                                                pendingObs = obRes.data.results; // paginated
+                                            } else if (Array.isArray(obRes.data)) {
+                                                pendingObs = obRes.data;
+                                            }
+
+                                            // Double check filtering by member_id just in case "search" is fuzzy
+                                            pendingObs = pendingObs.filter(o =>
+                                                String(o.member) === String(guardian.member_id) ||
+                                                (o.member && String(o.member.member_id) === String(guardian.member_id))
+                                            );
+
+                                            pendingObligationsPayload = pendingObs.map(o => {
+                                                const subId = (typeof o.subcollection === 'object') ? o.subcollection.id : o.subcollection;
+                                                return {
+                                                    subcollection: subcollectionMap[subId] || 'Unknown',
+                                                    amount: o.amount
+                                                };
+                                            });
+
+                                        } catch (e) {
+                                            console.error("Error fetching obligations for sync", e);
+                                        }
+                                    }
+
                                     const memberList = allHouseMembers.map(m => ({
                                         member_id: m.member_id,
                                         name: `${m.name} ${m.surname}`.trim()
@@ -195,21 +266,19 @@ const MyActions = () => {
 
                                     // STRICT PAYLOAD
                                     payload = {
-                                        // 1. house id
                                         houseId: house.home_id,
-                                        // 2. house name
                                         houseName: house.house_name,
-                                        // 3. gardient name + surname
                                         guardianName: `${guardian.name || ''} ${guardian.surname || ''}`.trim(),
-                                        // 4. date of birth
                                         guardianDob: guardian.date_of_birth || '',
-                                        // 5. adhar number(last 4 digit)
                                         guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
-                                        // 6. oblications
-                                        obligations: 0,
-                                        // 7. Memebers
+                                        // obligations: 0, // REMOVED hardcoded
                                         members: memberList
                                     };
+
+                                    // "if not pending oblications we donot need to update the oblication data"
+                                    if (pendingObligationsPayload.length > 0) {
+                                        payload.obligations = pendingObligationsPayload;
+                                    }
 
                                     await setDoc(doc(db, 'units', String(targetDocId)), payload, { merge: true });
                                 }
@@ -231,6 +300,7 @@ const MyActions = () => {
 
             loadActions();
             loadCloudData();
+            closeSyncModal();
             alert(`Sync process finished. ${syncedCount}/${pendingActions.length} actions processed.`);
 
         } catch (err) {
@@ -293,6 +363,42 @@ const MyActions = () => {
             }
 
 
+            // Fetch ALL Pending Obligations for Bulk/Full Sync optimization
+            // Instead of fetching per guardian, we fetch all pending and map them.
+            const guardianObligationsMap = {}; // guardian_id -> [{ subcollection: "Name", amount: 100 }]
+            try {
+                // Fetch all pending
+                let allPendingObs = [];
+                // Pagination loop for obligations
+                let oPage = 1;
+                while (true) {
+                    const oRes = await obligationAPI.search({ paid_status: 'pending', page: oPage, page_size: 100 });
+                    const results = oRes.data.results || oRes.data;
+                    if (!results || results.length === 0) break;
+                    allPendingObs = [...allPendingObs, ...results];
+                    if (!oRes.data.next) break;
+                    oPage++;
+                }
+
+                // Group by member (guardian)
+                allPendingObs.forEach(o => {
+                    // Extract Member ID
+                    let mId = o.member;
+                    if (typeof o.member === 'object' && o.member !== null) mId = o.member.member_id;
+
+                    if (mId) {
+                        if (!guardianObligationsMap[mId]) guardianObligationsMap[mId] = [];
+                        const subId = (typeof o.subcollection === 'object') ? o.subcollection.id : o.subcollection;
+                        guardianObligationsMap[mId].push({
+                            subcollection: subcollectionMap[subId] || 'Unknown',
+                            amount: o.amount
+                        });
+                    }
+                });
+            } catch (e) {
+                console.error("Failed to fetch all obligations for full sync", e);
+            }
+
             // Map Members to Houses
             const houseMembersMap = {};
             allMembers.forEach(m => {
@@ -334,11 +440,15 @@ const MyActions = () => {
                     guardianDob: guardian.date_of_birth || '',
                     // 5. adhar number(last 4 digit)
                     guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
-                    // 6. oblications
-                    obligations: 0,
-                    // 7. Memebers
+                    // 5. adhar number(last 4 digit)
+                    guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
+                    // 6. oblications - populated if exists
                     members: memberList,
                 };
+
+                if (guardian.member_id && guardianObligationsMap[guardian.member_id]) {
+                    payload.obligations = guardianObligationsMap[guardian.member_id];
+                }
 
                 batch.set(docRef, payload, { merge: true });
                 count++;
@@ -449,7 +559,7 @@ const MyActions = () => {
                         <div className="panel-actions">
                             <button
                                 className="action-btn primary"
-                                onClick={performSync}
+                                onClick={openSyncModal}
                                 disabled={syncing || pendingActions.length === 0}
                             >
                                 <FaCloudUploadAlt /> {syncing ? "Syncing..." : "Sync Pending"}
@@ -579,7 +689,59 @@ const MyActions = () => {
                     </div>
                 </div>
             </div>
-        </div>
+            {/* Modal for Sync Review */}
+            {
+                showSyncModal && (
+                    <div className="modal-overlay">
+                        <div className="modal-content sync-modal animate-in">
+                            <div className="modal-header">
+                                <h3>Review Data to Sync ({pendingActions.length})</h3>
+                                <button className="icon-btn" onClick={closeSyncModal}><FaTimes /></button>
+                            </div>
+                            <div className="modal-body">
+                                <p style={{ marginBottom: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    The following items are pending synchronization. Review them below. You can remove items you do not wish to sync.
+                                </p>
+                                <div className="sync-review-list">
+                                    {pendingActions.map(action => (
+                                        <div key={action.id} className="sync-item-row">
+                                            <div className="sync-item-info">
+                                                <div className="sync-item-title">
+                                                    {action.model_name} {action.action_type}
+                                                    <span
+                                                        style={{ marginLeft: '8px', fontSize: '10px' }}
+                                                        className={`badge ${action.action_type.toLowerCase()}`}
+                                                    >
+                                                        {action.action_type}
+                                                    </span>
+                                                </div>
+                                                <div className="sync-item-subtitle">
+                                                    {action.description || 'No description'} • {formatDate(action.timestamp)}
+                                                </div>
+                                                {renderChanges(action.fields_changed)}
+                                            </div>
+                                            <button
+                                                className="action-btn danger small"
+                                                onClick={() => handleRemoveFromSync(action.id)}
+                                                title="Don't Sync (Remove from pending)"
+                                            >
+                                                <FaTrash /> Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button className="action-btn secondary" onClick={closeSyncModal}>Cancel</button>
+                                <button className="action-btn primary" onClick={executeSync} disabled={syncing || pendingActions.length === 0}>
+                                    <FaCloudUploadAlt /> {syncing ? "Syncing..." : "Confirm & Sync"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 
