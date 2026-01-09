@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { houseAPI, memberAPI, areaAPI, obligationAPI, subcollectionAPI } from '../api';
-import { FaHome, FaUser, FaArrowLeft, FaEdit, FaMapMarkerAlt, FaUsers } from 'react-icons/fa';
+import { FaHome, FaUser, FaArrowLeft, FaEdit, FaTrash, FaMapMarkerAlt, FaUsers } from 'react-icons/fa';
+import DeleteConfirmModal from './DeleteConfirmModal';
 
 import './HouseDetailsPage.css';
 
-const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, loadDataForTab }) => {
+const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, loadDataForTab, deleteItem }) => {
   const { houseId } = useParams();
   const navigate = useNavigate();
   const [house, setHouse] = useState(null);
@@ -15,6 +16,7 @@ const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, 
   const [obligations, setObligations] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [allSubcollections, setAllSubcollections] = useState([]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Use useMemo to ensure we have a stable reference to houseId
   const stableHouseId = useMemo(() => houseId, [houseId]);
@@ -111,6 +113,18 @@ const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, 
     navigate(`/houses/edit/${house.home_id}`);
   };
 
+  const handleDeleteHouse = () => {
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (house) {
+      await deleteItem('houses', house.home_id);
+      setIsDeleteModalOpen(false);
+      navigate('/houses');
+    }
+  };
+
   const handleViewMember = (memberId) => {
     navigate(`/members/${memberId}`);
   };
@@ -169,9 +183,12 @@ const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, 
             <h2 className="house-name">{house.house_name}</h2>
             <div className="house-id-badge">ID: {house.home_id}</div>
 
-            <div style={{ marginTop: '16px' }}>
+            <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
               <button onClick={handleEditHouse} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-                <FaEdit /> Edit Details
+                <FaEdit /> Edit
+              </button>
+              <button onClick={handleDeleteHouse} className="delete-btn" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FaTrash />
               </button>
             </div>
           </div>
@@ -197,10 +214,7 @@ const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, 
                 {house.location_name}, {area?.name}
               </div>
             </div>
-            <div className="info-item">
-              <div className="info-label">Door Number</div>
-              <div className="info-value">{house.door_number || 'N/A'}</div>
-            </div>
+
             <div className="info-item">
               <div className="info-label">Residents Count</div>
               <div className="info-value">{houseMembers.length} Members</div>
@@ -308,6 +322,14 @@ const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, 
         </div>
 
       </div>
+
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        item={house}
+        itemType="houses"
+      />
     </div>
   );
 };

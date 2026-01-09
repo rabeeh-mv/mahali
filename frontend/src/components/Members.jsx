@@ -7,22 +7,24 @@ import './Members.css'
 
 const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
   const navigate = useNavigate();
-  // const [isModalOpen, setIsModalOpen] = useState(false) // Removed
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  // const [currentMember, setCurrentMember] = useState(null) // Removed
   const [memberToDelete, setMemberToDelete] = useState(null)
   const [areas, setAreas] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedArea, setSelectedArea] = useState('')
-  const [selectedStatus, setSelectedStatus] = useState('')
-  const [isGuardianFilter, setIsGuardianFilter] = useState('')
   const [filteredMembers, setFilteredMembers] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
   const [initialLoad, setInitialLoad] = useState(true)
   const [isThrottling, setIsThrottling] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
+
+  // Filter states
+  const [showFilterMenu, setShowFilterMenu] = useState(false)
+  const [filterCriteria, setFilterCriteria] = useState({
+    area: '',
+    status: '',
+    role: '' // 'guardian', 'non-guardian', or ''
+  })
 
   // Load areas for filtering
   useEffect(() => {
@@ -68,16 +70,18 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
         params.search = searchTerm;
       }
 
-      if (selectedArea) {
-        params.area = selectedArea;
+      if (filterCriteria.area) {
+        params.area = filterCriteria.area;
       }
 
-      if (selectedStatus) {
-        params.status = selectedStatus;
+      if (filterCriteria.status) {
+        params.status = filterCriteria.status;
       }
 
-      if (isGuardianFilter !== '') {
-        params.is_guardian = isGuardianFilter === 'true';
+      if (filterCriteria.role === 'guardian') {
+        params.is_guardian = true;
+      } else if (filterCriteria.role === 'non-guardian') {
+        params.is_guardian = false;
       }
 
       const response = await memberAPI.search(params);
@@ -106,7 +110,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, selectedArea, selectedStatus, isGuardianFilter, loading]);
+  }, [searchTerm, filterCriteria, loading]);
 
   // Load members when filters change (throttled)
   const throttledLoadMembers = useCallback(throttle(() => {
@@ -117,13 +121,11 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
   // Load members when filters or page changes
   useEffect(() => {
     throttledLoadMembers();
-  }, [searchTerm, selectedArea, selectedStatus, isGuardianFilter, throttledLoadMembers]);
+  }, [searchTerm, filterCriteria, throttledLoadMembers]);
 
   // Handle scroll for infinite loading
   const handleScroll = useCallback((e) => {
-    // Use the target element (table container) for scroll detection instead of window
     const { scrollTop, scrollHeight, clientHeight } = e.target;
-
     if (!hasMore || loading || initialLoad) return;
 
     if (scrollTop + clientHeight >= scrollHeight - 50) {
@@ -132,73 +134,78 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     }
   }, [hasMore, loading, initialLoad, currentPage, loadMembers]);
 
-  const handleAddMember = () => {
-    navigate('/members/add');
-  }
+  const handleAddMember = () => navigate('/members/add');
 
-  const handleEditMember = (member) => {
-    navigate(`/members/edit/${member.member_id}`);
-  }
-
-  const handleDeleteMember = (member) => {
-    setMemberToDelete(member)
-    setIsDeleteModalOpen(true)
-  }
+  // const handleEditMember = (member) => navigate(`/members/edit/${member.member_id}`); // Removed actions column
+  // const handleDeleteMember = (member) => { ... } // Removed actions column
 
   const handleViewMember = (member) => {
-    // Navigate to member details page
     navigate(`/members/${member.member_id}`);
-  }
-
-  const confirmDelete = async () => {
-    if (memberToDelete) {
-      await deleteItem('members', memberToDelete.member_id)
-      setIsDeleteModalOpen(false)
-      setMemberToDelete(null)
-      // Reload member data after deletion
-      loadMembers(1, false);
-    }
   }
 
   const handleReloadData = () => {
     loadMembers(1, false);
   }
 
-  const handleDeleteModalClose = () => {
-    setIsDeleteModalOpen(false)
-    setMemberToDelete(null)
+  const toggleFilterMenu = () => {
+    setShowFilterMenu(!showFilterMenu)
   }
 
-  const toggleFilters = () => {
-    setShowFilters(!showFilters)
+  const applyFilter = (key, value) => {
+    setFilterCriteria(prev => ({
+      ...prev,
+      [key]: value
+    }))
+    setShowFilterMenu(false) // Optionally keep open
   }
+
+  const removeFilter = (key) => {
+    setFilterCriteria(prev => ({
+      ...prev,
+      [key]: ''
+    }))
+  }
+
+  const clearAllFilters = () => {
+    setFilterCriteria({
+      area: '',
+      status: '',
+      role: ''
+    })
+    setSearchTerm('')
+  }
+
+  // Helper to get label for active filters
+  const getFilterLabel = (key, value) => {
+    if (!value) return null;
+    switch (key) {
+      case 'area':
+        const area = areas.find(a => a.id.toString() === value.toString());
+        return area ? `Area: ${area.name}` : `Area ID: ${value}`;
+      case 'status':
+        return `Status: ${value.charAt(0).toUpperCase() + value.slice(1)}`;
+      case 'role':
+        return `Role: ${value === 'guardian' ? 'Guardian' : 'Non-Guardian'}`;
+      default:
+        return `${key}: ${value}`;
+    }
+  }
+
+  const hasActiveFilters = searchTerm || Object.values(filterCriteria).some(val => val !== '');
 
   return (
-    <div className="data-section animate-in" style={{ padding: '0', overflow: 'hidden' }}>
-      <div className="section-header" style={{ padding: '24px 32px' }}>
-        <h2>
+    <div className="members-page-container animate-in">
+
+      {/* Top Section 1: Title & Main Actions */}
+      <div className="members-top-section-1">
+        <div className="page-title">
           <div className="header-icon-wrapper">
             <FaUser />
           </div>
-          Members
-        </h2>
-        <div className="header-actions">
-          <button
-            onClick={toggleFilters}
-            className={`header-btn filter-toggle-btn ${showFilters ? 'active' : ''}`}
-            title="Toggle Filters"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: showFilters ? 'var(--primary)' : 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid var(--border)',
-              color: showFilters ? 'white' : 'var(--text-muted)'
-            }}
-          >
-            <FaFilter />
-          </button>
-          <button onClick={handleReloadData} className="reload-btn" title="Reload Data">
+          <h1>Members</h1>
+        </div>
+        <div className="top-actions">
+          <button onClick={handleReloadData} className="reload-btn icon-only-btn" title="Reload Data">
             <FaRedo />
           </button>
           <button onClick={handleAddMember} className="btn-primary">
@@ -207,77 +214,87 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
         </div>
       </div>
 
-      {/* Collapsible Search and Filters */}
-      <div className={`filter-collapsible ${showFilters ? 'open' : ''}`}>
-        <div className="form-row">
-          <div className="form-group" style={{ flex: 2 }}>
-            <label htmlFor="member-search">Global Search</label>
-            <div className="input-wrapper">
-              <input
-                type="text"
-                id="member-search"
-                placeholder="Search by ID, Name, Surname or House..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-            </div>
+      {/* Top Section 2: Search, Filters, Active Chips */}
+      <div className="members-top-section-2">
+        <div className="search-filter-wrapper">
+          <div className="search-bar">
+            <input
+              type="text"
+              placeholder="Search members..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="member-area">Area</label>
-            <div className="input-wrapper">
-              <select
-                id="member-area"
-                value={selectedArea}
-                onChange={(e) => setSelectedArea(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Areas</option>
-                {areas.map(area => (
-                  <option key={area.id} value={area.id}>{area.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <div className="filter-container">
+            <button
+              className={`filter-btn ${showFilterMenu ? 'active' : ''}`}
+              onClick={toggleFilterMenu}
+            >
+              <FaFilter /> Filter
+            </button>
 
-          <div className="form-group">
-            <label htmlFor="member-status">Vital Status</label>
-            <div className="input-wrapper">
-              <select
-                id="member-status"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Statuses</option>
-                <option value="live">Live</option>
-                <option value="dead">Deceased</option>
-                <option value="terminated">Terminated</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="member-guardian">Role</label>
-            <div className="input-wrapper">
-              <select
-                id="member-guardian"
-                value={isGuardianFilter}
-                onChange={(e) => setIsGuardianFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Roles</option>
-                <option value="true">Guardians Only</option>
-                <option value="false">Non-Guardians</option>
-              </select>
-            </div>
+            {showFilterMenu && (
+              <div className="filter-menu-dropdown">
+                <div className="filter-section">
+                  <h4>Vital Status</h4>
+                  <div className="filter-options">
+                    <button onClick={() => applyFilter('status', 'live')} className={filterCriteria.status === 'live' ? 'active' : ''}>Live</button>
+                    <button onClick={() => applyFilter('status', 'dead')} className={filterCriteria.status === 'dead' ? 'active' : ''}>Deceased</button>
+                    <button onClick={() => applyFilter('status', 'terminated')} className={filterCriteria.status === 'terminated' ? 'active' : ''}>Terminated</button>
+                  </div>
+                </div>
+                <div className="filter-section">
+                  <h4>Role</h4>
+                  <div className="filter-options">
+                    <button onClick={() => applyFilter('role', 'guardian')} className={filterCriteria.role === 'guardian' ? 'active' : ''}>Guardian</button>
+                    <button onClick={() => applyFilter('role', 'non-guardian')} className={filterCriteria.role === 'non-guardian' ? 'active' : ''}>Non-Guardian</button>
+                  </div>
+                </div>
+                <div className="filter-section">
+                  <h4>Area</h4>
+                  <div className="filter-options scrollable">
+                    {areas.map(area => (
+                      <button
+                        key={area.id}
+                        onClick={() => applyFilter('area', area.id)}
+                        className={filterCriteria.area == area.id ? 'active' : ''}
+                      >
+                        {area.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Active Filters List */}
+        {hasActiveFilters && (
+          <div className="active-filters-list">
+            {Object.entries(filterCriteria).map(([key, value]) => {
+              if (!value) return null;
+              return (
+                <div key={key} className="filter-chip gradient-chip">
+                  {getFilterLabel(key, value)}
+                  <span onClick={() => removeFilter(key)}>&times;</span>
+                </div>
+              )
+            })}
+            {searchTerm && (
+              <div className="filter-chip gradient-chip">
+                Search: "{searchTerm}"
+                <span onClick={() => setSearchTerm('')}>&times;</span>
+              </div>
+            )}
+            <button onClick={clearAllFilters} className="clear-all-btn">Clear All</button>
+          </div>
+        )}
       </div>
 
       <div className="members-table-container" onScroll={handleScroll}>
-        <table>
+        <table className="interactive-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -286,13 +303,16 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
               <th className="text-center">Status</th>
               <th className="text-center">Role</th>
               <th>Contact Info</th>
-              <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredMembers.length > 0 ? (
               filteredMembers.map(member => (
-                <tr key={member.member_id}>
+                <tr
+                  key={member.member_id}
+                  onClick={() => handleViewMember(member)}
+                  className="clickable-row"
+                >
                   <td className="text-muted font-mono">#{member.member_id}</td>
                   <td>
                     <div className="font-semibold">{member.name} {member.surname}</div>
@@ -306,7 +326,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                     </div>
                   </td>
                   <td className="text-center">
-                    <span className={`status-badge ${member.status === 'live' ? 'active' : member.status === 'dead' ? 'inactive' : 'terminated'}`}>
+                    <span className={`status-badge ${member.status?.toLowerCase() === 'live' ? 'active' : member.status?.toLowerCase() === 'dead' ? 'inactive' : 'terminated'}`}>
                       {member.status?.charAt(0).toUpperCase() + member.status?.slice(1)}
                     </span>
                   </td>
@@ -321,24 +341,11 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                     <div style={{ fontSize: '0.9rem' }}>{member.phone || 'No Phone'}</div>
                     <div className="text-muted" style={{ fontSize: '0.8rem' }}>{member.whatsapp || ''}</div>
                   </td>
-                  <td className="text-right">
-                    <div className="action-btn-group" style={{ justifyContent: 'flex-end' }}>
-                      <button onClick={() => handleViewMember(member)} className="view-btn" title="View Profile">
-                        <FaEye />
-                      </button>
-                      <button onClick={() => handleEditMember(member)} className="edit-btn" title="Edit Member">
-                        <FaEdit />
-                      </button>
-                      <button onClick={() => handleDeleteMember(member)} className="delete-btn" title="Delete">
-                        <FaTrash />
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               ))
             ) : !loading && (
               <tr>
-                <td colSpan="7" className="text-center py-10">
+                <td colSpan="6" className="text-center py-10">
                   <div className="empty-state">
                     <p>No members found matching your criteria.</p>
                   </div>
@@ -347,7 +354,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
             )}
             {loading && (
               <tr>
-                <td colSpan="7" className="text-center">
+                <td colSpan="6" className="text-center">
                   <div className="loading-overlay-inline" style={{ padding: '20px' }}>
                     <div className="spinner-small"></div>
                     <p>Fetching members...</p>
@@ -359,10 +366,11 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
         </table>
       </div>
 
+      {/* Delete Modal is still here if we need it for other things, but actions are removed from table */}
       <DeleteConfirmModal
         isOpen={isDeleteModalOpen}
-        onClose={handleDeleteModalClose}
-        onConfirm={confirmDelete}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={() => { }}
         item={memberToDelete}
         itemType="members"
       />

@@ -96,6 +96,13 @@ export const settingsAPI = {
   delete: (id) => api.delete(`/settings/${id}/`),
 };
 
+export const recentActionsAPI = {
+  getAll: (params) => api.get('/recent-actions/', { params }),
+  update: (id, data) => api.patch(`/recent-actions/${id}/`, data),
+};
+
+
+
 // Export the api instance as well
 export { api };
 export default api;

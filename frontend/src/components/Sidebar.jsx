@@ -6,7 +6,7 @@ import {
   FaHouseUser,
   FaUsers,
   FaFolder,
-
+  FaHistory, // added icon
   FaFire, // Firebase icon
   FaCog, // Settings icon
   FaSun,
@@ -108,6 +108,7 @@ const Sidebar = ({
     if (location.pathname.startsWith('/collections')) return 'collections';
     if (location.pathname.startsWith('/subcollections')) return 'subcollections';
     if (location.pathname.startsWith('/obligations')) return 'obligations';
+    if (location.pathname.startsWith('/my-actions')) return 'my-actions';
 
     if (location.pathname.startsWith('/settings')) return 'settings';
     return 'dashboard';
@@ -138,6 +139,9 @@ const Sidebar = ({
         break;
       case 'obligations':
         navigate('/obligations');
+        break;
+      case 'my-actions':
+        navigate('/my-actions');
         break;
 
       case 'settings':
@@ -215,6 +219,18 @@ const Sidebar = ({
             {!isCollapsed && <span>Digital Requests</span>}
           </button>
         )}
+
+        {isFirebaseConfigured && (
+          <button
+            className={activeTab === 'my-actions' ? 'active' : ''}
+            onClick={() => handleTabChange('my-actions')}
+            disabled={disabled}
+          >
+            <FaHistory className="tab-icon" style={{ color: '#2563eb' }} />
+            {!isCollapsed && <span>My Actions</span>}
+          </button>
+        )}
+
 
         <button
           className={activeTab === 'members' ? 'active' : ''}

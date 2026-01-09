@@ -1,24 +1,29 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaHome, FaEdit, FaTrash } from 'react-icons/fa'
+import { FaHome, FaEdit, FaTrash, FaFilter, FaRedo } from 'react-icons/fa'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import { houseAPI, areaAPI } from '../api'
+import './Houses.css'
 
 const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
   const navigate = useNavigate();
-  // const [isModalOpen, setIsModalOpen] = useState(false) // Removed
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  // const [currentHouse, setCurrentHouse] = useState(null) // Removed
   const [houseToDelete, setHouseToDelete] = useState(null)
   const [houseList, setHouseList] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  // const [totalPages, setTotalPages] = useState(1) // Not strictly needed for infinite scroll or simple list, but keeping if we want pagination
+
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedArea, setSelectedArea] = useState('')
   const [localAreas, setLocalAreas] = useState([])
   const hasLoadedInitialData = useRef(false);
   const searchParamsRef = useRef({ searchTerm: '', selectedArea: '' });
+
+  // Filter states
+  const [showFilterMenu, setShowFilterMenu] = useState(false)
+  const [filterCriteria, setFilterCriteria] = useState({
+    area: ''
+  })
 
   // Load areas for filtering
   useEffect(() => {
@@ -34,6 +39,14 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
     loadAreas();
   }, []);
 
+  // Update ref when states change (for debounce)
+  useEffect(() => {
+    searchParamsRef.current = {
+      searchTerm,
+      selectedArea: filterCriteria.area
+    };
+  }, [searchTerm, filterCriteria]);
+
   // Load houses data with pagination
   const loadHouses = useCallback(async (page = 1) => {
     if (loading) return;
@@ -42,7 +55,7 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
     try {
       const params = {
         page: page,
-        page_size: 15
+        page_size: 20 // increased size slightly
       };
 
       // Add search and filter parameters
@@ -58,11 +71,7 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
       const newHouses = response.data.results || response.data;
 
       setHouseList(newHouses);
-
-      // Set pagination info
-      if (response.data.count) {
-        setTotalPages(Math.ceil(response.data.count / 15));
-      }
+      // setTotalPages(Math.ceil(response.data.count / 20));
 
     } catch (error) {
       console.error('Failed to load houses:', error);
@@ -72,7 +81,7 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
     }
   }, [loading]);
 
-  // Load houses when component mounts - only once
+  // Initial Load
   useEffect(() => {
     if (!hasLoadedInitialData.current) {
       loadHouses(1);
@@ -81,40 +90,28 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
     }
   }, [loadHouses]);
 
-  // Handle search with debouncing - only call API when user stops typing for 1 second
+  // Debounced Search/Filter
   useEffect(() => {
-    // Update the ref with current search params
-    searchParamsRef.current = { searchTerm, selectedArea };
-
-    // Only proceed if initial data has been loaded
     if (!hasLoadedInitialData.current) return;
 
     const handler = setTimeout(() => {
       loadHouses(1);
       setCurrentPage(1);
-    }, 1000); // 1 second delay
+    }, 800);
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchTerm, selectedArea]); // Correct dependency array - only depend on search params
+    return () => clearTimeout(handler);
+  }, [searchTerm, filterCriteria]);
 
-  const handleAddHouse = () => {
-    navigate('/houses/add');
-  }
 
-  const handleEditHouse = (house) => {
-    navigate(`/houses/edit/${house.home_id}`);
-  }
-
-  const handleDeleteHouse = (house) => {
-    setHouseToDelete(house)
-    setIsDeleteModalOpen(true)
-  }
+  const handleAddHouse = () => navigate('/houses/add');
 
   const handleViewHouse = (house) => {
-    // Navigate to house details page
     navigate(`/houses/${house.home_id}`);
+  }
+
+  const handleDeleteHouse = (house) => { // Still kept for modal logic if needed, though button removed
+    setHouseToDelete(house)
+    setIsDeleteModalOpen(true)
   }
 
   const confirmDelete = async () => {
@@ -122,97 +119,122 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
       await deleteItem('houses', houseToDelete.home_id)
       setIsDeleteModalOpen(false)
       setHouseToDelete(null)
-      // Reload house data after deletion
       loadHouses(currentPage);
     }
   }
 
-  const handleReloadData = () => {
-    loadHouses(currentPage);
+  const handleReloadData = () => loadHouses(1);
+
+  const toggleFilterMenu = () => setShowFilterMenu(!showFilterMenu);
+
+  const applyFilter = (key, value) => {
+    setFilterCriteria(prev => ({ ...prev, [key]: value }));
+    setShowFilterMenu(false);
   }
 
-  // const handleModalClose = () => { // Removed
-  //   setIsModalOpen(false)
-  //   setCurrentHouse(null)
-  // }
-
-  const handleDeleteModalClose = () => {
-    setIsDeleteModalOpen(false)
-    setHouseToDelete(null)
+  const removeFilter = (key) => {
+    setFilterCriteria(prev => ({ ...prev, [key]: '' }));
   }
 
-  // Pagination handlers
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      loadHouses(currentPage - 1);
-      setCurrentPage(currentPage - 1);
-    }
-  };
+  const clearAllFilters = () => {
+    setFilterCriteria({ area: '' });
+    setSearchTerm('');
+  }
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      loadHouses(currentPage + 1);
-      setCurrentPage(currentPage + 1);
+  const getFilterLabel = (key, value) => {
+    if (!value) return null;
+    if (key === 'area') {
+      const area = localAreas.find(a => a.id.toString() === value.toString());
+      return area ? `Area: ${area.name}` : `Area ID: ${value}`;
     }
-  };
+    return `${key}: ${value}`;
+  }
+
+  const hasActiveFilters = searchTerm || filterCriteria.area;
 
   return (
-    <div className="data-section animate-in">
-      <div className="section-header">
-        <h2>
+    <div className="houses-page-container animate-in">
+      {/* Top Section 1 */}
+      <div className="houses-top-section-1">
+        <div className="page-title">
           <div className="header-icon-wrapper">
             <FaHome />
           </div>
-          Houses
-        </h2>
-        <div className="header-actions">
-          <button onClick={handleReloadData} className="reload-btn" title="Reload Data">
-            <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M500.33 0h-47.41a12 12 0 0 0-12 12.57l4 82.76A247.42 247.42 0 0 0 256 8C119.34 8 7.9 119.53 8 256.19 8.1 393.07 119.1 504 256 504a247.1 247.1 0 0 0 166.18-63.91 12 12 0 0 0 .48-17.43l-34-34a12 12 0 0 0-16.38-.55A176 176 0 1 1 402.1 157.8l-101.53-4.87a12 12 0 0 0-12.57 12v47.41a12 12 0 0 0 12 12h200.33a12 12 0 0 0 12-12V12a12 12 0 0 0-12-12z"></path></svg>
+          <h1>Houses</h1>
+        </div>
+        <div className="top-actions">
+          <button onClick={handleReloadData} className="reload-btn icon-only-btn" title="Reload Data">
+            <FaRedo />
           </button>
           <button onClick={handleAddHouse} className="btn-primary">
-            + Add New House
+            + New House
           </button>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="filter-section">
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="house-search">Search Houses</label>
-            <div className="input-wrapper">
-              <input
-                type="text"
-                id="house-search"
-                placeholder="Search by ID, Name, Family or Location..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-            </div>
+      {/* Top Section 2: Search & Filters */}
+      <div className="houses-top-section-2">
+        <div className="search-filter-wrapper">
+          <div className="search-bar">
+            <input
+              type="text"
+              placeholder="Search houses..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="house-area">Filter by Area</label>
-            <div className="input-wrapper">
-              <select
-                id="house-area"
-                value={selectedArea}
-                onChange={(e) => setSelectedArea(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Areas</option>
-                {localAreas.map(area => (
-                  <option key={area.id} value={area.id}>{area.name}</option>
-                ))}
-              </select>
-            </div>
+          <div className="filter-container">
+            <button
+              className={`filter-btn ${showFilterMenu ? 'active' : ''}`}
+              onClick={toggleFilterMenu}
+            >
+              <FaFilter /> Filter
+            </button>
+
+            {showFilterMenu && (
+              <div className="filter-menu-dropdown">
+                <div className="filter-section">
+                  <h4>Area</h4>
+                  <div className="filter-options scrollable">
+                    {localAreas.map(area => (
+                      <button
+                        key={area.id}
+                        onClick={() => applyFilter('area', area.id)}
+                        className={filterCriteria.area == area.id ? 'active' : ''}
+                      >
+                        {area.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Active Filters */}
+        {hasActiveFilters && (
+          <div className="active-filters-list">
+            {filterCriteria.area && (
+              <div className="filter-chip gradient-chip">
+                {getFilterLabel('area', filterCriteria.area)}
+                <span onClick={() => removeFilter('area')}>&times;</span>
+              </div>
+            )}
+            {searchTerm && (
+              <div className="filter-chip gradient-chip">
+                Search: "{searchTerm}"
+                <span onClick={() => setSearchTerm('')}>&times;</span>
+              </div>
+            )}
+            <button onClick={clearAllFilters} className="clear-all-btn">Clear All</button>
+          </div>
+        )}
       </div>
 
-      <div className="table-container">
-        <table>
+      <div className="houses-table-container">
+        <table className="interactive-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -221,13 +243,16 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
               <th>Area</th>
               <th>Location</th>
               <th className="text-center">Members</th>
-              <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {houseList.length > 0 ? (
               houseList.map(house => (
-                <tr key={house.home_id}>
+                <tr
+                  key={house.home_id}
+                  onClick={() => handleViewHouse(house)}
+                  className="clickable-row"
+                >
                   <td className="text-muted font-mono">#{house.home_id}</td>
                   <td className="font-semibold">{house.house_name}</td>
                   <td>{house.family_name}</td>
@@ -238,69 +263,34 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
                   <td className="text-center">
                     <span className="badge-primary">{house.member_count || 0}</span>
                   </td>
-                  <td className="text-right">
-                    <div className="action-btn-group">
-                      <button onClick={() => handleViewHouse(house)} className="view-btn" title="View Details">
-                        View
-                      </button>
-                      <button onClick={() => handleEditHouse(house)} className="edit-btn" title="Edit House">
-                        <FaEdit />
-                      </button>
-                      <button onClick={() => handleDeleteHouse(house)} className="delete-btn" title="Delete House">
-                        <FaTrash />
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               ))
             ) : !loading && (
               <tr>
-                <td colSpan="7" className="text-center py-10">
+                <td colSpan="6" className="text-center py-10">
                   <div className="empty-state">
                     <p>No houses found. Try adjusting your filters.</p>
                   </div>
                 </td>
               </tr>
             )}
+            {loading && (
+              <tr>
+                <td colSpan="6" className="text-center">
+                  <div className="loading-overlay-inline" style={{ padding: '20px' }}>
+                    <div className="spinner-small"></div>
+                    <p>Loading houses...</p>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
-
-        {loading && (
-          <div className="loading-overlay-inline">
-            <div className="spinner-small"></div>
-            <p>Syncing houses...</p>
-          </div>
-        )}
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button
-            onClick={handlePreviousPage}
-            disabled={currentPage === 1}
-            className="btn-secondary"
-          >
-            Previous
-          </button>
-
-          <span className="pagination-info">
-            Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
-          </span>
-
-          <button
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages}
-            className="btn-secondary"
-          >
-            Next
-          </button>
-        </div>
-      )}
 
       <DeleteConfirmModal
         isOpen={isDeleteModalOpen}
-        onClose={handleDeleteModalClose}
+        onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={confirmDelete}
         item={houseToDelete}
         itemType="houses"

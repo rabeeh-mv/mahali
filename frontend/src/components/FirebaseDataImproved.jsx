@@ -189,7 +189,9 @@ const FirebaseDataImproved = () => {
 
     setSaving(true);
     try {
-      const response = await houseAPI.create(houseData);
+      // Pass 'item.id' as 'firebase_id' so we can link the django record to firestore document
+      const payload = { ...houseData, firebase_id: processingItem.id };
+      const response = await houseAPI.create(payload);
       // MemberSerializer expects 'home_id' for the house slug field, not the database 'id'
       setCreatedHouseId(response.data.home_id);
       setCurrentStep(2); // Move to members
@@ -280,8 +282,13 @@ const FirebaseDataImproved = () => {
       }
 
       // 2. Delete request from Firebase (Optional/User Choice)
+      // Since we are linking data now, maybe we should keep it but mark as processed?
+      // For now, let's just NOT delete if the user says NO, but default behavior is to ask.
       if (window.confirm('Process Complete! Do you want to remove this request from the Digital Requests list (Firebase)?')) {
         await deleteFirebaseItem(processingItem.id);
+      } else {
+        // If we don't delete, maybe we should update it?
+        // For now, doing nothing is fine, the user can delete it later.
       }
 
       setIsWizardOpen(false);

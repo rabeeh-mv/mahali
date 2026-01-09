@@ -450,7 +450,7 @@ const MemberForm = () => {
                     <div className="form-grid">
                         <div className="input-wrapper">
                             <label htmlFor="adhar">Aadhar Number</label>
-                            <input type="text" id="adhar" name="adhar" value={formData.adhar} onChange={handleChange} disabled={loading} className='form-input' placeholder="12-digit Aadhar" maxLength="12" />
+                            <input type="text" id="adhar" name="adhar" value={formData.adhar} onChange={handleChange} disabled={loading} className='form-input' placeholder="Last 4 digits of Aadhar" maxLength="4" />
                         </div>
                         <div className="input-wrapper">
                             <label htmlFor="phone">Phone Number</label>

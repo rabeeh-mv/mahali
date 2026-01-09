@@ -528,3 +528,16 @@ class DashboardViewSet(viewsets.ViewSet):
         }
         
         return Response(stats)
+
+from .models import RecentAction
+from .serializers import RecentActionSerializer
+
+class RecentActionViewSet(viewsets.ModelViewSet):
+    """
+    Viewset for recent actions. Allows updating status.
+    """
+
+    queryset = RecentAction.objects.all()
+    serializer_class = RecentActionSerializer
+    ordering_fields = ['timestamp']
+    filterset_fields = ['model_name', 'action_type', 'is_sync_pending']

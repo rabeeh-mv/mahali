@@ -13,6 +13,10 @@ router.register(r'todos', TodoViewSet)
 router.register(r'settings', AppSettingsViewSet)
 router.register(r'dashboard', DashboardViewSet, basename='dashboard')
 
+from .views import RecentActionViewSet
+router.register(r'recent-actions', RecentActionViewSet)
+
+
 urlpatterns = [
     path('', include(router.urls)),
 ]

@@ -18,6 +18,7 @@ class Area(models.Model):
 
 class House(models.Model):
     home_id = models.CharField(max_length=50, unique=True, db_index=True)  # Custom sequential ID, indexed
+    firebase_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)  # Link to Firestore document
     house_name = models.CharField(max_length=100)
     family_name = models.CharField(max_length=100)
     location_name = models.CharField(max_length=100)
@@ -57,10 +58,11 @@ class Member(models.Model):
     ]
 
     member_id = models.CharField(max_length=50, unique=True, db_index=True)  # Custom sequential ID, indexed
+    firebase_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)  # Link to Firestore
     name = models.CharField(max_length=100)  # Added name field
     surname = models.CharField(max_length=100, blank=True)  # Optional surname field
     house = models.ForeignKey(House, null=True, blank=True, on_delete=models.SET_NULL, related_name='members', db_index=True)  # Reverse rel + index
-    adhar = models.CharField(max_length=12, null=True, blank=True, validators=[RegexValidator(r'^\d{12}$')])
+    adhar = models.CharField(max_length=12, null=True, blank=True, validators=[RegexValidator(r'^\d{4}$', message="Enter the last 4 digits of Aadhaar")])
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='live', db_index=True)  # Indexed for filters
     date_of_birth = models.DateField()
@@ -243,3 +245,28 @@ class AppSettings(models.Model):
     
     def __str__(self):
         return f"App Settings (Theme: {self.theme})"
+
+
+class RecentAction(models.Model):
+    ACTION_TYPES = [
+        ('CREATE', 'Created'),
+        ('UPDATE', 'Updated'),
+        ('DELETE', 'Deleted'),
+    ]
+
+    model_name = models.CharField(max_length=50)  # 'House', 'Member', 'Obligation'
+    object_id = models.CharField(max_length=50)
+    action_type = models.CharField(max_length=10, choices=ACTION_TYPES)
+    description = models.TextField()  # Human readable
+    fields_changed = models.JSONField(default=dict)  # {"field": {"old": "val", "new": "val"}}
+    
+    # For sync status
+    is_sync_pending = models.BooleanField(default=True)
+    
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.action_type} {self.model_name} ({self.object_id})"

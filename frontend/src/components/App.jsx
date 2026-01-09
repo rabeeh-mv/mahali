@@ -88,6 +88,7 @@ const AppRoutes = ({
           members={members}
           areas={areas}
           setEditing={setEditing}
+          deleteItem={deleteItem}
         />
       } />
       <Route path="/members" element={

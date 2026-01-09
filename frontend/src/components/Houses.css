@@ -1,7 +1,7 @@
-/* Members.css - Revised */
+/* Houses.css */
 
 /* Page Container */
-.members-page-container {
+.houses-page-container {
     background: var(--surface-glass);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -14,7 +14,7 @@
 }
 
 /* --- Top Section 1 --- */
-.members-top-section-1 {
+.houses-top-section-1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -32,10 +32,10 @@
     font-size: 1.8rem;
     font-weight: 700;
     margin: 0;
-    /* background: var(--accent-gradient); */
-    /* -webkit-background-clip: text; */
-    /* background-clip: text; */
-    /* -webkit-text-fill-color: transparent; */
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .top-actions {
@@ -64,7 +64,7 @@
 }
 
 /* --- Top Section 2 --- */
-.members-top-section-2 {
+.houses-top-section-2 {
     padding: 16px 32px;
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -155,6 +155,7 @@
     color: var(--text-muted);
     margin-bottom: 8px;
     letter-spacing: 0.05em;
+    padding-left: 4px;
 }
 
 .filter-options {
@@ -193,52 +194,117 @@
 .active-filters-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    padding-top: 4px;
+    align-items: center;
+    gap: 12px;
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 1px dashed var(--border);
+    animation: slideDownFade 0.3s ease-out;
+}
+
+@keyframes slideDownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .filter-chip {
-    padding: 4px 12px;
+    padding: 6px 16px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 100px;
     font-size: 0.85rem;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    transition: all 0.2s ease;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .gradient-chip {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
     border: 1px solid rgba(99, 102, 241, 0.2);
     color: var(--primary);
     font-weight: 500;
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.05);
+}
+
+.gradient-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
 }
 
 .filter-chip span {
     cursor: pointer;
     font-size: 1.1rem;
-    opacity: 0.6;
+    opacity: 0.5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    transition: all 0.2s;
+    margin-right: -4px;
 }
 
 .filter-chip span:hover {
     opacity: 1;
+    background: rgba(0, 0, 0, 0.1);
+    color: #ef4444;
 }
 
 .clear-all-btn {
     background: none;
     border: none;
     color: var(--text-muted);
-    text-decoration: underline;
+    text-decoration: none;
     cursor: pointer;
     font-size: 0.85rem;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    margin-left: 4px;
+}
+
+.clear-all-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.06);
 }
 
 /* --- Table --- */
-.members-table-container {
+.houses-table-container {
     flex: 1;
     overflow-y: auto;
     background: var(--surface);
+}
+
+.houses-table-container table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: var(--surface);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .interactive-table tr.clickable-row {
@@ -249,30 +315,34 @@
     background: rgba(99, 102, 241, 0.05);
 }
 
-/* Column Widths Update (Removed Actions) */
-.members-table-container th:nth-child(1) {
+/* Column Widths */
+.houses-table-container th:nth-child(1) {
     width: 80px;
 }
 
 /* ID */
-.members-table-container th:nth-child(2) {
+.houses-table-container th:nth-child(2) {
     width: 25%;
 }
 
-/* Name */
-.members-table-container th:nth-child(3) {
+/* House Name */
+.houses-table-container th:nth-child(3) {
     width: 20%;
 }
 
+/* Family Name */
+.houses-table-container th:nth-child(4) {
+    width: 15%;
+}
+
 /* Area */
-.members-table-container th:nth-child(4) {
-    width: 120px;
+.houses-table-container th:nth-child(5) {
+    width: 15%;
 }
 
-/* Status */
-.members-table-container th:nth-child(5) {
-    width: 120px;
+/* Location */
+.houses-table-container th:nth-child(6) {
+    width: 100px;
 }
 
-/* Role */
-/* Contact Info takes remaining */
+/* Members */

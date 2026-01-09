@@ -302,10 +302,7 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
                         <div className="info-label">Family Name</div>
                         <div className="info-value">{house.family_name}</div>
                       </div>
-                      <div className="info-item">
-                        <div className="info-label">Door Number</div>
-                        <div className="info-value">{house.door_number || 'N/A'}</div>
-                      </div>
+
                     </div>
 
                     <div className="house-info-box">

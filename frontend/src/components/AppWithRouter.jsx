@@ -22,7 +22,9 @@ import AreaForm from './AreaForm'
 import HouseForm from './HouseForm'
 import MemberForm from './MemberForm'
 import BulkObligationPage from './BulkObligationPage'
+import MyActions from './MyActions'
 import Settings from './Settings'
+
 import './App.css'
 
 function AppWithRouter() {
@@ -412,6 +414,7 @@ function AppWithRouter() {
                   subcollections={subcollections}
                   setEditing={setEditing}
                   loadDataForTab={loadDataForTab}
+                  deleteItem={deleteItem}
                 />
               } />
               <Route path="/members" element={
@@ -433,6 +436,7 @@ function AppWithRouter() {
                 />
               } />
               <Route path="/member-request" element={<FirebaseDataImproved />} /> {/* Member Request route */}
+              <Route path="/my-actions" element={<MyActions />} />
               <Route path="/collections" element={
                 <Collections
                   collections={collections}
