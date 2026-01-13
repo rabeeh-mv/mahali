@@ -4,6 +4,7 @@ import { memberAPI, houseAPI, areaAPI, obligationAPI, subcollectionAPI } from '.
 import { FaUser, FaHome, FaMapMarkerAlt, FaPhone, FaBirthdayCake, FaEdit, FaTrash, FaArrowLeft, FaUsers, FaArrowRight, FaWhatsapp } from 'react-icons/fa';
 
 import DeleteConfirmModal from './DeleteConfirmModal';
+import FamilyTree from './FamilyTree';
 import './MemberDetailsPage.css';
 
 const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing, deleteItem, loadDataForTab }) => {
@@ -13,6 +14,7 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
   const [house, setHouse] = useState(null);
   const [area, setArea] = useState(null);
   const [familyMembers, setFamilyMembers] = useState([]);
+  const [allMembersList, setAllMembersList] = useState([]); // Store all members for tree
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,8 +55,12 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
               allMembers = initialMembers;
             } else {
               const allMembersRes = await memberAPI.getAll();
-              allMembers = allMembersRes.data;
+              // Handle potential pagination (DRF returns { count, next, previous, results: [...] })
+              allMembers = Array.isArray(allMembersRes.data)
+                ? allMembersRes.data
+                : (allMembersRes.data.results || []);
             }
+            setAllMembersList(allMembers); // Save for FamilyTree
 
             const family = allMembers.filter(m =>
               m.house === currentMember.house ||
@@ -332,6 +338,23 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
 
             {activeTab === 'family' && (
               <div className="family-list-view animate-in">
+                {/* Family Tree Visualization Button */}
+                <div style={{ marginBottom: '20px', padding: '16px', background: '#f0f2f5', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div className="tree-info">
+                    <h4 style={{ margin: 0, color: '#333' }}>Genealogical Tree</h4>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.9rem', color: '#666' }}>View full family lineage including parents, spouse, and siblings.</p>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/members/${member.member_id}/tree`)}
+                    className="btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <FaUsers /> View Family Tree
+                  </button>
+                </div>
+
+                {/* Household Members List (Optional: Keep or Remove? Keeping as 'Household Members') */}
+                <h4 style={{ margin: '20px 0 10px', color: '#666' }}>Same House Members</h4>
                 <div className="family-grid">
                   {familyMembers.map(fm => (
                     <div

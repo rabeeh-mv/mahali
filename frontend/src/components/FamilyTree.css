@@ -1,0 +1,270 @@
+.family-tree-container {
+    width: 100%;
+    min-height: 400px;
+    background: #f8f9fa;
+    /* Dot background simulated with CSS or image if needed */
+    background-image: radial-gradient(#ccc 1px, transparent 1px);
+    background-size: 20px 20px;
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.tree-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.tree-layout {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    /* Connectors handle the gap */
+    min-width: 800px;
+}
+
+.tree-column {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 10px;
+}
+
+.parents-column {
+    align-items: flex-end;
+}
+
+.children-column {
+    align-items: flex-start;
+}
+
+.middle-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    gap: 40px;
+    /* Space between siblings and main couple */
+}
+
+/* Node Styling */
+.tree-node {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #333;
+    background: #e0e0e0;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 140px;
+    text-align: center;
+    /* Center text */
+    transition: all 0.2s ease;
+    margin-bottom: 8px;
+    /* Spacing for vertical groups */
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tree-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tree-node.placeholder {
+    opacity: 0.6;
+    cursor: default;
+    border-style: dashed;
+}
+
+.tree-node.placeholder:hover {
+    transform: none;
+}
+
+/* Specific Node Colors */
+.tree-node.parent {
+    background: #dddde5;
+    color: #1a1a2e;
+    border-color: #c4c4d4;
+    border-radius: 20px 0 0 20px;
+    /* Rounded left side */
+    border-right: 3px solid #6c5ce7;
+    /* Accent visual like in image */
+    margin-right: -2px;
+    /* Pull closer to line */
+}
+
+.tree-node.main {
+    background: #0f3460;
+    color: #fff;
+    border: 1px solid #16213e;
+    padding: 10px 24px;
+    font-size: 1rem;
+    border-radius: 24px;
+    z-index: 10;
+}
+
+.tree-node.spouse {
+    background: #16213e;
+    color: #fff;
+    border: 1px solid #0f3460;
+    padding: 10px 24px;
+    border-radius: 24px;
+    margin-top: -8px;
+    /* Slight overlap or tight stacking */
+}
+
+.tree-node.sibling {
+    background: #95a5a6;
+    color: #fff;
+    font-size: 0.85rem;
+}
+
+.tree-node.child {
+    background: #b2bec3;
+    color: #2d3436;
+    border-radius: 0 20px 20px 0;
+    /* Rounded right side */
+    border-left: 3px solid #636e72;
+}
+
+/* Node Groups */
+.node-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.node-group.vertical {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.node-group.vertical-start {
+    justify-content: flex-start;
+    padding-bottom: 20px;
+}
+
+/* Couple Wrapper */
+.couple-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+/* Siblings positioning */
+.siblings-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Siblings line connecting to parents line */
+.siblings-connector-line {
+    position: absolute;
+    bottom: 0;
+    left: -50px;
+    width: 50px;
+    height: 2px;
+    background: #333;
+    /* Custom logic needed to connect perfectly with SVG */
+}
+
+/* Connectors SVGs */
+.tree-connector {
+    width: 80px;
+    height: 100px;
+    /* Adjust based on content height? This is tricky with static height */
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.left-connector {
+    /* Hard to make generic SVG for dynamic list height. 
+       Simplification: Just use flex lines or basic SVG for parents-to-child link 
+    */
+    height: 100px;
+}
+
+.connector-path {
+    stroke: #333;
+    stroke-width: 2;
+}
+
+/* Simplistic Connector Lines using pseudo-elements instead of complex SVG for now to ensure robustness */
+.tree-layout {
+    position: relative;
+}
+
+/* Legend */
+.tree-controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot.parent {
+    background: #dddde5;
+    border: 1px solid #c4c4d4;
+}
+
+.dot.main {
+    background: #0f3460;
+}
+
+.dot.sibling {
+    background: #95a5a6;
+}
+
+.dot.child {
+    background: #b2bec3;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tree-layout {
+        flex-direction: column;
+        gap: 20px;
+        min-width: unset;
+    }
+
+    .tree-connector {
+        display: none;
+    }
+
+    .parents-column,
+    .children-column,
+    .middle-column {
+        width: 100%;
+        align-items: center;
+    }
+}
