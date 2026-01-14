@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaUser, FaMale, FaFemale, FaHeart, FaCrown } from 'react-icons/fa';
+import Xarrow, { Xwrapper, useXarrow } from 'react-xarrows';
 import './FamilyTree.css';
 
 const FamilyTree = ({ member, allMembers = [] }) => {
     const navigate = useNavigate();
+    const updateXarrow = useXarrow();
 
     // Ensure allMembers is safe to use
     const safeAllMembers = Array.isArray(allMembers) ? allMembers : [];
@@ -55,9 +57,11 @@ const FamilyTree = ({ member, allMembers = [] }) => {
     };
 
     // Render a single node
-    const Node = ({ data, label, type = 'default', isMain = false, icon = null }) => {
+    const Node = ({ data, label, type = 'default', isMain = false, icon = null, idOverride = null }) => {
+        const nodeId = idOverride || (data ? `node-${data.member_id}` : `placeholder-${type}-${Math.random()}`);
+
         if (!data) return (
-            <div className={`tree-card placeholder ${type}`}>
+            <div id={nodeId} className={`tree-card placeholder ${type}`}>
                 <div className="card-content">
                     <div className="avatar-placeholder">?</div>
                     <span className="name">{label}</span>
@@ -69,6 +73,7 @@ const FamilyTree = ({ member, allMembers = [] }) => {
 
         return (
             <div
+                id={nodeId}
                 className={`tree-card ${type} ${isMain ? 'main-highlight' : ''}`}
                 onClick={() => handleNavigate(data.member_id)}
                 title={data.name}
@@ -90,88 +95,118 @@ const FamilyTree = ({ member, allMembers = [] }) => {
 
     const { father, mother, spouse, children, siblings } = relationships;
 
+    // Line Styles
+    const lineStyle = {
+        strokeWidth: 1.5,
+        color: '#bcccdc',
+        path: 'smooth',
+        curveness: 0.8,
+        startAnchor: 'bottom',
+        endAnchor: 'top'
+    };
+
+    // Marriage Line Style
+    const marriageLineStyle = {
+        ...lineStyle,
+        startAnchor: 'right',
+        endAnchor: 'left',
+        path: 'straight',
+        showHead: false
+    };
+
     return (
-        <div className="family-tree-wrapper animate-fade-in">
+        <div className="family-tree-wrapper animate-fade-in" onScroll={updateXarrow}>
             <div className="tree-scroll-container">
-                <div className="tree-structure">
+                <Xwrapper>
+                    <div className="tree-structure">
 
-                    {/* Level 1: Parents */}
-                    <div className="level parents-level">
-                        <div className="node-wrapper">
-                            <Node data={father} label="Father" type="parent" />
+                        {/* Level 1: Parents */}
+                        <div className="level parents-level">
+                            {father && <Node data={father} label="Father" type="parent" idOverride="node-father" />}
+                            {mother && <Node data={mother} label="Mother" type="parent" idOverride="node-mother" />}
                         </div>
-                        <div className="connector-h-parents"></div>
-                        <div className="node-wrapper">
-                            <Node data={mother} label="Mother" type="parent" />
+
+                        {/* Level 2: Ego + Siblings + Spouse */}
+                        <div className="level middle-level">
+
+                            {/* Siblings */}
+                            {siblings.length > 0 && (
+                                <div className="siblings-group">
+                                    {siblings.map(sib => (
+                                        <Node key={sib.member_id} data={sib} label="Sibling" type="sibling" />
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Ego + Spouse */}
+                            <div className="couple-group">
+                                <Node data={member} label="You" type="main" isMain={true} idOverride="node-ego" />
+                                {spouse && <Node data={spouse} label="Spouse" type="spouse" idOverride="node-spouse" />}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Connector: Parents down to Ego/Siblings */}
-                    <div className="vertical-line-to-relatives"></div>
-
-                    {/* Level 2: Ego + Siblings + Spouse */}
-                    <div className="level middle-level">
-
-                        {/* Siblings Group */}
-                        {siblings.length > 0 && (
-                            <div className="siblings-group">
-                                {siblings.map(sib => (
-                                    <div key={sib.member_id} className="node-wrapper sibling-node">
-                                        <div className="line-up"></div>
-                                        <Node data={sib} label="Sibling" type="sibling" />
-                                    </div>
+                        {/* Level 3: Children */}
+                        {(children.length > 0) && (
+                            <div className="level children-level">
+                                {children.map(child => (
+                                    <Node key={child.member_id} data={child} label="Child" type="child" />
                                 ))}
                             </div>
                         )}
 
-                        {/* Gap if siblings exist */}
-                        {siblings.length > 0 && <div className="spacer"></div>}
+                        {children.length === 0 && <div className="no-children-msg">No Children Recorded</div>}
 
-                        {/* Ego & Spouse */}
-                        <div className="couple-group">
-                            <div className="node-wrapper ego-node">
-                                <div className="line-up-main"></div>
-                                <Node data={member} label="You" type="main" isMain={true} />
-                                {/* Connector down to children */}
-                                {children.length > 0 && <div className="line-down-main"></div>}
-                            </div>
+                        {/* --- XARROWS CONNECTORS --- */}
 
-                            {spouse && (
-                                <>
-                                    <div className="marriage-connector">
-                                        <FaHeart className="heart-icon" />
-                                        <div className="line-h"></div>
-                                    </div>
-                                    <div className="node-wrapper spouse-node">
-                                        <Node data={spouse} label="Spouse" type="spouse" />
-                                        {/* Spouse also connects to children effectively */}
-                                        {children.length > 0 && <div className="line-down-spouse"></div>}
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                        {/* Parents Marriage (Optional visual link) */}
+                        {father && mother && (
+                            <Xarrow start="node-father" end="node-mother" {...marriageLineStyle} showHead={false} />
+                        )}
+
+                        {/* Father to Ego */}
+                        {father && (
+                            <Xarrow start="node-father" end="node-ego" {...lineStyle} />
+                        )}
+                        {/* Mother to Ego (if Father missing, or both) */}
+                        {!father && mother && (
+                            <Xarrow start="node-mother" end="node-ego" {...lineStyle} />
+                        )}
+
+                        {/* Parents to Siblings */}
+                        {/* Ideally we connect from a central point between parents, but simpler is Parent -> Sibling */}
+                        {siblings.map(sib => (
+                            <Xarrow
+                                key={sib.member_id}
+                                start={father ? "node-father" : "node-mother"}
+                                end={`node-${sib.member_id}`}
+                                {...lineStyle}
+                                startAnchor="bottom"
+                            />
+                        ))}
+
+                        {/* Ego to Spouse */}
+                        {spouse && (
+                            <Xarrow start="node-ego" end="node-spouse" {...marriageLineStyle} />
+                        )}
+
+                        {/* Ego/Spouse to Children */}
+                        {children.map(child => (
+                            <Xarrow
+                                key={child.member_id}
+                                start="node-ego"
+                                end={`node-${child.member_id}`}
+                                {...lineStyle}
+                            />
+                        ))}
+                        {/* Connect Spouse to Children too? Usually just one parent is enough for visual tree, 
+                            but maybe connect both for 'joint' look? 
+                            Let's stick to Ego -> Children for clarity, or if Ego has spouse, start from Spouse? 
+                            Standard is usually from the 'Union' line, but Xarrows makes that hard.
+                            Let's just do Ego -> Child.
+                        */}
+
                     </div>
-
-                    {/* Level 3: Children */}
-                    {children.length > 0 && (
-                        <>
-                            {/* Horizontal bar connecting all children */}
-                            <div className="children-connector-bar"></div>
-
-                            <div className="level children-level">
-                                {children.map(child => (
-                                    <div key={child.member_id} className="node-wrapper child-node">
-                                        <div className="line-up-child"></div>
-                                        <Node data={child} label="Child" type="child" />
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-
-                    {children.length === 0 && <div className="no-children-msg">No Children Recorded</div>}
-
-                </div>
+                </Xwrapper>
             </div>
 
             <div className="tree-legend">

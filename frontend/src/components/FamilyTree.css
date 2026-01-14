@@ -26,54 +26,60 @@
     flex-direction: column;
     align-items: center;
     position: relative;
-    gap: 40px;
-    /* Vertical gap between levels */
+    gap: 32px;
+    /* Reduced gap */
 }
 
 .level {
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 16px;
+    /* Reduced gap */
     position: relative;
 }
 
-/* --- Card Styles (Glassmorphism) --- */
+/* --- Card Styles (Compact) --- */
 .tree-card {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.5);
-    border-radius: 12px;
-    padding: 12px 16px;
-    min-width: 200px;
-    /* Increased width */
+    border-radius: 8px;
+    /* Slightly tighter radius */
+    padding: 8px 12px;
+    /* Multi-line padding reduced */
+    min-width: 130px;
+    /* Significantly smaller */
     cursor: pointer;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     position: relative;
     z-index: 10;
 }
 
 .tree-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
     border-color: var(--primary);
 }
 
 .card-content {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    /* Reduced gap */
 }
 
 .avatar {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    /* Smaller avatar */
+    height: 32px;
     border-radius: 50%;
     background: #eef2f7;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    font-size: 0.9rem;
+    /* Smaller icon */
     color: #666;
     flex-shrink: 0;
 }
@@ -91,27 +97,34 @@
 .info {
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    /* Prevent text overflow */
 }
 
 .name {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
+    /* Smaller text */
     color: #333;
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
 }
 
 .surname {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: #666;
     font-weight: 500;
 }
 
 .role-badge {
-    font-size: 0.7rem;
+    font-size: 0.6rem;
     text-transform: uppercase;
     color: #999;
     letter-spacing: 0.5px;
-    margin-top: 2px;
+    margin-top: 0;
 }
 
 /* --- Highlight Types --- */
@@ -119,24 +132,24 @@
 /* Main Ego */
 .tree-card.main-highlight {
     background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
-    border: 2px solid var(--primary);
-    box-shadow: 0 8px 16px rgba(var(--primary-rgb), 0.15);
+    border: 1.5px solid var(--primary);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.15);
 }
 
 .crown-icon {
     position: absolute;
-    top: -12px;
+    top: -10px;
     left: 50%;
     transform: translateX(-50%);
     background: #ffd700;
     color: #b38f00;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     z-index: 20;
 }
@@ -153,264 +166,51 @@
     box-shadow: none;
 }
 
-/* --- Connectors (The hard part!) --- */
-/* Colors */
-:root {
-    --line-color: #cbd5e1;
-    --line-thickness: 2px;
-}
+/* --- Connectors (Handled by Xarrows now) --- */
+/* Kept empty for structure or specific overrides if needed */
 
-/* Vertical lines up/down from nodes */
-.node-wrapper {
+.parents-level,
+.middle-level,
+.children-level {
     position: relative;
-    display: flex;
-    justify-content: center;
+    padding: 10px 0;
 }
 
-.line-up,
-.line-up-main,
-.line-up-child {
-    position: absolute;
-    top: -20px;
-    height: 20px;
-    width: var(--line-thickness);
-    background: var(--line-color);
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.line-down-main,
-.line-down-spouse {
-    position: absolute;
-    bottom: -20px;
-    height: 20px;
-    width: var(--line-thickness);
-    background: var(--line-color);
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-/* Parents Level specific */
-.connector-h-parents {
-    /* Horizontal line between parents */
-    /* Wait, usually parents are not connected directly unless married. 
-       But here we assume they are the parents of the Ego.
-       Let's put a horizontal line between them and a vertical line down to Ego.
-    */
-    /* This logic is handled by vertical-line-to-relatives usually */
-}
-
-/* Simplification: 
-   We have Father and Mother. We want a line connecting them, and a line going down from the middle of that connection.
-*/
-.parents-level {
-    position: relative;
-    padding-bottom: 20px;
-    /* Space for the T-junction */
-}
-
-.parents-level::after {
-    content: '';
-    position: absolute;
-    bottom: 20px;
-    /* Line level */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 50%;
-    /* Adjust based on distance */
-    min-width: 140px;
-    /* Min width to cover gap */
-    height: var(--line-thickness);
-    background: var(--line-color);
-    z-index: 1;
-}
-
-.parents-level .node-wrapper::after {
-    /* Vertical line down from each parent to the horiz line */
-    content: '';
-    position: absolute;
-    bottom: -20px;
-    /* Should meet the horiz line */
-    height: 20px;
-    /* 40px gap total / 2 */
-    width: var(--line-thickness);
-    background: var(--line-color);
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-/* Vertical line from Parents-bar down to Children level (Ego level) */
-.vertical-line-to-relatives {
-    position: absolute;
-    top: 90px;
-    /* Approx height of parent card + gap/2 */
-    /* This is tricky with Flexbox dynamic heights. 
-       Better approach: The 'tree-structure' gap is 40px. 
-       We need a line spanning that gap.
-    */
-    height: 40px;
-    width: var(--line-thickness);
-    background: var(--line-color);
-    /* Position needs to be relative to the flex container or absolute in center */
-    /* Since tree-structure aligns items center, a simple div in the flow works if flex-direction is column */
-    /* But 'vertical-line-to-relatives' is a sibling of 'level'. */
-    margin-top: -30px;
-    /* Pull it up into the gap */
-    margin-bottom: -10px;
-    z-index: 0;
-}
-
-/* Middle Level Connectors */
-/* We need a line across all siblings + ego */
-.middle-level {
-    position: relative;
-    padding-top: 20px;
-    /* Space for the line from parents */
-}
-
-.middle-level::before {
-    /* Horizontal line connecting siblings and ego */
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 20px;
-    /* Start from first sibling center approximately */
-    right: 20px;
-    /* End at ego center approximately */
-    /* Correction: We can't know width easily. 
-       Instead, each sibling has a line UP to a common bar.
-    */
-    display: none;
-    /* Logic handled by individual nodes having line-up */
-}
-
-/* Common bar for siblings+ego */
-/* The vertical line comes down to a point.
-   We need a horizontal bar that connects that point to all siblings and ego.
-   Strategy: use a container for line.
-*/
-
-/* Revised Strategy for Lines:
-   It's hard to do perfect lines without known widths.
-   Let's use the 'connectors-up' on each child node (Siblings + Ego) 
-   and a common 'bus' line if we can.
-*/
 .siblings-group,
 .couple-group {
     display: flex;
-    gap: 20px;
-    position: relative;
-}
-
-.siblings-group {
-    padding-top: 20px;
-}
-
-.siblings-group::before {
-    /* Horizontal bus bar for siblings */
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    /* Ideally start of first to end of last */
-    width: 100%;
-    transform: translateX(-50%);
-    height: 2px;
-    background: var(--line-color);
-    display: none;
-    /* Can't get width right easily without JS */
-}
-
-.line-up {
-    /* Line from Sibling UP to the parent connector level */
-    top: -40px;
-    /* Reach up to the previous level's bottom */
-    height: 40px;
-}
-
-/* Wait, this implies siblings are just children of parents. Correct. */
-
-/* Marriage Connector */
-.marriage-connector {
-    display: flex;
+    gap: 16px;
     align-items: center;
-    justify-content: center;
+}
+
+/* Spacer */
+.spacer {
     width: 40px;
-    position: relative;
 }
-
-.line-h {
-    position: absolute;
-    width: 100%;
-    height: 2px;
-    background: var(--line-color);
-    z-index: 1;
-}
-
-.heart-icon {
-    font-size: 14px;
-    color: #e91e63;
-    background: #fff;
-    border: 1px solid #e91e63;
-    border-radius: 50%;
-    padding: 3px;
-    width: 20px;
-    height: 20px;
-    z-index: 2;
-    position: relative;
-}
-
-/* Children Level */
-.children-connector-bar {
-    /* Horizontal line connecting all children */
-    width: 80%;
-    /* Estimate */
-    height: 2px;
-    background: var(--line-color);
-    margin-bottom: 20px;
-    /* Space for lines down to nodes */
-    position: relative;
-}
-
-.children-connector-bar::before {
-    /* Vertical line up to parents */
-    content: '';
-    position: absolute;
-    top: -20px;
-    left: 50%;
-    height: 20px;
-    width: 2px;
-    background: var(--line-color);
-}
-
-.children-level .line-up-child {
-    top: -22px;
-    /* Connect to bar */
-    height: 22px;
-}
-
 
 /* --- Legend --- */
 .tree-legend {
     display: flex;
-    gap: 24px;
-    margin-top: 30px;
-    background: rgba(255, 255, 255, 0.6);
-    padding: 10px 20px;
+    gap: 20px;
+    margin-top: 24px;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 8px 16px;
     border-radius: 20px;
+    backdrop-filter: blur(5px);
 }
 
 .legend-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: #555;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #666;
+    font-weight: 500;
 }
 
 .dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
 }
 
@@ -443,16 +243,14 @@
 
     .level {
         flex-direction: column;
-        /* Stack on very small screens? No, tree usually needs horizontal */
         flex-wrap: nowrap;
+        gap: 12px;
     }
-
-    /* Just rely on scroll-wrapper for mobile */
 }
 
 .no-children-msg {
     font-style: italic;
     color: #999;
-    font-size: 0.9rem;
-    margin-top: 10px;
+    font-size: 0.8rem;
+    margin-top: 8px;
 }
