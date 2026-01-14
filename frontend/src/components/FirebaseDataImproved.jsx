@@ -222,6 +222,7 @@ const FirebaseDataImproved = () => {
           date_of_birth: member.dob || '1900-01-01', // Provide default if missing to prevent 400 error
           phone: member.phone,
           whatsapp: member.whatsapp,
+          adhar: member.aadhaar || member.adhar || '', // Map Aadhaar number
           house: createdHouseId, // Link to the house just created
           // Default others
           status: 'live'
