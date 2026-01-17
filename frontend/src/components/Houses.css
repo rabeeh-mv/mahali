@@ -296,7 +296,29 @@
 .houses-table-container {
     flex: 1;
     overflow-y: auto;
-    background: var(--surface);
+    background: transparent;
+    /* Changed from var(--surface) to prevent opaque block issues */
+}
+
+/* Ensure table cells have correct contrast */
+.houses-table-container table td {
+    color: var(--text-color);
+}
+
+/* Force dark text explicitly when in light mode context (safety fallback) */
+@media (prefers-color-scheme: light) {
+    .houses-table-container table td {
+        color: #1e293b;
+    }
+}
+
+/* If using class-based theming, ensure explicitly: */
+body.theme-light .houses-table-container table td {
+    color: #1e293b;
+}
+
+body.theme-dark .houses-table-container table td {
+    color: #f8fafc;
 }
 
 .houses-table-container table thead th {
@@ -304,6 +326,7 @@
     top: 0;
     z-index: 10;
     background-color: var(--surface);
+    /* Keep header opaque */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 

@@ -31,7 +31,7 @@ const Sidebar = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [appSettings, setAppSettings] = useState(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   useEffect(() => {
     loadAppSettings();
@@ -103,12 +103,12 @@ const Sidebar = ({
     if (location.pathname === '/' || location.pathname === '/dashboard') return 'dashboard';
     if (location.pathname.startsWith('/areas')) return 'areas';
     if (location.pathname.startsWith('/houses')) return 'houses';
-    if (location.pathname.startsWith('/member-request')) return 'member-request';
     if (location.pathname.startsWith('/members')) return 'members';
     if (location.pathname.startsWith('/collections')) return 'collections';
     if (location.pathname.startsWith('/subcollections')) return 'subcollections';
     if (location.pathname.startsWith('/obligations')) return 'obligations';
     if (location.pathname.startsWith('/my-actions')) return 'my-actions';
+    if (location.pathname.startsWith('/digital-requests')) return 'digital-requests';
 
     if (location.pathname.startsWith('/settings')) return 'settings';
     return 'dashboard';
@@ -125,9 +125,6 @@ const Sidebar = ({
       case 'houses':
         navigate('/houses');
         break;
-      case 'member-request':
-        navigate('/member-request');
-        break;
       case 'members':
         navigate('/members');
         break;
@@ -142,6 +139,9 @@ const Sidebar = ({
         break;
       case 'my-actions':
         navigate('/my-actions');
+        break;
+      case 'digital-requests':
+        navigate('/digital-requests');
         break;
 
       case 'settings':
@@ -209,16 +209,15 @@ const Sidebar = ({
           {!isCollapsed && <span>House Units</span>}
         </button>
 
-        {isFirebaseConfigured && (
-          <button
-            className={activeTab === 'member-request' ? 'active' : ''}
-            onClick={() => handleTabChange('member-request')}
-            disabled={disabled}
-          >
-            <FaFire className="tab-icon pulse" style={{ color: '#ff4b2b' }} />
-            {!isCollapsed && <span>Digital Requests</span>}
-          </button>
-        )}
+
+        <button
+          className={activeTab === 'digital-requests' ? 'active' : ''}
+          onClick={() => handleTabChange('digital-requests')}
+          disabled={disabled}
+        >
+          <FaHouseUser className="tab-icon" />{/* Reusing icon or pick new one */}
+          {!isCollapsed && <span>Digital Requests</span>}
+        </button>
 
         {isFirebaseConfigured && (
           <button
@@ -264,36 +263,39 @@ const Sidebar = ({
         </button>
       </nav>
 
-      {!isCollapsed && (
-        <div className="sidebar-footer">
-          <div className="theme-compact-selector">
+      <div className="sidebar-footer">
+        {isCollapsed ? (
+          <div className="theme-toggle-single">
             <button
-              className={theme === 'light' ? 'active' : ''}
+              onClick={() => handleThemeChange(theme === 'light' ? 'dark' : 'light')}
+              title={`Switch to ${theme === 'light' ? 'Night' : 'Bright'} Mode`}
+              className="single-toggle-btn"
+              disabled={disabled}
+            >
+              {theme === 'light' ? <FaMoon /> : <FaSun />}
+            </button>
+          </div>
+        ) : (
+          <div className="theme-selector-expanded">
+            <button
+              className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
               onClick={() => handleThemeChange('light')}
-              title="Sleek Light"
               disabled={disabled}
             >
               <FaSun />
+              <span>Bright</span>
             </button>
             <button
-              className={theme === 'dim' ? 'active' : ''}
-              onClick={() => handleThemeChange('dim')}
-              title="Relaxing Dim"
-              disabled={disabled}
-            >
-              <FaAdjust />
-            </button>
-            <button
-              className={theme === 'dark' ? 'active' : ''}
+              className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
               onClick={() => handleThemeChange('dark')}
-              title="Premium Dark"
               disabled={disabled}
             >
               <FaMoon />
+              <span>Night</span>
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   );
 };

@@ -18,15 +18,16 @@ import Obligations from './Obligations'
 import EditForm from './EditForm'
 
 import DeleteConfirmModal from './DeleteConfirmModal'
-import FirebaseDataImproved from './FirebaseDataImproved'
 import AreaForm from './AreaForm'
 import HouseForm from './HouseForm'
 import MemberForm from './MemberForm'
 import BulkObligationPage from './BulkObligationPage'
 import MyActions from './MyActions'
 import Settings from './Settings'
+import DigitalRequestsPage from './DigitalRequests/DigitalRequestsPage'
+import ProcessRequestWizard from './DigitalRequests/ProcessRequestWizard'
 
-import './App.css'
+import '../App.css'
 
 function AppWithRouter() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -437,7 +438,6 @@ function AppWithRouter() {
                 />
               } />
               <Route path="/members/:memberId/tree" element={<FamilyTreePage />} />
-              <Route path="/member-request" element={<FirebaseDataImproved />} /> {/* Member Request route */}
               <Route path="/my-actions" element={<MyActions />} />
               <Route path="/collections" element={
                 <Collections
@@ -496,6 +496,10 @@ function AppWithRouter() {
                   disabled={isBusy}
                 />
               } /> {/* Settings route */}
+
+              <Route path="/digital-requests" element={<DigitalRequestsPage />} />
+              <Route path="/digital-requests/process/:id" element={<ProcessRequestWizard />} />
+
             </Routes>
 
             {editing && (

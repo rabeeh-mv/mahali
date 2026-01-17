@@ -112,103 +112,69 @@ button:focus-visible {
    THEME VARIABLES
    ========================================= */
 
-/* Light Theme - Clean, Airy, Apple/Stripe-esque */
+/* Light Theme - Clean, Professional, "Bright Mode" */
 .theme-light,
 body.theme-light {
-  --bg-color: #f8fafc;
-  /* Slate 50 */
-  --text-color: #1e293b;
-  /* Slate 800 */
+  --bg-color: #f1f5f9;
+  /* Slate 100 - Clean professional grey-white */
+  --text-color: #0f172a;
+  /* Slate 900 - Sharp text */
   --text-muted: #64748b;
   /* Slate 500 */
-  --primary: #6366f1;
-  /* Indigo 500 */
-  --primary-hover: #4f46e5;
-  /* Indigo 600 */
+  --primary: #3b82f6;
+  /* Blue 500 - Corporate/Professional Blue */
+  --primary-hover: #2563eb;
+  /* Blue 600 */
   --surface: #ffffff;
-  --surface-glass: rgba(255, 255, 255, 0.7);
+  --surface-glass: rgba(255, 255, 255, 0.9);
+  /* Less glass, more solid professional feel */
   --border: #e2e8f0;
   /* Slate 200 */
-  --header-bg: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
-  /* Indigo to Sky */
-  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
-  /* Indigo to Pink */
-
-  /* Indigo to Pink */
+  --header-bg: #ffffff;
+  /* Clean white header */
+  --accent-gradient: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  /* Blue gradient text */
 
   --input-bg: #ffffff;
-  --input-text: #000000;
-  --primary-rgb: 99, 102, 241;
+  --input-text: #0f172a;
+  --primary-rgb: 59, 130, 246;
+  /* RGB for Blue 500 */
 
   background-color: var(--bg-color);
   color: var(--text-color);
-  background-image:
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%);
-  background-attachment: fixed;
+  background-image: none;
+  /* Removed noisy gradients for professional look */
 }
 
-/* Dim Theme - Modern Grey/Blue, easier on eyes */
-.theme-dim,
-body.theme-dim {
-  --bg-color: #1e293b;
-  /* Slate 800 */
+/* Dark Theme - Deep, Professional, "Night Mode" */
+.theme-dark,
+body.theme-dark {
+  --bg-color: #0f172a;
+  /* Slate 900 - Deep professional dark */
   --text-color: #f1f5f9;
   /* Slate 100 */
   --text-muted: #94a3b8;
   /* Slate 400 */
-  --primary: #818cf8;
-  /* Indigo 400 */
-  --primary-hover: #6366f1;
-  /* Indigo 500 */
-  --surface: #0f172a;
-  /* Slate 900 (slightly darker than bg) */
-  --surface-glass: rgba(30, 41, 59, 0.7);
+  --primary: #60a5fa;
+  /* Blue 400 - Readable on dark */
+  --primary-hover: #3b82f6;
+  /* Blue 500 */
+  --surface: #1e293b;
+  /* Slate 800 - Contrast against bg */
+  --surface-glass: rgba(30, 41, 59, 0.95);
   --border: #334155;
   /* Slate 700 */
-  --header-bg: linear-gradient(135deg, #312e81 0%, #1e3a8a 100%);
-  --accent-gradient: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+  --header-bg: #1e293b;
+  --accent-gradient: linear-gradient(135deg, #60a5fa 0%, #93c5fd 100%);
 
-  --accent-gradient: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-
-  --input-bg: var(--bg-color);
-  --input-text: var(--text-color);
-  --primary-rgb: 129, 140, 248;
-
-  background-color: var(--bg-color);
-  color: var(--text-color);
-}
-
-/* Dark Theme - Deep, OLED-friendly, Cyberpunk vibes */
-.theme-dark,
-body.theme-dark {
-  --bg-color: #000000;
-  --text-color: #f8fafc;
-  --text-muted: #a1a1aa;
-  /* Zinc 400 */
-  --primary: #38bdf8;
-  /* Sky 400 */
-  --primary-hover: #0ea5e9;
-  /* Sky 500 */
-  --surface: #121212;
-  --surface-glass: rgba(18, 18, 18, 0.8);
-  --border: #27272a;
-  /* Zinc 800 */
-  --header-bg: linear-gradient(135deg, #1e1b4b 0%, #0c4a6e 100%);
-  --accent-gradient: linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 100%);
-
-  --accent-gradient: linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 100%);
-
-  --input-bg: var(--bg-color);
-  --input-text: var(--text-color);
-  --primary-rgb: 56, 189, 248;
+  --input-bg: #0f172a;
+  /* Darker input */
+  --input-text: #f1f5f9;
+  --primary-rgb: 96, 165, 250;
 
   background-color: var(--bg-color);
   color: var(--text-color);
-  background-image:
-    radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%);
-  background-attachment: fixed;
+  background-image: none;
 }
 
 *,

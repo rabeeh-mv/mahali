@@ -20,7 +20,9 @@ export const houseAPI = {
   create: (data) => api.post('/houses/', data),
   update: (id, data) => api.put(`/houses/${id}/`, data),
   delete: (id) => api.delete(`/houses/${id}/`),
+  delete: (id) => api.delete(`/houses/${id}/`),
   search: (params) => api.get('/houses/search/', { params }),
+  checkDuplicates: (params) => api.get('/houses/check_duplicates/', { params }),
 };
 
 export const areaAPI = {
@@ -99,6 +101,16 @@ export const settingsAPI = {
 export const recentActionsAPI = {
   getAll: (params) => api.get('/recent-actions/', { params }),
   update: (id, data) => api.patch(`/recent-actions/${id}/`, data),
+};
+
+export const digitalRequestAPI = {
+  getAll: (params) => api.get('/digital-requests/', { params }),
+  get: (id) => api.get(`/digital-requests/${id}/`),
+  create: (data) => api.post('/digital-requests/', data),
+  update: (id, data) => api.put(`/digital-requests/${id}/`, data),
+  delete: (id) => api.delete(`/digital-requests/${id}/`),
+  searchParents: (params) => api.get('/digital-requests/search_parents/', { params }),
+  importFromClient: (data) => api.post('/digital-requests/import_from_client/', data),
 };
 
 
