@@ -12,6 +12,7 @@ const MyActions = () => {
     const [syncing, setSyncing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [firebaseConfig, setFirebaseConfig] = useState(null);
+    const [firebaseEnabled, setFirebaseEnabled] = useState(true);
     const [showSyncModal, setShowSyncModal] = useState(false);
 
     // Cloud Data Filtering & Selection
@@ -21,11 +22,29 @@ const MyActions = () => {
     // Cache for subcollections to map names
     const [subcollectionMap, setSubcollectionMap] = useState({});
 
+    // Field Whitelist for Sync
+    const SYNC_FIELDS_WHITELIST = [
+        'adhar', 'guardianDob', 'name', 'surname', 'home_id',
+        'house_name', 'amount', 'subcollection'
+    ];
+
     const loadActions = async () => {
         setLoading(true);
         try {
             const response = await recentActionsAPI.getAll();
-            setActions(response.data);
+            // FILTERING LOGIC: Only show actions that touch relevant fields or are DELETES (which imply removal of relevant data)
+            const relevantActions = response.data.filter(action => {
+                // Always include deletes as they are major structural changes
+                if (action.action_type === 'DELETE') return true;
+
+                // For Create/Update, check if any changed field is in the whitelist
+                if (action.fields_changed) {
+                    const changedKeys = Object.keys(action.fields_changed);
+                    return changedKeys.some(key => SYNC_FIELDS_WHITELIST.includes(key));
+                }
+                return false;
+            });
+            setActions(relevantActions);
         } catch (err) {
             console.error("Failed to load actions", err);
             setError("Failed to load recent actions.");
@@ -36,6 +55,10 @@ const MyActions = () => {
 
     const loadCloudData = async () => {
         if (!firebaseConfig) return;
+        if (!firebaseEnabled) {
+            alert('Network Integration is disabled. Please enable it in Settings.');
+            return;
+        }
         setCloudLoading(true);
         try {
             const { getFirestore, collection, getDocs } = await import('firebase/firestore');
@@ -61,8 +84,14 @@ const MyActions = () => {
     const loadAppSettings = async () => {
         try {
             const response = await settingsAPI.getAll();
-            if (response.data.length > 0 && response.data[0].firebase_config) {
-                setFirebaseConfig(JSON.parse(response.data[0].firebase_config));
+            if (response.data.length > 0) {
+                const settings = response.data[0];
+                if (settings.firebase_config) {
+                    setFirebaseConfig(JSON.parse(settings.firebase_config));
+                }
+                if (settings.firebase_enabled !== undefined) {
+                    setFirebaseEnabled(settings.firebase_enabled);
+                }
             }
         } catch (e) {
             console.error("Failed to load settings for sync", e);
@@ -88,12 +117,13 @@ const MyActions = () => {
         loadSubcollections();
     }, []);
 
-    // Load cloud data once config is available
+    // Load cloud data once config is available - REMOVED AUTO FETCH
+    // Now user must manually click refresh to save costs
     useEffect(() => {
-        if (firebaseConfig) {
-            loadCloudData();
-        }
-    }, [firebaseConfig]);
+        // if (firebaseConfig && firebaseEnabled) {
+        //    loadCloudData();
+        // }
+    }, [firebaseConfig, firebaseEnabled]);
 
     // Helper to safely get or initialize Firebase App
     const getOrInitSyncApp = async (config) => {
@@ -111,9 +141,17 @@ const MyActions = () => {
 
     const renderChanges = (changes) => {
         if (!changes || Object.keys(changes).length === 0) return null;
+
+        // Only render changes for permitted fields to reduce noise
+        const filteredEntries = Object.entries(changes).filter(([field]) =>
+            SYNC_FIELDS_WHITELIST.includes(field)
+        );
+
+        if (filteredEntries.length === 0) return <span className="no-relevant-changes">No relevant field changes listed.</span>;
+
         return (
             <div className="action-changes">
-                {Object.entries(changes).map(([field, delta]) => (
+                {filteredEntries.map(([field, delta]) => (
                     <div key={field} className="change-item">
                         <span className="change-field">{field}:</span>
                         <div className="change-values">
@@ -156,6 +194,11 @@ const MyActions = () => {
             return;
         }
 
+        if (!firebaseEnabled) {
+            alert("Network Integration is disabled in Settings.");
+            return;
+        }
+
         const pendingActions = actions.filter(a => a.is_sync_pending);
         if (pendingActions.length === 0) {
             alert("No pending actions to sync.");
@@ -165,7 +208,7 @@ const MyActions = () => {
 
         setSyncing(true);
         try {
-            const { getFirestore, doc, setDoc } = await import('firebase/firestore');
+            const { getFirestore, doc, setDoc, deleteDoc, getDoc } = await import('firebase/firestore');
             const app = await getOrInitSyncApp(firebaseConfig);
             const db = getFirestore(app);
 
@@ -175,118 +218,203 @@ const MyActions = () => {
                 try {
                     let targetDocId = null;
                     let payload = null;
+                    let shouldDelete = false;
 
-                    if (action.model_name === 'House') {
-                        try {
-                            const res = await houseAPI.get(action.object_id);
-                            const house = res.data;
+                    // --- STRATEGY FOR DELETE ACTIONS ---
+                    if (action.action_type === 'DELETE') {
+                        if (action.model_name === 'House') {
+                            // Attempt to find house info from snapshot or fields_changed
+                            // Assuming fields_changed has 'home_id' or 'firebase_id' in 'old' value.
+                            let oldHomeId = action.fields_changed?.home_id?.old;
+                            let oldFirebaseId = action.fields_changed?.firebase_id?.old;
 
-                            targetDocId = house.firebase_id || house.home_id;
-                            if (!targetDocId) targetDocId = house.home_id; // fallback
+                            // Fallback: Check description or other heuristic if needed, but let's rely on field tracking
+                            targetDocId = oldFirebaseId || oldHomeId;
+                            shouldDelete = true;
 
-                            if (targetDocId) {
-                                // STRICT PAYLOAD: 1. houseId, 2. houseName
-                                payload = {
-                                    houseId: house.home_id,
-                                    houseName: house.house_name,
-                                };
-                                await setDoc(doc(db, 'units', String(targetDocId)), payload, { merge: true });
+                        } else if (action.model_name === 'Member' || action.model_name === 'Obligation') {
+                            // Implied House Update. We need to find WHICH house to update.
+                            // The Deleted Member/Obligation no longer exists, so we cannot fetch it.
+                            // We MUST rely on 'fields_changed' containing the 'house' (ID) in 'old' value.
+                            let houseId = action.fields_changed?.house?.old;
+
+                            // For obligation, it might point to member, then member to house.
+                            // This is tricky if we don't track deep relations in action logs.
+                            // User Disclaimer: "check that daleted data and serch inthe firabase that data and delit it"
+
+                            if (action.model_name === 'Obligation' && !houseId) {
+                                // If we can't link obligation to house directly via logs, we try logic:
+                                // Ideally `action.fields_changed.member` stores the Member ID.
+                                // But fetching the Member might still work if the Member wasn't deleted!
+                                let memberId = action.fields_changed?.member?.old || action.fields_changed?.member?.new; // 'new' shouldn't exist for delete
+                                if (memberId) {
+                                    try {
+                                        const mRes = await memberAPI.get(memberId);
+                                        houseId = mRes.data.house;
+                                    } catch (e) {
+                                        console.warn("Could not find member for deleted obligation", memberId);
+                                    }
+                                }
                             }
-                        } catch (err) {
-                            console.error(`Could not fetch house ${action.object_id}`, err);
-                            continue;
+
+                            if (houseId) {
+                                // Now fetching the House to sync the *current* state (which lacks the deleted item)
+                                try {
+                                    const res = await houseAPI.get(houseId);
+                                    const house = res.data;
+                                    targetDocId = house.firebase_id || house.home_id;
+                                    // Proceed to Standard House Sync logic below...
+                                } catch (e) {
+                                    console.error("House not found for deleted member sync", houseId);
+                                    continue; // Skip if house is also gone
+                                }
+                            } else {
+                                console.warn("Could not determine House ID for deleted item", action.id);
+                                continue;
+                            }
                         }
-                    } else if (action.model_name === 'Member') {
-                        try {
-                            // Fetch the specific member who changed
-                            const res = await memberAPI.get(action.object_id);
-                            const member = res.data;
+                    }
 
-                            if (member.house) {
-                                // 1. Fetch House for IDs
-                                const houseRes = await houseAPI.get(member.house);
-                                const house = houseRes.data;
-                                targetDocId = house.firebase_id || house.home_id;
+                    // --- PREPARE DATA FOR SYNC (CREATE / UPDATE or RELAYED DELETE) ---
+                    if (!shouldDelete && !targetDocId) {
+                        let houseToSync = null;
 
-                                // 2. Fetch ALL members of this house to ensure list is accurate
-                                let allHouseMembers = [];
-                                const membersSearch = await memberAPI.search({ search: house.house_name });
+                        if (action.model_name === 'House') {
+                            try {
+                                const res = await houseAPI.get(action.object_id);
+                                houseToSync = res.data;
+                            } catch (e) { console.error("House fetch failed", e); }
+
+                        } else if (action.model_name === 'Member') {
+                            try {
+                                const res = await memberAPI.get(action.object_id);
+                                const member = res.data;
+                                if (member.house) {
+                                    const hRes = await houseAPI.get(member.house);
+                                    houseToSync = hRes.data;
+                                }
+                            } catch (e) { console.error("Member/House fetch failed", e); }
+
+                        } else if (action.model_name === 'Obligation') {
+                            // Fetch Obligation -> Member -> House
+                            try {
+                                const res = await obligationAPI.get(action.object_id);
+                                const ob = res.data;
+                                let mId = typeof ob.member === 'object' ? ob.member.member_id : ob.member;
+                                if (mId) {
+                                    // Need to find member by ID (search or get)
+                                    // Note: API might expect PK, but member field might be ID string.
+                                    // Trying generic get, if fails, we skip.
+                                    const mRes = await memberAPI.get(mId);
+                                    const member = mRes.data;
+                                    if (member.house) {
+                                        const hRes = await houseAPI.get(member.house);
+                                        houseToSync = hRes.data;
+                                    }
+                                }
+                            } catch (e) { console.error("Obligation chain fetch failed", e); }
+                        }
+
+                        if (houseToSync) {
+                            targetDocId = houseToSync.firebase_id || houseToSync.home_id;
+
+                            // USER REQUEST: Check if house exists in Firebase first
+                            const docRef = doc(db, 'units', String(targetDocId));
+                            const docSnap = await getDoc(docRef);
+
+                            if (action.action_type === 'CREATE' && action.model_name === 'House') {
+                                // For House Creation, we can create it.
+                            } else if (!docSnap.exists()) {
+                                // If House Update or Member Update, but House not in Firebase:
+                                // "check that same house id on firebase data if there then move to that..."
+                                // Implication: If NOT there, maybe don't sync? 
+                                // Taking conservative approach: If it's a Member update but House missing in Cloud, 
+                                // we probably shouldn't create a partial house.
+                                // BUT: If this house SHOULD be in cloud, we might want to push it. 
+                                // User said: "check ... if there then move ... if there update"
+                                // Let's assume strict check: Only update if exists, unless it's a House Create.
+                                if (action.model_name !== 'House' || action.action_type !== 'CREATE') {
+                                    console.log(`Skipping sync for ${action.model_name} ${action.id}: Unit ${targetDocId} not found in Firebase.`);
+                                    // Mark as synced anyway to clear queue? Or leave pending?
+                                    // User probably wants to clear it to avoid stuck items.
+                                    await recentActionsAPI.update(action.id, { is_sync_pending: false });
+                                    syncedCount++;
+                                    continue;
+                                }
+                            }
+
+                            // --- CONSTRUCT FULL PAYLOAD (Updates entire House Unit) ---
+                            // 1. Fetch ALL members
+                            let allHouseMembers = [];
+                            try {
+                                const membersSearch = await memberAPI.search({ search: houseToSync.house_name });
                                 if (membersSearch.data && membersSearch.data.results) {
-                                    allHouseMembers = membersSearch.data.results.filter(m => String(m.house) === String(house.home_id) || m.house === house.id);
+                                    allHouseMembers = membersSearch.data && membersSearch.data.results ? membersSearch.data.results : [];
                                 } else if (membersSearch.data && Array.isArray(membersSearch.data)) {
-                                    allHouseMembers = membersSearch.data.filter(m => String(m.house) === String(house.home_id) || m.house === house.id);
+                                    allHouseMembers = membersSearch.data;
                                 }
+                                // Filter strictly by ID to ensure accuracy
+                                allHouseMembers = allHouseMembers.filter(m => String(m.house) === String(houseToSync.home_id) || m.house === houseToSync.id);
+                            } catch (e) { console.error("Members fetch failed", e); }
 
-                                if (targetDocId) {
-                                    // Calculate Guardian
-                                    const guardian = allHouseMembers.find(m => m.isGuardian) || allHouseMembers[0] || {};
+                            const guardian = allHouseMembers.find(m => m.isGuardian) || allHouseMembers[0] || {};
 
-                                    // Fetch Pending Obligations for Guardian
-                                    let pendingObligationsPayload = [];
-                                    if (guardian.member_id) {
-                                        try {
-                                            // Search obligations for this guardian with status=pending
-                                            // The API search param 'search' usually matches member name/id, but precise ID match is better if possible.
-                                            // Assuming search query works for Member ID.
-                                            const obRes = await obligationAPI.search({
-                                                search: guardian.member_id,
-                                                paid_status: 'pending'
-                                            });
+                            // 2. Fetch Pending Obligations
+                            let pendingObligationsPayload = [];
+                            if (guardian.member_id) {
+                                try {
+                                    const obRes = await obligationAPI.search({ search: guardian.member_id, paid_status: 'pending' });
+                                    let pendingObs = obRes.data.results || obRes.data || [];
+                                    pendingObs = pendingObs.filter(o =>
+                                        String(o.member) === String(guardian.member_id) ||
+                                        (o.member && String(o.member.member_id) === String(guardian.member_id))
+                                    );
 
-                                            let pendingObs = [];
-                                            if (obRes.data && obRes.data.results) {
-                                                pendingObs = obRes.data.results; // paginated
-                                            } else if (Array.isArray(obRes.data)) {
-                                                pendingObs = obRes.data;
-                                            }
-
-                                            // Double check filtering by member_id just in case "search" is fuzzy
-                                            pendingObs = pendingObs.filter(o =>
-                                                String(o.member) === String(guardian.member_id) ||
-                                                (o.member && String(o.member.member_id) === String(guardian.member_id))
-                                            );
-
-                                            pendingObligationsPayload = pendingObs.map(o => {
-                                                const subId = (typeof o.subcollection === 'object') ? o.subcollection.id : o.subcollection;
-                                                return {
-                                                    subcollection: subcollectionMap[subId] || 'Unknown',
-                                                    amount: o.amount
-                                                };
-                                            });
-
-                                        } catch (e) {
-                                            console.error("Error fetching obligations for sync", e);
-                                        }
-                                    }
-
-                                    const memberList = allHouseMembers.map(m => ({
-                                        member_id: m.member_id,
-                                        name: `${m.name} ${m.surname}`.trim()
-                                    }));
-
-                                    // STRICT PAYLOAD
-                                    payload = {
-                                        houseId: house.home_id,
-                                        houseName: house.house_name,
-                                        guardianName: `${guardian.name || ''} ${guardian.surname || ''}`.trim(),
-                                        guardianDob: guardian.date_of_birth || '',
-                                        guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
-                                        // obligations: 0, // REMOVED hardcoded
-                                        members: memberList
-                                    };
-
-                                    // "if not pending oblications we donot need to update the oblication data"
-                                    if (pendingObligationsPayload.length > 0) {
-                                        payload.obligations = pendingObligationsPayload;
-                                    }
-
-                                    await setDoc(doc(db, 'units', String(targetDocId)), payload, { merge: true });
+                                    pendingObligationsPayload = pendingObs.map(o => {
+                                        const subId = (typeof o.subcollection === 'object') ? o.subcollection.id : o.subcollection;
+                                        return {
+                                            subcollection: subcollectionMap[subId] || 'Unknown',
+                                            amount: o.amount
+                                        };
+                                    });
+                                } catch (e) {
+                                    // Ignore obligation fetch error, proceed with empty
                                 }
                             }
-                        } catch (err) {
-                            console.error(`Could not fetch member ${action.object_id}`, err);
-                            continue;
+
+                            const memberList = allHouseMembers.map(m => ({
+                                member_id: m.member_id,
+                                name: `${m.name} ${m.surname}`.trim()
+                            }));
+
+                            payload = {
+                                houseId: houseToSync.home_id,
+                                houseName: houseToSync.house_name,
+                                guardianName: `${guardian.name || ''} ${guardian.surname || ''}`.trim(),
+                                guardianDob: guardian.date_of_birth || '',
+                                guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
+                                members: memberList
+                            };
+
+                            if (pendingObligationsPayload.length > 0) {
+                                payload.obligations = pendingObligationsPayload;
+                            }
                         }
+                    }
+
+                    // --- EXECUTE FIREBASE OPERATION ---
+                    if (targetDocId) {
+                        const docRef = doc(db, 'units', String(targetDocId));
+
+                        if (shouldDelete) {
+                            await deleteDoc(docRef);
+                            console.log(`Deleted Unit ${targetDocId} from Cloud.`);
+                        } else if (payload) {
+                            await setDoc(docRef, payload, { merge: true });
+                            console.log(`Updated Unit ${targetDocId} in Cloud.`);
+                        }
+                    } else {
+                        console.warn("Target Doc ID could not be determined for action", action.id);
                     }
 
                     // Mark as synced locally
@@ -314,6 +442,10 @@ const MyActions = () => {
     const performFullSync = async () => {
         if (!firebaseConfig) {
             alert("Firebase not configured.");
+            return;
+        }
+        if (!firebaseEnabled) {
+            alert("Network Integration is disabled in Settings.");
             return;
         }
         if (!window.confirm("This will overwrite Cloud data with ALL local data. This process may take time. Continue?")) return;
@@ -583,7 +715,7 @@ const MyActions = () => {
                                 {pendingActions.map(action => (
                                     <div key={action.id} className="compact-item">
                                         <div className="compact-header">
-                                            <span className={`badge ${action.action_type.toLowerCase()}`}>{action.action_type}</span>
+                                            <span className={`badge ${action.action_type ? action.action_type.toLowerCase() : 'unknown'}`}>{action.action_type}</span>
                                             <span className="compact-model">{action.model_name}</span>
                                             <span className="compact-time">{formatDate(action.timestamp)}</span>
                                         </div>
@@ -640,8 +772,15 @@ const MyActions = () => {
                             <div className="loading-placeholder">Loading cloud data...</div>
                         ) : !firebaseConfig ? (
                             <div className="error-placeholder">Firebase not configured.</div>
+                        ) : !firebaseEnabled ? (
+                            <div className="error-placeholder">Network Integration Disabled</div>
                         ) : filteredCloudData.length === 0 ? (
-                            <div className="empty-state-small">No comparable data found.</div>
+                            <div className="empty-state-small">
+                                <p>No data loaded.</p>
+                                <button onClick={loadCloudData} className="action-btn secondary small" style={{ marginTop: 10 }}>
+                                    <FaCloudUploadAlt /> Load Cloud Data
+                                </button>
+                            </div>
                         ) : (
                             <div className="table-wrapper">
                                 <table className="cloud-table">

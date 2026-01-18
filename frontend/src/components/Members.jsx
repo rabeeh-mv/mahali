@@ -84,24 +84,28 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
         ...columnFilters // Add column filters to params
       };
 
-      // Add search and global filter parameters
+      // Map Role filter to is_guardian parameter
+      if (columnFilters.role === 'guardian') {
+        params.is_guardian = 'true';
+      } else if (columnFilters.role === 'non-guardian') {
+        params.is_guardian = 'false';
+      }
+
+      // Add search and global filter parameters (legacy support or combined)
       if (searchTerm) {
         params.search = searchTerm;
       }
 
-      if (filterCriteria.area) {
+      if (filterCriteria.area) { // Support legacy prop if still used, or remove if fully migrated
         params.area = filterCriteria.area;
       }
 
-      if (filterCriteria.status) {
-        params.status = filterCriteria.status;
-      }
+      // Ensure column filters that match API specific params are mapped if needed,
+      // generally generic keys in columnFilters are already spread into params above (...columnFilters).
+      // But 'role' needed special handling as above.
 
-      if (filterCriteria.role === 'guardian') {
-        params.is_guardian = true;
-      } else if (filterCriteria.role === 'non-guardian') {
-        params.is_guardian = false;
-      }
+      // Check for other explicit param mappings if backend expects different names
+      // Status, Gender, Area match standard fields or are handled by backend filter mapping.
 
       const response = await memberAPI.search(params);
       const newMembers = response.data.results || response.data;
@@ -268,7 +272,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
   };
 
   // Helper Component for Column Filter Header
-  const FilterHeader = ({ label, field, minWidth }) => {
+  const FilterHeader = ({ label, field, minWidth, type = 'text', options = [] }) => {
     const isActive = !!columnFilters[field];
 
     return (
@@ -283,13 +287,28 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
         </div>
         {activeFilterColumn === field && (
           <div className="filter-dropdown" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="text"
-              placeholder={`Filter ${label}...`}
-              value={columnFilters[field]}
-              onChange={(e) => setColumnFilters(prev => ({ ...prev, [field]: e.target.value }))}
-              autoFocus
-            />
+            {type === 'select' ? (
+              <select
+                value={columnFilters[field]}
+                onChange={(e) => setColumnFilters(prev => ({ ...prev, [field]: e.target.value }))}
+                autoFocus
+                className="filter-select" // Consider adding CSS for this class
+              >
+                {options.map((opt, idx) => (
+                  <option key={idx} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                placeholder={`Filter ${label}...`}
+                value={columnFilters[field]}
+                onChange={(e) => setColumnFilters(prev => ({ ...prev, [field]: e.target.value }))}
+                autoFocus
+              />
+            )}
           </div>
         )}
       </th>
@@ -312,7 +331,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
           <div className="header-icon-wrapper">
             <FaUser />
           </div>
-          <h1>Members Database</h1>
+          <h1>Members</h1>
         </div>
         <div className="top-actions">
           {selectedMembers.length > 0 && (
@@ -385,10 +404,55 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
               <FilterHeader label="Father's Name" field="father_name" minWidth="150px" />
               <FilterHeader label="Whatsapp" field="whatsapp" minWidth="120px" />
               <FilterHeader label="Phone Number" field="phone" minWidth="120px" />
-              <FilterHeader label="Area Code" field="area" minWidth="100px" /> {/* Filter logic might need tweak since area is ID/Name? using text search now */}
-              <FilterHeader label="Role" field="role" minWidth="100px" />
-              <FilterHeader label="Status" field="status" minWidth="100px" />
-              <FilterHeader label="Gender" field="gender" minWidth="100px" />
+
+              <FilterHeader
+                label="Area"
+                field="area"
+                minWidth="100px"
+                type="select"
+                options={[
+                  { label: 'All', value: '' },
+                  ...areas.map(a => ({ label: a.name, value: a.id }))
+                ]}
+              />
+
+              <FilterHeader
+                label="Role"
+                field="role"
+                minWidth="100px"
+                type="select"
+                options={[
+                  { label: 'All', value: '' },
+                  { label: 'Guardian', value: 'guardian' },
+                  { label: 'Non-Guardian', value: 'non-guardian' }
+                ]}
+              />
+
+              <FilterHeader
+                label="Status"
+                field="status"
+                minWidth="100px"
+                type="select"
+                options={[
+                  { label: 'All', value: '' },
+                  { label: 'Live', value: 'live' },
+                  { label: 'Deceased', value: 'dead' },
+                  { label: 'Terminated', value: 'terminated' }
+                ]}
+              />
+
+              <FilterHeader
+                label="Gender"
+                field="gender"
+                minWidth="100px"
+                type="select"
+                options={[
+                  { label: 'All', value: '' },
+                  { label: 'Male', value: 'male' },
+                  { label: 'Female', value: 'female' }
+                ]}
+              />
+
               <FilterHeader label="Aadhaar" field="adhar" minWidth="120px" />
               <FilterHeader label="DOB" field="dob" minWidth="100px" />
             </tr>
@@ -411,11 +475,20 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                   <td className="col-id is-id-cell">{member.member_id}</td>
                   <td className="col-name font-semibold">{member.name} {member.surname}</td>
 
-                  <td>{member.house?.house_name || 'N/A'}</td>
+                  <td>
+                    {member.house?.house_name /* Nested object from search */ ||
+                      member.house_details?.house_name /* Nested field from list */ ||
+                      (typeof member.house === 'string' ? member.house : null) /* String ID */ ||
+                      'N/A'}
+                  </td>
                   <td>{member.father_name || member.father?.name || '-'}</td>
                   <td>{member.whatsapp || '-'}</td>
                   <td>{member.phone || '-'}</td>
-                  <td>{member.house?.area?.name || '-'}</td>
+                  <td>
+                    {member.house?.area_name /* Nested object from search */ ||
+                      member.house_details?.area_name /* Nested field from list */ ||
+                      '-'}
+                  </td>
 
                   <td>{member.isGuardian ? <span className="guardian-badge">Guardian</span> : '-'}</td>
 

@@ -39,8 +39,12 @@ const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, 
           }
         }
 
-        // Fetch members for this house using a robust matching logic
-        const membersResponse = await memberAPI.getAll();
+        // Fetch members for this house using partial matching or direct ID
+        // We request a larger page size to ensure we get all members for this family
+        const membersResponse = await memberAPI.getAll({
+          house: stableHouseId,
+          page_size: 100
+        });
 
         let membersArray = [];
         if (Array.isArray(membersResponse.data)) {
@@ -51,34 +55,16 @@ const HouseDetailsPage = ({ houses, members, areas, subcollections, setEditing, 
           membersArray = membersResponse;
         }
 
-        const filteredMembers = membersArray.filter(member => {
-          const memberHouse = member.house;
-          const expectedHouseId = houseResponse.data.home_id;
-
-          if (!memberHouse) return false;
-
-          const expectedHouseIdStr = String(expectedHouseId);
-
-          // Direct matching attempts
-          if (String(memberHouse) === expectedHouseIdStr) return true;
-          if (Number(memberHouse) === Number(expectedHouseId)) return true;
-
-          // Object matching attempts
-          if (typeof memberHouse === 'object') {
-            if (memberHouse.home_id !== undefined && String(memberHouse.home_id) === expectedHouseIdStr) return true;
-            if (memberHouse.id !== undefined && String(memberHouse.id) === expectedHouseIdStr) return true;
-            if (memberHouse.pk !== undefined && String(memberHouse.pk) === expectedHouseIdStr) return true;
-            if (memberHouse.home !== undefined && String(memberHouse.home) === expectedHouseIdStr) return true;
-          }
-
-          return false;
-        });
-
-        setHouseMembers(filteredMembers);
+        // No client-side filtering needed as backend does it (but kept if needed for safety?)
+        // Actually, backend filter is safer. But in case backend isn't deployed yet, 
+        // the client side filter would fail on pagination anyway.
+        // Let's trust the backend result but just ensure safety if mixed data comes back.
+        // For now, we trust the backend filter we just added.
+        setHouseMembers(membersArray);
 
         // Fetch obligations for all members in this house
         const obligationsResponse = await obligationAPI.getAll();
-        const houseMemberIds = filteredMembers.map(member => member.member_id);
+        const houseMemberIds = membersArray.map(member => member.member_id);
         const houseObligations = obligationsResponse.data.filter(obligation =>
           houseMemberIds.includes(obligation.member) ||
           (typeof obligation.member === 'object' && houseMemberIds.includes(obligation.member.member_id))

@@ -274,27 +274,44 @@
   justify-content: center;
 }
 
-.single-toggle-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--text-muted);
+.sidebar-theme-toggle-btn {
+  /* width: 40px;
+  height: 40px; */
+  /* border-radius: 100%; */
+  border: 1px solid var(--border, #e2e8f0);
+  background: #e2e8f0;
+  /* Default light mode background (Slate 200) */
+  color: #334155;
+  /* Default light mode icon (Slate 700) */
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
-.single-toggle-btn:hover {
-  background: var(--primary);
+.theme-dark .sidebar-theme-toggle-btn {
+  background: #334155;
+  /* Dark mode background (Slate 700) */
+  color: #f1f5f9;
+  /* Dark mode icon (Slate 100) */
+  border-color: #475569;
+}
+
+.sidebar-theme-toggle-btn:hover {
+  background: var(--primary, #3b82f6);
   color: white;
-  border-color: var(--primary);
+  border-color: var(--primary, #3b82f6);
   transform: scale(1.1);
-  box-shadow: 0 0 12px rgba(var(--primary-rgb), 0.4);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+.sidebar-theme-toggle-btn svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: block;
 }
 
 /* =========================================
@@ -1195,27 +1212,38 @@ button[type="submit"]:hover {
 
 .collection-card-actions button,
 .subcollection-card-actions button {
-  width: 32px;
-  height: 32px;
+  /* width: 32px;
+  height: 32px; */
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  border: none;
+  border: 1px solid var(--border);
   cursor: pointer;
-  background: transparent;
+  background: var(--surface);
   color: var(--text-muted);
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.collection-card-actions button:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--text-color);
+.collection-card-actions button:hover,
+.subcollection-card-actions button:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.collection-card-actions button.delete-btn {
+  /* Specific override for delete button if it has this class */
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 .collection-card-actions button.delete-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: #ef4444;
+  color: white;
 }
 
 /* Add New Card Button */

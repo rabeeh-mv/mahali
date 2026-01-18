@@ -3,6 +3,9 @@
 .members-page-container {
     padding: 24px;
     height: 100vh;
+    /* Fallback */
+    height: 100dvh;
+    /* Dynamic Viewport Height for mobile */
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -23,22 +26,63 @@
     gap: 16px;
 }
 
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .members-page-container {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .members-top-section-1 {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .page-title h1 {
+        font-size: 1.25rem;
+    }
+
+    .top-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .top-actions button {
+        flex: 1;
+        padding: 8px;
+        font-size: 0.8rem;
+    }
+}
+
 /* Table Container */
 .members-table-container {
     flex: 1;
     overflow: auto;
     background: var(--surface);
     /* Theme surface */
-    border-radius: 12px;
-    box-shadow: var(--shadow-sm);
+    border-radius: 16px;
+    /* Increased radius */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    /* Softer, deeper shadow */
     position: relative;
     border: 1px solid var(--border);
 }
 
 /* Custom Scrollbar - Matching index.css but scoped */
 .members-table-container::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
 }
 
 .members-table-container::-webkit-scrollbar-track {
@@ -49,9 +93,9 @@
 
 .members-table-container::-webkit-scrollbar-thumb {
     background: var(--border);
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-clip: content-box;
+    border-radius: 4px;
+    border: 0px solid transparent;
+    /* Cleaner scrollbar */
 }
 
 .members-table-container::-webkit-scrollbar-thumb:hover {
@@ -76,35 +120,44 @@
     background-color: var(--header-bg);
     /* Theme header bg (White/Slate-800) */
     color: var(--text-color);
+    box-shadow: 0 1px 0 var(--border);
+    /* Clean separator */
 }
 
 .dense-table th {
-    padding: 12px 16px;
+    padding: 16px 16px;
+    /* Increased vertical padding */
     text-align: left;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    border-bottom: 2px solid var(--border);
-    /* Distinct border */
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    /* More tracking */
+    border-bottom: 1px solid var(--border);
     white-space: nowrap;
     position: relative;
     background-color: var(--header-bg);
     color: var(--text-muted);
-    /* Muted header text standard */
     text-transform: uppercase;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    /* Slightly smaller for elegance */
     transition: background-color 0.2s, color 0.2s;
 }
 
 /* Row & Cell Styles */
 .dense-table tbody tr {
-    transition: background-color 0.15s ease-in-out;
+    transition: background-color 0.2s ease;
     background-color: var(--surface);
 }
 
 .dense-table tbody tr:hover {
-    background-color: rgba(99, 102, 241, 0.05);
-    /* Tinted hover */
+    background-color: rgba(99, 102, 241, 0.03);
+    /* Very subtle tint */
     cursor: pointer;
+    transform: translateY(-1px);
+    /* Micro interaction */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    /* Lift effect */
+    position: relative;
+    z-index: 5;
 }
 
 /* Selected Row */
@@ -128,7 +181,7 @@
 
 
 .dense-table td {
-    padding: 10px 16px;
+    padding: 14px 16px;
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
     overflow: hidden;
@@ -136,6 +189,7 @@
     max-width: 250px;
     vertical-align: middle;
     color: var(--text-color);
+    font-size: 0.85rem;
 }
 
 /* Sticky Columns Configuration - DISABLED to match user request */
@@ -184,6 +238,7 @@
     /* z-index: 24 !important; */
     font-family: 'Roboto Mono', monospace;
     color: var(--text-muted);
+    font-weight: 500;
 }
 
 /*
@@ -267,7 +322,8 @@
     }
 }
 
-.filter-dropdown input {
+.filter-dropdown input,
+.filter-dropdown select {
     width: 100%;
     padding: 8px 12px;
     border: 1px solid var(--border);
@@ -279,7 +335,8 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.filter-dropdown input:focus {
+.filter-dropdown input:focus,
+.filter-dropdown select:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
@@ -290,30 +347,33 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 2px 10px;
-    border-radius: 9999px;
+    padding: 4px 12px;
+    /* Plump badges */
+    border-radius: 6px;
+    /* Soft square > pills */
     font-size: 11px;
     font-weight: 600;
     text-transform: capitalize;
-    line-height: 1.5;
+    line-height: normal;
     min-width: 70px;
+    letter-spacing: 0.02em;
 }
 
 .status-badge-live {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
     border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .status-badge-dead {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .status-badge-terminated {
-    background: rgba(234, 179, 8, 0.15);
-    color: #ca8a04;
+    background: rgba(234, 179, 8, 0.1);
+    color: #d97706;
     border: 1px solid rgba(234, 179, 8, 0.2);
 }
 
@@ -330,7 +390,8 @@
     font-weight: 600;
     background: rgba(59, 130, 246, 0.1);
     padding: 2px 8px;
-    border-radius: 6px;
+    border-radius: 4px;
+    /* Consistent radius */
     font-size: 11px;
     border: 1px solid rgba(59, 130, 246, 0.2);
 }

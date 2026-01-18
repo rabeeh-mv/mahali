@@ -6,13 +6,14 @@ from django.db.models import Q, Sum, Count
 from django.http import HttpResponse, Http404
 from django.conf import settings
 from django.core.management import execute_from_command_line
-from .models import Member, Area, House, Collection, SubCollection, MemberObligation, Todo, AppSettings
-from .serializers import MemberSerializer, AreaSerializer, HouseSerializer, CollectionSerializer, SubCollectionSerializer, MemberObligationSerializer, MemberObligationDetailSerializer, TodoSerializer, AppSettingsSerializer
+from .models import Member, Area, House, Collection, SubCollection, MemberObligation, Todo, AppSettings, DigitalRequest
+from .serializers import MemberSerializer, AreaSerializer, HouseSerializer, CollectionSerializer, SubCollectionSerializer, MemberObligationSerializer, MemberObligationDetailSerializer, TodoSerializer, AppSettingsSerializer, DigitalRequestSerializer
 import os
 import zipfile
 import tempfile
 import shutil
 from typing import Any
+import difflib
 
 # Custom pagination class
 class MemberPagination(PageNumberPagination):
@@ -74,6 +75,59 @@ class HouseViewSet(viewsets.ModelViewSet):
         # Use the appropriate serializer based on the action
         serializer_class = self.get_serializer_class()
         serializer = serializer_class(queryset, many=True)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def check_duplicates(self, request):
+        """
+        Check for duplicate houses based on name and family name.
+        """
+        house_name = request.query_params.get('house_name', '').strip()
+        family_name = request.query_params.get('family_name', '').strip()
+        
+        if not house_name and not family_name:
+            return Response([])
+            
+        # Strategy:
+        # 1. Fetch a broad set of candidates (e.g. all houses, or filtered by first letter if dataset is huge)
+        # 2. Score them using difflib
+        
+        queryset = House.objects.all()
+        candidates = list(queryset) # For SQLite/small-medium datasets, fetching all is okay (~1000s). For larger, filter first.
+        
+        results = []
+        for house in candidates:
+            score = 0
+            checks = 0
+            
+            if house_name:
+                checks += 1
+                # Check house name similarity
+                s = difflib.SequenceMatcher(None, house_name.lower(), house.house_name.lower()).ratio()
+                score += s
+                
+            if family_name and house.family_name:
+                checks += 1
+                # Check family name similarity
+                s = difflib.SequenceMatcher(None, family_name.lower(), house.family_name.lower()).ratio()
+                score += s
+            
+            # Normalize score
+            final_score = (score / checks) if checks > 0 else 0
+            
+            # Threshold: > 0.6 means decent similarity (e.g. "muhammed" vs "mohammed" is high)
+            if final_score > 0.6:
+                results.append({
+                    'data': house,
+                    'score': final_score
+                })
+        
+        # Sort by score descending
+        results.sort(key=lambda x: x['score'], reverse=True)
+        top_matches = [r['data'] for r in results[:10]]
+        
+        serializer = self.get_serializer(top_matches, many=True)
         return Response(serializer.data)
 
 class MemberViewSet(viewsets.ModelViewSet):
@@ -96,6 +150,17 @@ class MemberViewSet(viewsets.ModelViewSet):
         area_id = self.request.query_params.get('area', None)
         status = self.request.query_params.get('status', None)
         is_guardian = self.request.query_params.get('is_guardian', None)
+
+        # Column specific filters
+        member_id_filter = self.request.query_params.get('member_id', None)
+        name_filter = self.request.query_params.get('name', None)
+        father_filter = self.request.query_params.get('father_name', None)
+        mother_filter = self.request.query_params.get('mother_name', None)
+        phone_filter = self.request.query_params.get('phone', None)
+        whatsapp_filter = self.request.query_params.get('whatsapp', None)
+        adhar_filter = self.request.query_params.get('adhar', None)
+        gender_filter = self.request.query_params.get('gender', None)
+        house_name_filter = self.request.query_params.get('house_name', None)
         
         if search:
             queryset = queryset.filter(
@@ -114,6 +179,31 @@ class MemberViewSet(viewsets.ModelViewSet):
         if is_guardian is not None:
             is_guardian_bool = str(is_guardian).lower() == 'true'
             queryset = queryset.filter(isGuardian=is_guardian_bool)
+
+        # Apply column filters
+        if member_id_filter:
+            queryset = queryset.filter(member_id__icontains=member_id_filter)
+        if name_filter:
+            queryset = queryset.filter(Q(name__icontains=name_filter) | Q(surname__icontains=name_filter))
+        if father_filter:
+            queryset = queryset.filter(father_name__icontains=father_filter)
+        if mother_filter:
+            queryset = queryset.filter(mother_name__icontains=mother_filter)
+        if phone_filter:
+            queryset = queryset.filter(phone__icontains=phone_filter)
+        if whatsapp_filter:
+            queryset = queryset.filter(whatsapp__icontains=whatsapp_filter)
+        if adhar_filter:
+            queryset = queryset.filter(adhar__icontains=adhar_filter)
+        if gender_filter:
+            queryset = queryset.filter(gender__iexact=gender_filter)
+        if house_name_filter:
+            queryset = queryset.filter(house__house_name__icontains=house_name_filter)
+            
+        # Add support for direct house ID filtering
+        house_id = self.request.query_params.get('house', None) or self.request.query_params.get('home_id', None)
+        if house_id:
+            queryset = queryset.filter(house__home_id=house_id)
             
         return queryset
     
@@ -494,7 +584,219 @@ class AppSettingsViewSet(viewsets.ModelViewSet):
         # Ensure firebase_config is included in the response
         data = serializer.data
         data['firebase_config'] = instance.firebase_config
+        data = serializer.data
+        data['firebase_config'] = instance.firebase_config
         return Response(data)
+
+
+class DigitalRequestViewSet(viewsets.ModelViewSet):
+    queryset = DigitalRequest.objects.all()
+    serializer_class = DigitalRequestSerializer
+    ordering_fields = ['created_at']
+    filterset_fields = ['status']
+
+    def get_queryset(self):
+        queryset = DigitalRequest.objects.all().order_by('-created_at')
+        status_param = self.request.query_params.get('status', None)
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        return queryset
+
+    @action(detail=False, methods=['get'])
+    def search_parents(self, request):
+        """
+        Search for potential parents/spouses using fuzzy matching options.
+        Query params:
+        - search: Name term to search
+        - father: Father's name term (optional)
+        - grandfather: Grandfather's name term (optional)
+        - house: House name term (optional)
+        """
+        search_term = request.query_params.get('search', '').strip()
+        surname_term = request.query_params.get('surname', '').strip()
+        father_term = request.query_params.get('father', '').strip()
+        grandfather_term = request.query_params.get('grandfather', '').strip()
+        spouse_term = request.query_params.get('spouse', '').strip()
+        house_term = request.query_params.get('house', '').strip()
+        
+        # FUZZY SEARCH STRATEGY
+        # 1. Fetch broad candidates. If search_term is present, filter by first letter or allow all if empty.
+        #    Currently fetching all might be too heavy if DB is huge. optimize by filtering where possible.
+        
+        queryset = Member.objects.all().select_related('house', 'father', 'married_to')
+        
+        # Optimization: if search term exists, at least require first letter match? 
+        # Or if "muhammed" vs "mohammed", first letter M matches. 
+        # But if "Umer" vs "Omer", first letter differs.
+        # For now, let's limit to active members or just fetch all (assuming < 10k members for now).
+        # If > 10k, we need a better strategy (e.g. Trigram similarity in Postgres, but we are using SQLite).
+        
+        # For performance, let's filter by gender if known context? (Parent search usually implies gender)
+        # But here we don't know the requested gender.
+        
+        candidates = list(queryset) # Evaluates the query
+        
+        scored_results = []
+        
+        for m in candidates:
+            total_score = 0
+            weights = 0
+            
+            # 1. Name Match (Highest Weight)
+            if search_term:
+                term = search_term.lower()
+                name = m.name.lower()
+                # Check name
+                s1 = difflib.SequenceMatcher(None, term, name).ratio()
+                
+                # Check compound name parts? "Muhammed Ali" vs "Ali"
+                # For now simple ratio.
+                
+                total_score += (s1 * 3) # Weight 3
+                weights += 3
+            
+            # 2. Surname
+            if surname_term:
+                term = surname_term.lower()
+                # surname might be empty in DB
+                sur = (m.surname or "").lower()
+                s2 = difflib.SequenceMatcher(None, term, sur).ratio()
+                total_score += s2
+                weights += 1
+            
+            # 3. Father
+            if father_term:
+                term = father_term.lower()
+                f_name = (m.father_name or (m.father.name if m.father else "")).lower()
+                s3 = difflib.SequenceMatcher(None, term, f_name).ratio()
+                total_score += (s3 * 1.5)
+                weights += 1.5
+                
+            # 4. Grandfather
+            if grandfather_term:
+                term = grandfather_term.lower()
+                g_name = (m.grandfather_name or "").lower()
+                s4 = difflib.SequenceMatcher(None, term, g_name).ratio()
+                total_score += s4
+                weights += 1
+                
+            # 5. Spouse
+            if spouse_term:
+                term = spouse_term.lower()
+                sp_name = (m.married_to_name or (m.married_to.name if m.married_to else "")).lower()
+                s5 = difflib.SequenceMatcher(None, term, sp_name).ratio()
+                total_score += (s5 * 1.5)
+                weights += 1.5
+                
+            # 6. House
+            if house_term:
+                term = house_term.lower()
+                h_name = (m.house.house_name if m.house else "").lower()
+                s6 = difflib.SequenceMatcher(None, term, h_name).ratio()
+                total_score += s6
+                weights += 1
+
+            if weights == 0:
+                continue # No search terms
+                
+            final_score = total_score / weights
+            
+            # Threshold
+            if final_score > 0.55: # Slightly loose to allow finding "the one"
+                scored_results.append((m, final_score))
+
+        # Sort
+        scored_results.sort(key=lambda x: x[1], reverse=True)
+        top_results = [x[0] for x in scored_results[:20]]
+        
+        # Return detailed data
+        data = []
+        for m in top_results:
+            house_name = m.house.house_name if m.house else "No House"
+            father_name_disp = m.father.name if m.father else m.father_name
+            
+            data.append({
+                'id': m.member_id,
+                'name': m.name,
+                'surname': m.surname,
+                'house': house_name,
+                'gender': m.gender,
+                'age': m.date_of_birth,
+                'father_name': father_name_disp,
+                'grandfather_name': m.grandfather_name,
+                'spouse_name': m.married_to.name if m.married_to else m.married_to_name or "N/A"
+            })
+            
+        return Response(data)
+
+    @action(detail=False, methods=['post'])
+    def sync_firebase(self, request):
+        """
+        Fetch pending requests from Firebase and save them to the local database.
+        """
+        try:
+            # 1. Get Firebase Config
+            setting = Settings.objects.first()
+            if not setting or not setting.firebase_config:
+                return Response({'error': 'Firebase not configured in settings'}, status=400)
+            
+            import json
+            import firebase_admin
+            from firebase_admin import credentials, firestore
+
+            config = json.loads(setting.firebase_config)
+            
+            # Initialize Firebase App
+            # We use a unique name to avoid conflicts if initialized multiple times
+            if not firebase_admin._apps:
+                # Assuming config is a service account dict. If it's a client config, this might vary.
+                # For client-side config passed to backend, we might need a Service Account for admin privileges
+                # OR we implement this sync on the FRONTEND and just push to this API.
+                #
+                # DECISION: To avoid backend dependency complexities with client-config,
+                # let's assume the Frontend does the fetch (using its client SDK) and posts the data here?
+                #
+                # WAIT: The prompt is "there not listing data". The user expects it to work.
+                # If I implement backend sync, I need a Service Account which the user might not have provided (only client config).
+                # The previous frontend component `FirebaseDataImproved` used CLIENT SDK.
+                #
+                # PATH CORRECTION: It is safer and easier to replicate the Frontend Sync logic
+                # inside `DigitalRequestsPage` (fetch from Firebase -> POST to Django) 
+                # OR make this endpoint accept a list of requests to "bulk create".
+                #
+                # Let's revert to a simpler "Bulk Create" endpoint here, and let the Frontend handle the Firebase Connection
+                # since the frontend already has the working config/SDK logic established in the previous file.
+                pass
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+            
+        return Response({'message': 'Sync logic should be client-side due to auth config types'})
+
+    @action(detail=False, methods=['post'])
+    def import_from_client(self, request):
+        """
+        Receive a list of request objects from the frontend (which fetched them from Firebase)
+        and save them as DigitalRequest objects if they don't exist.
+        """
+        items = request.data.get('items', [])
+        created_count = 0
+        
+        for item in items:
+            firebase_id = item.get('id')
+            if not firebase_id:
+                continue
+                
+            # Check for duplicates
+            if not DigitalRequest.objects.filter(firebase_id=firebase_id).exists():
+                DigitalRequest.objects.create(
+                    firebase_id=firebase_id,
+                    data=item,
+                    status='pending'
+                )
+                created_count += 1
+                
+        return Response({'created': created_count, 'message': f'Imported {created_count} requests.'})
 
 class DashboardViewSet(viewsets.ViewSet):
     """

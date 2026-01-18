@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Member, Area, House, Collection, SubCollection, MemberObligation, Todo, AppSettings
+from .models import Member, Area, House, Collection, SubCollection, MemberObligation, Todo, AppSettings, DigitalRequest
 from typing import Any
 
 
@@ -20,6 +20,7 @@ class AreaSerializer(serializers.ModelSerializer):
 
 
 class HouseSerializer(serializers.ModelSerializer):
+    firebase_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     class Meta:
         model = House
         fields = '__all__'
@@ -81,27 +82,34 @@ class SafeSlugRelatedField(serializers.SlugRelatedField):
 
 
 class MemberSerializer(serializers.ModelSerializer):
+    firebase_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     photo = serializers.ImageField(required=False)
     house = SafeSlugRelatedField(
         queryset=House.objects.all(),
         slug_field='home_id',
-        required=False
+        required=True
     )
     father = SafeSlugRelatedField(
         queryset=Member.objects.all(),
         slug_field='member_id',
-        required=False
+        required=False,
+        allow_null=True
     )
     mother = SafeSlugRelatedField(
         queryset=Member.objects.all(),
         slug_field='member_id',
-        required=False
+        required=False,
+        allow_null=True
     )
     married_to = SafeSlugRelatedField(
         queryset=Member.objects.all(),
         slug_field='member_id',
-        required=False
+        required=False,
+        allow_null=True
     )
+    
+    # Read-only nested details for frontend display
+    house_details = HouseDetailSerializer(source='house', read_only=True)
 
     class Meta:
         model = Member
@@ -166,6 +174,13 @@ class AppSettingsSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = AppSettings
+        fields = '__all__'
+
+
+class DigitalRequestSerializer(serializers.ModelSerializer):
+    firebase_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    class Meta:
+        model = DigitalRequest
         fields = '__all__'
 
 

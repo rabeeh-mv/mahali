@@ -154,10 +154,8 @@ const Sidebar = ({
 
   const activeTab = getActiveTab();
 
-  // Check if Firebase is configured
+  // Check if Firebase is configured (just presence, enabled check is handled inside components)
   const isFirebaseConfigured = appSettings && appSettings.firebase_config && appSettings.firebase_config.trim() !== '';
-  console.log('Sidebar: appSettings:', appSettings);
-  console.log('Sidebar: isFirebaseConfigured:', isFirebaseConfigured);
 
   const toggleSidebar = () => {
     const newState = !isCollapsed;
@@ -269,7 +267,7 @@ const Sidebar = ({
             <button
               onClick={() => handleThemeChange(theme === 'light' ? 'dark' : 'light')}
               title={`Switch to ${theme === 'light' ? 'Night' : 'Bright'} Mode`}
-              className="single-toggle-btn"
+              className="sidebar-theme-toggle-btn"
               disabled={disabled}
             >
               {theme === 'light' ? <FaMoon /> : <FaSun />}

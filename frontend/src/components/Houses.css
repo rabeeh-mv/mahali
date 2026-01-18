@@ -44,9 +44,7 @@
 }
 
 .icon-only-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+
     border: 1px solid var(--border);
     background: var(--surface-light);
     color: var(--text-color);

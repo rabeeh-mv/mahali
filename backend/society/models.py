@@ -22,6 +22,7 @@ class House(models.Model):
     house_name = models.CharField(max_length=100)
     family_name = models.CharField(max_length=100)
     location_name = models.CharField(max_length=100)
+    locality = models.CharField(max_length=100, blank=True)  # Specific Area/Locality name (e.g. Ramanatukara)
     area = models.ForeignKey(Area, on_delete=models.CASCADE, related_name='houses', db_index=True)  # Indexed
     address = models.TextField()
 
@@ -73,6 +74,7 @@ class Member(models.Model):
     father_name = models.CharField(max_length=100, blank=True)
     father_surname = models.CharField(max_length=100, blank=True)
     father = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children_as_father')
+    grandfather_name = models.CharField(max_length=100, blank=True)  # Added for linking context
     
     # Marriage Information
     married_to_name = models.CharField(max_length=100, blank=True)
@@ -246,6 +248,25 @@ class AppSettings(models.Model):
     
     def __str__(self):
         return f"App Settings (Theme: {self.theme})"
+
+
+class DigitalRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('processed', 'Processed'),
+        ('rejected', 'Rejected'),
+    ]
+
+    request_id = models.AutoField(primary_key=True)
+    firebase_id = models.CharField(max_length=100, unique=True, db_index=True)
+    data = models.JSONField(default=dict)  # Stores the full raw request data
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Request {self.firebase_id} ({self.status})"
 
 
 class RecentAction(models.Model):

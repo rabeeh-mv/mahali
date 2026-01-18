@@ -39,6 +39,12 @@ const DigitalRequestsPage = () => {
                 return;
             }
 
+            if (settings.firebase_enabled === false) {
+                alert("Network Integration is disabled in Settings.");
+                setLoading(false);
+                return;
+            }
+
             const firebaseConfig = JSON.parse(settings.firebase_config);
 
             // 2. Dynamic Import Firebase

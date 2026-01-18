@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import MemberViewSet, AreaViewSet, HouseViewSet, CollectionViewSet, SubCollectionViewSet, MemberObligationViewSet, DashboardViewSet, TodoViewSet, AppSettingsViewSet
+from .views import MemberViewSet, AreaViewSet, HouseViewSet, CollectionViewSet, SubCollectionViewSet, MemberObligationViewSet, DashboardViewSet, TodoViewSet, AppSettingsViewSet, DigitalRequestViewSet
 
 router = DefaultRouter()
 router.register(r'areas', AreaViewSet)
@@ -12,6 +12,7 @@ router.register(r'obligations', MemberObligationViewSet)
 router.register(r'todos', TodoViewSet)
 router.register(r'settings', AppSettingsViewSet)
 router.register(r'dashboard', DashboardViewSet, basename='dashboard')
+router.register(r'digital-requests', DigitalRequestViewSet)
 
 from .views import RecentActionViewSet
 router.register(r'recent-actions', RecentActionViewSet)

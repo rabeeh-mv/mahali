@@ -5,7 +5,7 @@ const api = axios.create({
 });
 
 export const memberAPI = {
-  getAll: () => api.get('/members/'),
+  getAll: (params) => api.get('/members/', { params }),
   get: (id) => api.get(`/members/${id}/`),
   create: (data) => api.post('/members/', data),
   update: (id, data) => api.put(`/members/${id}/`, data),
