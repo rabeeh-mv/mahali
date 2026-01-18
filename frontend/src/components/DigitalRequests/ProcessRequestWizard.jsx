@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { digitalRequestAPI, houseAPI, memberAPI, areaAPI } from '../../api';
+import { digitalRequestAPI, houseAPI, memberAPI, areaAPI, todoAPI } from '../../api';
 import './DigitalRequests.css';
-import { FaAddressCard, FaHome, FaUsers, FaArrowRight, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaAddressCard, FaHome, FaUsers, FaArrowRight, FaCheck, FaExclamationTriangle, FaMale, FaFemale, FaHeart, FaLink, FaSearch } from 'react-icons/fa';
 
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -14,7 +14,25 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+
+    // Unlinked Members Modal State
+    const [showUnlinkedModal, setShowUnlinkedModal] = useState(false);
+    const [unlinkedDetails, setUnlinkedDetails] = useState([]); // [{index, name, missing: [], whatsapp}]
     const [areas, setAreas] = useState([]);
+
+    // Exit Confirmation State
+    const [showExitModal, setShowExitModal] = useState(false);
+
+    const onExitRequest = () => {
+        setShowExitModal(true);
+    };
+
+    const confirmExit = () => {
+        // "Delete all added data" -> effectively just discard state and leave
+        setShowExitModal(false);
+        if (onBack) onBack();
+        else navigate('/digital-requests');
+    };
 
     // --- Data State ---
     const [houseData, setHouseData] = useState({});
@@ -80,7 +98,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
         setMembersData(membersList.map((m, i) => ({
             ...m,
             // Ensure essential fields exist
-            name: m.name || m.memberName || m.fullName || m.full_name || `Unknown Member (Keys: ${Object.keys(m).join(', ')})`,
+            name: m.name || m.memberName || m.fullName || m.full_name || `Unknown Member(Keys: ${Object.keys(m).join(', ')})`,
             relationToGuardian: m.relationToGuardian || m.relation || 'Member',
             status: 'live',
             isGuardian: m.isGuardian || false
@@ -178,15 +196,15 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
 
         if (type === 'father') {
             filters.search = m.father_name || m.fatherName || '';
-            filters.surname = m.father_surname || ''; // Assuming we have this, or leave blank
+            filters.surname = m.father_surname || m.fatherSurname || '';
             filters.father = m.grandfather_name || m.grandFather || '';
         } else if (type === 'mother') {
             filters.search = m.mother_name || m.motherName || '';
-            filters.surname = m.mother_surname || '';
+            filters.surname = m.mother_surname || m.motherSurname || '';
             filters.spouse = m.father_name || m.fatherName || ''; // Mother's spouse is usually the Father
         } else if (type === 'spouse') {
             filters.search = m.spouse_name || m.spouseName || m.married_to_name || '';
-            filters.surname = m.married_to_surname || '';
+            filters.surname = m.married_to_surname || m.spouse_surname || m.spouseSurname || '';
         }
 
         setSearchFilters(filters);
@@ -204,25 +222,105 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                 [`${type}Name`]: parent.name
             }
         }));
+
+        // --- AUTO-FILL MISSING DATA (Manual Link) ---
+        const newData = [...membersData];
+        const m = newData[index];
+        let madeChanges = false;
+
+        if (type === 'father') {
+            if (!m.father_name && !m.fatherName) {
+                m.father_name = parent.name;
+                m.father_surname = parent.surname || ''; // If available from search result
+                madeChanges = true;
+            }
+        } else if (type === 'mother') {
+            if (!m.mother_name && !m.motherName) {
+                m.mother_name = parent.name;
+                m.mother_surname = parent.surname || '';
+                madeChanges = true;
+            }
+        } else if (type === 'spouse') {
+            if (!m.spouse_name && !m.spouseName && !m.married_to_name) {
+                m.spouse_name = parent.name;
+                m.spouseName = parent.name;
+                m.married_to_name = parent.name;
+                m.married_to_surname = parent.surname || '';
+                madeChanges = true;
+            }
+        }
+
+        if (madeChanges) setMembersData(newData);
         setSearchContext(null);
     };
 
-    // --- FINAL SUBMIT ---
+    // --- FINAL SUBMIT WRAPPER ---
     const handleFinalSubmit = async () => {
+        // 1. Identify Unlinked Members
+        const unlinked = [];
+        const norm = (str) => (str || '').toLowerCase().trim();
+
+        membersData.forEach((m, i) => {
+            const rels = relationshipMap[i] || {};
+            const missing = [];
+
+            // Check Father
+            if ((m.father_name || m.fatherName) && !rels.fatherId) {
+                missing.push('father');
+            }
+            // Check Mother
+            if ((m.mother_name || m.motherName) && !rels.motherId) {
+                missing.push('mother');
+            }
+            // Check Spouse (only if married/spouse listed)
+            if ((m.spouse_name || m.spouseName || m.married_to_name) && !rels.spouseId) {
+                missing.push('spouse');
+            }
+
+            if (missing.length > 0) {
+                unlinked.push({
+                    index: i,
+                    name: m.name || m.memberName || 'Unknown',
+                    missing: missing,
+                    whatsapp: m.whatsapp || m.phone || 'N/A' // Use specific whatsapp field if avail
+                });
+            }
+        });
+
+        if (unlinked.length > 0) {
+            setUnlinkedDetails(unlinked);
+            setShowUnlinkedModal(true);
+        } else {
+            // No unlinked members, proceed directly
+            performSave(false);
+        }
+    };
+
+    // --- ACTUAL SAVE LOGIC ---
+    const performSave = async (createTodos) => {
         setLoading(true);
+        setShowUnlinkedModal(false); // Close modal if open
+
         try {
             let finalizedHouseId;
 
             // 1. House
             if (selectedExistingHouse) {
                 finalizedHouseId = selectedExistingHouse.home_id;
+                console.log("Using Existing House ID:", finalizedHouseId);
             } else {
                 const res = await houseAPI.create(houseData);
+                console.log("House Create Response:", res.data);
                 finalizedHouseId = res.data.home_id;
+                console.log("New House ID:", finalizedHouseId);
+
+                if (!finalizedHouseId) {
+                    throw new Error(`Failed to retrieve House ID from response. Keys: ${Object.keys(res.data).join(', ')}`);
+                }
             }
 
             // 2. Members
-            const createdMembers = []; // store { index, id }
+            const createdMembers = []; // store { index, id, name } for later use
 
             for (let i = 0; i < membersData.length; i++) {
                 const m = membersData[i];
@@ -257,41 +355,37 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     married_to: rels.spouseId?.toString().startsWith('NEW') ? null : rels.spouseId,
                 };
 
-                // Validate DOB format (YYYY-MM-DD)
-                // If it's DD-MM-YYYY or something else, try to parse
-                // For now, let's assume it's standard or handle error gracefully
-
                 console.log("Creating Member:", mappedMember);
 
                 const res = await memberAPI.create(mappedMember);
-                createdMembers.push({ index: i, id: res.data.member_id });
+                createdMembers.push({
+                    index: i,
+                    id: res.data.member_id,
+                    name: res.data.name
+                });
             }
 
             // 3. Link Internal Relations (The "NEW_" ones)
-            // We need to support internal linking. 
-            // In Stage 3, let's assume valid IDs are external, and we might need internal linking UI?
-            // "Auto-link" from previous version can be reused or re-triggered.
-            // For now, let's assume the user manually linked external people.
-            // If we want internal linking (e.g. brother-sister in same request), we need that feature back.
-            // Let's re-add "Auto-Link" button in Stage 3.
-
             // Apply Auto-Link logic (simplified for commit)
             for (let i = 0; i < membersData.length; i++) {
                 const rels = relationshipMap[i];
                 if (!rels) continue;
 
                 const updates = {};
+                // Helper to find ID from created list
+                const findId = (newStr) => {
+                    const idx = parseInt(newStr.split('_')[1]);
+                    return createdMembers.find(cm => cm.index === idx)?.id;
+                };
+
                 if (rels.fatherId?.toString().startsWith('NEW_')) {
-                    const idx = parseInt(rels.fatherId.split('_')[1]);
-                    updates.father = createdMembers[idx].id;
+                    updates.father = findId(rels.fatherId);
                 }
                 if (rels.motherId?.toString().startsWith('NEW_')) {
-                    const idx = parseInt(rels.motherId.split('_')[1]);
-                    updates.mother = createdMembers[idx].id;
+                    updates.mother = findId(rels.motherId);
                 }
                 if (rels.spouseId?.toString().startsWith('NEW_')) {
-                    const idx = parseInt(rels.spouseId.split('_')[1]);
-                    updates.married_to = createdMembers[idx].id;
+                    updates.married_to = findId(rels.spouseId);
                 }
 
                 if (Object.keys(updates).length > 0) {
@@ -299,16 +393,97 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                 }
             }
 
-            // 4. Update Request
+            // 4. Create Todos (If requested)
+            if (createTodos && unlinkedDetails.length > 0) {
+                const { todoAPI } = await import('../../api'); // Lazy import or ensure top-level import
+
+                for (const item of unlinkedDetails) {
+                    // Find the REAL ID of this member
+                    const created = createdMembers.find(cm => cm.index === item.index);
+                    if (created) {
+                        const todoTitle = `Connect Relations for ${created.name}`;
+                        // "(id, name) this member need to connect (father/mather/spouse) whatsapp no: (whatsapp number"
+                        const todoDesc = `(${created.id}, ${created.name}) this member need to connect(${item.missing.join('/')}) \nwhatsapp no: ${item.whatsapp} `;
+
+                        await todoAPI.create({
+                            title: todoTitle,
+                            description: todoDesc,
+                            priority: 'medium',
+                            completed: false,
+                            due_date: new Date().toISOString().split('T')[0]
+                        });
+                    }
+                }
+                alert(`Saved & Created ${unlinkedDetails.length} Todo items!`);
+            }
+
+            // 5. Update Request
             await digitalRequestAPI.update(request.request_id, { status: 'processed' });
 
-            alert("Request Processed Successfully!");
+            // Show Success Alert FIRST
+            alert("Request Processed & Saved Successfully!\n\nClick OK to automatically delete this request from the online pending list.");
+
+            // 6. Delete from Firebase (Auto-Cleanup)
+            if (request.firebase_id) {
+                try {
+                    console.log("Attempting to auto-delete from Firebase:", request.firebase_id);
+                    // Fetch settings for config
+                    const { settingsAPI } = await import('../../api');
+                    const settingsRes = await settingsAPI.getAll();
+                    const settings = settingsRes.data[0];
+
+                    if (settings && settings.firebase_config) {
+                        const firebaseConfig = JSON.parse(settings.firebase_config);
+
+                        // Dynamic Import Firebase
+                        const { initializeApp } = await import('firebase/app');
+                        const { getFirestore, doc, deleteDoc } = await import('firebase/firestore');
+
+                        const appName = 'autoDeleteApp' + Date.now();
+                        const app = initializeApp(firebaseConfig, appName);
+                        const db = getFirestore(app);
+
+                        await deleteDoc(doc(db, 'families', request.firebase_id));
+                        console.log("Successfully deleted from Firebase.");
+                    }
+
+                    // 7. Delete Local Record as well (Complete Cleanup)
+                    console.log("Deleting local request record...");
+                    await digitalRequestAPI.delete(request.request_id);
+
+                } catch (fbErr) {
+                    console.error("Auto-delete failed:", fbErr);
+                    alert(`Request processed, but failed to delete from Firebase/Local: ${fbErr.message}`);
+                }
+            } else {
+                // Even if no firebase_id, user might want to auto-clean?
+                // For now, let's assume we only auto-clean if it was a firebase request.
+                // But actually, seeing "Processed" in the list is annoying.
+                // Let's delete it locally anyway if it was a success.
+                await digitalRequestAPI.delete(request.request_id);
+            }
+
             if (onComplete) onComplete();
             else navigate('/digital-requests');
 
         } catch (err) {
             console.error(err);
-            alert("Error processing request: " + err.message);
+            // Enhanced Error Reporting
+            if (err.response && err.response.data) {
+                const errorData = err.response.data;
+                let errorMsg = "Validation Failed:\n";
+                // If it's a simple object of field errors
+                if (typeof errorData === 'object') {
+                    for (const [key, value] of Object.entries(errorData)) {
+                        errorMsg += `${key}: ${value} \n`;
+                    }
+                } else {
+                    errorMsg += JSON.stringify(errorData);
+                }
+                alert(errorMsg);
+            } else {
+                alert("Error processing request: " + err.message);
+            }
         } finally {
             setLoading(false);
         }
@@ -365,7 +540,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     {duplicateHouses.length === 0 && <p className="safe-text"><FaCheck /> No direct duplicates found.</p>}
                     {duplicateHouses.map(h => (
                         <div key={h.home_id}
-                            className={`duplicate-card ${selectedExistingHouse?.home_id === h.home_id ? 'selected' : ''}`}
+                            className={`duplicate - card ${selectedExistingHouse?.home_id === h.home_id ? 'selected' : ''} `}
                             onClick={() => handleUseExistingHouse(h)}>
                             <div className="card-header">
                                 <strong>{h.house_name}</strong>
@@ -402,7 +577,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     <div className="members-list-preview">
                         {membersData.map((m, i) => (
                             <div key={i}
-                                className={`member-preview-item ${selectedMemberIdx === i ? 'selected' : ''}`}
+                                className={`member - preview - item ${selectedMemberIdx === i ? 'selected' : ''} `}
                                 onClick={() => setSelectedMemberIdx(i)}
                             >
                                 <div className="m-header">
@@ -498,26 +673,145 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
             <div className="left-panel">
                 <h3>🔗 Relationships</h3>
                 <button className="small-link-btn" onClick={() => {
-                    // ... (Auto-Link Logic same as before, omitted for brevity in prompt but I should keep it or I can just reference handleAutoConnect if I extracted it. 
-                    // Since I didn't extract it, I will keep the logic here inline or extract it now.
-                    // For safety I will keep inline logic but compacted).
                     const newMap = { ...relationshipMap };
-                    const guardianIdx = membersData.findIndex(m => m.isGuardian);
-                    if (guardianIdx === -1) return;
-                    const guardian = membersData[guardianIdx];
-                    membersData.forEach((m, idx) => {
-                        if (idx === guardianIdx) return;
-                        if (['Son', 'Daughter'].includes(m.relationToGuardian)) {
-                            if (guardian.gender === 'male') newMap[idx] = { ...newMap[idx], fatherId: `NEW_${guardianIdx}`, fatherName: guardian.name };
-                            else newMap[idx] = { ...newMap[idx], motherId: `NEW_${guardianIdx}`, motherName: guardian.name };
+
+                    // --- HELPER: Normalize String ---
+                    const norm = (str) => (str || '').toLowerCase().trim();
+
+                    // --- 1. Identify Key Figures (Father & Mother) ---
+                    let fatherIdx = -1;
+                    let motherIdx = -1;
+
+                    // A. Check for Guardian/Head/Self
+                    let headIdx = membersData.findIndex(m => m.isGuardian || norm(m.relationToGuardian) === 'self' || norm(m.relationToGuardian) === 'head');
+
+                    if (headIdx !== -1) {
+                        const head = membersData[headIdx];
+                        // INFER GENDER: The registration form might not send gender. 
+                        // It often uses 'wifeName' which implies Male guardian.
+                        let headGender = norm(head.gender);
+                        if (!headGender) {
+                            if (head.wifeName) headGender = 'male';
+                            else if (head.husbandName) headGender = 'female';
+                            else headGender = 'male'; // Default to Male if unknown
                         }
-                        if (['Spouse', 'Wife', 'Husband'].includes(m.relationToGuardian)) {
-                            newMap[idx] = { ...newMap[idx], spouseId: `NEW_${guardianIdx}`, spouseName: guardian.name };
-                            newMap[guardianIdx] = { ...newMap[guardianIdx], spouseId: `NEW_${idx}`, spouseName: m.name };
+
+                        console.log(`Auto - Connect: Head Found: ${head.name}, Inferred Gender: ${headGender} `);
+
+                        if (headGender === 'male' || headGender === 'm') {
+                            fatherIdx = headIdx;
+                            // Search for Wife
+                            const wifeIdx = membersData.findIndex(m =>
+                                !m.isGuardian &&
+                                (norm(m.relationToGuardian) === 'wife' || norm(m.relationToGuardian) === 'spouse' || norm(m.relationToGuardian) === 'partner')
+                            );
+                            if (wifeIdx !== -1) motherIdx = wifeIdx;
+
+                        } else if (headGender === 'female' || headGender === 'f') {
+                            motherIdx = headIdx;
+                            // Search for Husband
+                            const husbandIdx = membersData.findIndex(m =>
+                                !m.isGuardian &&
+                                (norm(m.relationToGuardian) === 'husband' || norm(m.relationToGuardian) === 'spouse' || norm(m.relationToGuardian) === 'partner')
+                            );
+                            if (husbandIdx !== -1) fatherIdx = husbandIdx;
+                        }
+                    }
+
+                    // B. Fallback: If no generic "Head" found, finding "Father" or "Mother" relations directly? 
+                    // (Rare in this context, usually everything is relative to Head).
+
+                    console.log(`Auto - Connect: Detected FatherIdx = ${fatherIdx}, MotherIdx = ${motherIdx} `);
+
+                    // --- 2. Apply Links ---
+                    let linksCount = 0;
+
+                    membersData.forEach((m, idx) => {
+                        // Skip parents themselves for child-linking
+                        if (idx === fatherIdx || idx === motherIdx) return;
+
+                        const rel = norm(m.relationToGuardian);
+
+                        // Link Children
+                        if (['son', 'daughter', 'child'].includes(rel)) {
+                            // Link Father
+                            if (fatherIdx !== -1) {
+                                newMap[idx] = {
+                                    ...newMap[idx],
+                                    fatherId: `NEW_${fatherIdx} `,
+                                    fatherName: membersData[fatherIdx].name
+                                };
+                                linksCount++;
+                            }
+                            // Link Mother
+                            if (motherIdx !== -1) {
+                                newMap[idx] = {
+                                    ...newMap[idx],
+                                    motherId: `NEW_${motherIdx} `,
+                                    motherName: membersData[motherIdx].name
+                                };
+                                linksCount++;
+                            }
+                        }
+
+                        // Link Spouses (Reciprocal)
+                        // If we identified a couple (Father & Mother), link them to each other
+                        if (fatherIdx !== -1 && motherIdx !== -1) {
+                            if (idx === motherIdx) {
+                                newMap[idx] = {
+                                    ...newMap[idx],
+                                    spouseId: `NEW_${fatherIdx} `,
+                                    spouseName: membersData[fatherIdx].name
+                                };
+                            }
                         }
                     });
+
+                    // Explicitly link the Father to the Mother separately to ensure bidirectional
+                    if (fatherIdx !== -1 && motherIdx !== -1) {
+                        newMap[fatherIdx] = {
+                            ...newMap[fatherIdx],
+                            spouseId: `NEW_${motherIdx}`,
+                            spouseName: membersData[motherIdx].name
+                        };
+                        newMap[motherIdx] = {
+                            ...newMap[motherIdx],
+                            spouseId: `NEW_${fatherIdx}`,
+                            spouseName: membersData[fatherIdx].name
+                        };
+
+                        // --- AUTO-FILL MISSING DATA ---
+                        // If Father's spouse data is empty, fill it with Mother's data
+                        // We must update membersData directly for this to persist
+                        const newData = [...membersData];
+                        let madeChanges = false;
+
+                        const f = newData[fatherIdx];
+                        const m = newData[motherIdx];
+
+                        // Fill Father's "Married To" fields if empty
+                        if (!f.spouse_name && !f.spouseName && !f.married_to_name) {
+                            f.spouse_name = m.name;
+                            f.spouseName = m.name; // Keep consistent keys
+                            f.married_to_name = m.name;
+                            f.married_to_surname = m.surname;
+                            madeChanges = true;
+                        }
+                        // Fill Mother's "Married To" fields if empty
+                        if (!m.spouse_name && !m.spouseName && !m.married_to_name) {
+                            m.spouse_name = f.name;
+                            m.spouseName = f.name;
+                            m.married_to_name = f.name;
+                            m.married_to_surname = f.surname;
+                            madeChanges = true;
+                        }
+
+                        if (madeChanges) setMembersData(newData);
+                    }
+
                     setRelationshipMap(newMap);
-                }}>🪄 Auto-Connect Internal Family</button>
+                    alert(`Auto - connected family members!(Linked ~${linksCount} relations based on '${membersData[headIdx]?.name || 'Unknown'}' as Head)`);
+                }}>🪄 Auto-Connect Internal Family (Pro)</button>
 
                 <div className="members-relation-list">
                     {membersData.map((m, i) => (
@@ -526,44 +820,77 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
 
                             {/* FATHER SECTION */}
                             <div className="rel-section">
-                                <div className="rel-info">
-                                    <span className="rel-label">Father:</span>
-                                    <span>{m.father_name || m.fatherName || '-'} {m.father_surname || ''}</span>
-                                    <small>(GF: {m.grandfather_name || m.grandFather || '-'})</small>
+                                <div className="rel-col request-col">
+                                    <span className="rel-label"><FaMale /> Father (Request)</span>
+                                    <div className="rel-val"><strong>Name:</strong> {m.father_name || m.fatherName || '-'}</div>
+                                    <div className="rel-val"><strong>Surname:</strong> {m.father_surname || m.fatherSurname || '-'}</div>
+                                    <div className="rel-val"><strong>Grandfather:</strong> {m.grandfather_name || m.grandFather || '-'}</div>
                                 </div>
-                                <div className="rel-action">
-                                    <span className={relationshipMap[i]?.fatherName ? 'linked-badge' : 'unlinked-badge'}>
-                                        {relationshipMap[i]?.fatherName ? `Linked: ${relationshipMap[i].fatherName}` : 'Not Linked'}
-                                    </span>
-                                    <button onClick={() => handleOpenSearch(i, 'father')}>Connect Father</button>
+
+                                <div className="rel-col linked-col">
+                                    <span className="rel-label"><FaLink /> Linked Record</span>
+                                    {relationshipMap[i]?.fatherName ? (
+                                        <div className="linked-details">
+                                            <div className="rel-val"><strong>ID:</strong> {relationshipMap[i].fatherId || 'NEW'}</div>
+                                            <div className="rel-val"><strong>Name:</strong> {relationshipMap[i].fatherName}</div>
+                                            <span className="linked-badge-pill"><FaCheck /> Connected</span>
+                                        </div>
+                                    ) : (
+                                        <div className="unlinked-details">
+                                            <span className="unlinked-text">No database record linked</span>
+                                            <button className="btn-outline-small" onClick={() => handleOpenSearch(i, 'father')}><FaSearch /> Find & Connect</button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {/* MOTHER SECTION */}
                             <div className="rel-section">
-                                <div className="rel-info">
-                                    <span className="rel-label">Mother:</span>
-                                    <span>{m.mother_name || m.motherName || '-'} {m.mother_surname || ''}</span>
+                                <div className="rel-col request-col">
+                                    <span className="rel-label"><FaFemale /> Mother (Request)</span>
+                                    <div className="rel-val"><strong>Name:</strong> {m.mother_name || m.motherName || '-'}</div>
+                                    <div className="rel-val"><strong>Surname:</strong> {m.mother_surname || m.motherSurname || '-'}</div>
                                 </div>
-                                <div className="rel-action">
-                                    <span className={relationshipMap[i]?.motherName ? 'linked-badge' : 'unlinked-badge'}>
-                                        {relationshipMap[i]?.motherName ? `Linked: ${relationshipMap[i].motherName}` : 'Not Linked'}
-                                    </span>
-                                    <button onClick={() => handleOpenSearch(i, 'mother')}>Connect Mother</button>
+
+                                <div className="rel-col linked-col">
+                                    <span className="rel-label"><FaLink /> Linked Record</span>
+                                    {relationshipMap[i]?.motherName ? (
+                                        <div className="linked-details">
+                                            <div className="rel-val"><strong>ID:</strong> {relationshipMap[i].motherId || 'NEW'}</div>
+                                            <div className="rel-val"><strong>Name:</strong> {relationshipMap[i].motherName}</div>
+                                            <span className="linked-badge-pill"><FaCheck /> Connected</span>
+                                        </div>
+                                    ) : (
+                                        <div className="unlinked-details">
+                                            <span className="unlinked-text">No database record linked</span>
+                                            <button className="btn-outline-small" onClick={() => handleOpenSearch(i, 'mother')}><FaSearch /> Find & Connect</button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {/* SPOUSE SECTION */}
                             <div className="rel-section">
-                                <div className="rel-info">
-                                    <span className="rel-label">Spouse:</span>
-                                    <span>{m.spouse_name || m.spouseName || m.married_to_name || '-'} {m.married_to_surname || ''}</span>
+                                <div className="rel-col request-col">
+                                    <span className="rel-label"><FaHeart /> Spouse (Request)</span>
+                                    <div className="rel-val"><strong>Name:</strong> {m.spouse_name || m.spouseName || m.married_to_name || '-'}</div>
+                                    <div className="rel-val"><strong>Surname:</strong> {m.married_to_surname || m.spouse_surname || m.spouseSurname || '-'}</div>
                                 </div>
-                                <div className="rel-action">
-                                    <span className={relationshipMap[i]?.spouseName ? 'linked-badge' : 'unlinked-badge'}>
-                                        {relationshipMap[i]?.spouseName ? `Linked: ${relationshipMap[i].spouseName}` : 'Not Linked'}
-                                    </span>
-                                    <button onClick={() => handleOpenSearch(i, 'spouse')}>Connect Spouse</button>
+
+                                <div className="rel-col linked-col">
+                                    <span className="rel-label"><FaLink /> Linked Record</span>
+                                    {relationshipMap[i]?.spouseName ? (
+                                        <div className="linked-details">
+                                            <div className="rel-val"><strong>ID:</strong> {relationshipMap[i].spouseId || 'NEW'}</div>
+                                            <div className="rel-val"><strong>Name:</strong> {relationshipMap[i].spouseName}</div>
+                                            <span className="linked-badge-pill"><FaCheck /> Connected</span>
+                                        </div>
+                                    ) : (
+                                        <div className="unlinked-details">
+                                            <span className="unlinked-text">No database record linked</span>
+                                            <button className="btn-outline-small" onClick={() => handleOpenSearch(i, 'spouse')}><FaSearch /> Find & Connect</button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -651,6 +978,64 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     {step === 3 && <button className="success" onClick={handleFinalSubmit}>Complete & Save</button>}
                 </div>
             </div>
+            {/* Unlinked Members Modal */}
+            {showUnlinkedModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '500px' }}>
+                        <h3>⚠️ Unlinked Relations Detected</h3>
+                        <p>The following members have relations mentioned but are not linked to a record:</p>
+                        <ul style={{ textAlign: 'left', margin: '10px 0', fontSize: '0.9rem' }}>
+                            {unlinkedDetails.map((item, idx) => (
+                                <li key={idx} style={{ marginBottom: '5px' }}>
+                                    <strong>{item.name}</strong> needs to connect:
+                                    <span style={{ color: '#e67e22' }}> {item.missing.join(', ')}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <p>What would you like to do?</p>
+                        <div className="modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                            <button
+                                className="btn-secondary"
+                                onClick={() => performSave(false)}
+                            >
+                                Not need connect
+                            </button>
+                            <button
+                                className="btn-primary"
+                                style={{ background: '#e67e22' }}
+                                onClick={() => performSave(true)}
+                            >
+                                📝 Make a To-Do & Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Exit Confirmation Modal */}
+            {showExitModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px' }}>
+                        <h3>Exit Processing?</h3>
+                        <p>Are you sure you want to cancel? Any data added in this session will be <strong>deleted</strong> and not saved.</p>
+                        <div className="modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                            <button
+                                className="btn-secondary"
+                                onClick={() => setShowExitModal(false)}
+                            >
+                                No, Stay
+                            </button>
+                            <button
+                                className="btn-primary"
+                                style={{ background: '#e74c3c' }}
+                                onClick={confirmExit}
+                            >
+                                Yes, Delete & Exit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

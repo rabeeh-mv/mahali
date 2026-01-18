@@ -215,7 +215,7 @@ const Sidebar = ({
           onClick={() => handleTabChange('digital-requests')}
           disabled={disabled}
         >
-          <FaHouseUser className="tab-icon" />{/* Reusing icon or pick new one */}
+          <FaFire className="tab-icon" />{/* Reusing icon or pick new one */}
           {!isCollapsed && <span>Digital Requests</span>}
         </button>
 

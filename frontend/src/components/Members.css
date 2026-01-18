@@ -1,140 +1,258 @@
-/* Members.css - Revised */
+/* Members.css - Premium Dense Data Grid with Theme Support */
 
-/* Page Container */
 .members-page-container {
-    background: var(--surface-glass);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    height: 90vh;
+    padding: 24px;
+    height: 100vh;
     display: flex;
     flex-direction: column;
+    gap: 16px;
+    max-width: 100%;
     overflow: hidden;
+    background-color: var(--bg-color);
+    /* Theme background */
+    color: var(--text-color);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* --- Top Section 1 --- */
 .members-top-section-1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 24px 32px;
-    border-bottom: 1px solid var(--border);
-}
-
-.page-title {
-    display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    /* Handle smaller screens gracefully */
     gap: 16px;
 }
 
-.page-title h1 {
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin: 0;
-    /* background: var(--accent-gradient); */
-    /* -webkit-background-clip: text; */
-    /* background-clip: text; */
-    /* -webkit-text-fill-color: transparent; */
-}
-
-.top-actions {
-    display: flex;
-    gap: 12px;
-}
-
-.icon-only-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--surface-light);
-    color: var(--text-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.icon-only-btn:hover {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-}
-
-/* --- Top Section 2 --- */
-.members-top-section-2 {
-    padding: 16px 32px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    background: rgba(0, 0, 0, 0.02);
-}
-
-.search-filter-wrapper {
-    display: flex;
-    gap: 16px;
-}
-
-.search-bar {
+/* Table Container */
+.members-table-container {
     flex: 1;
-}
-
-.search-bar input {
+    overflow: auto;
     background: var(--surface);
-    border-radius: 50px;
-    padding-left: 24px;
+    /* Theme surface */
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
     border: 1px solid var(--border);
 }
 
-.search-bar input:focus {
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+/* Custom Scrollbar - Matching index.css but scoped */
+.members-table-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
 }
 
-.filter-container {
+.members-table-container::-webkit-scrollbar-track {
+    background: transparent;
+    border-bottom-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+}
+
+.members-table-container::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+.members-table-container::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-muted);
+}
+
+/* Dense Table Styles */
+.dense-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    min-width: 1500px;
+    color: var(--text-color);
+}
+
+/* Header Styles */
+.dense-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background-color: var(--header-bg);
+    /* Theme header bg (White/Slate-800) */
+    color: var(--text-color);
+}
+
+.dense-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-bottom: 2px solid var(--border);
+    /* Distinct border */
+    white-space: nowrap;
     position: relative;
+    background-color: var(--header-bg);
+    color: var(--text-muted);
+    /* Muted header text standard */
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    transition: background-color 0.2s, color 0.2s;
 }
 
-.filter-btn {
+/* Row & Cell Styles */
+.dense-table tbody tr {
+    transition: background-color 0.15s ease-in-out;
+    background-color: var(--surface);
+}
+
+.dense-table tbody tr:hover {
+    background-color: rgba(99, 102, 241, 0.05);
+    /* Tinted hover */
+    cursor: pointer;
+}
+
+/* Selected Row */
+.dense-table tbody tr.selected-row {
+    background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+.dense-table tbody tr.selected-row td {
+    border-bottom-color: rgba(99, 102, 241, 0.2);
+}
+
+.dense-table tbody tr.selected-row .sticky-col {
+    background-color: rgba(99, 102, 241, 0.1) !important;
+    /* Update sticky for selected */
+}
+
+/* Fix sticky hover on selected row */
+.dense-table tbody tr.selected-row:hover .sticky-col {
+    background-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+
+.dense-table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+    vertical-align: middle;
+    color: var(--text-color);
+}
+
+/* Sticky Columns Configuration - DISABLED to match user request */
+/*
+.sticky-col {
+    position: sticky;
+    z-index: 20;
+    background-color: var(--surface);
+    transition: background-color 0.15s;
+}
+.dense-table tbody tr:hover .sticky-col {
+    background-color: rgba(99, 102, 241, 0.05);
+}
+*/
+
+/* Fix: Sticky Headers must match header bg */
+/*
+.dense-table thead .sticky-col {
+    background-color: var(--header-bg);
+    color: var(--text-muted);
+    z-index: 40;
+    border-bottom: 2px solid var(--border);
+}
+*/
+
+/* 1. Checkbox Column */
+.col-checkbox {
+    /* left: 0; */
+    width: 48px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+    /* z-index: 25 !important; */
+}
+
+/*
+.dense-table thead .col-checkbox {
+    z-index: 40 !important;
+}
+*/
+
+/* 2. ID Column */
+.col-id {
+    /* left: 48px; */
+    width: 80px;
+    border-right: 1px solid var(--border);
+    /* z-index: 24 !important; */
+    font-family: 'Roboto Mono', monospace;
+    color: var(--text-muted);
+}
+
+/*
+.dense-table thead .col-id {
+    z-index: 39 !important;
+}
+*/
+
+/* 3. Name Column */
+.col-name {
+    /* left: 128px; */
+    min-width: 220px;
+    border-right: 1px solid var(--border);
+    /* z-index: 23 !important; */
+    font-weight: 600;
+    color: var(--text-color);
+    /* Removed clip-path to fix header border glitches */
+    /* box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.05); */
+}
+
+/*
+.dense-table thead .col-name {
+    z-index: 38 !important;
+    Keep strictly layered under ID/Checkbox
+    box-shadow: 4px 0 6px -2px rgba(0, 0, 0, 0.1);
+}
+*/
+
+
+/* Column Header Content & Filtering */
+.th-content {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    padding: 10px 24px;
-    border-radius: 50px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-color);
-    font-weight: 600;
     cursor: pointer;
+    user-select: none;
+}
+
+.th-content:hover {
+    color: var(--primary);
+}
+
+.filter-icon {
+    font-size: 10px;
+    opacity: 0.4;
     transition: all 0.2s;
 }
 
-.filter-btn:hover,
-.filter-btn.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
+.th-content:hover .filter-icon,
+.filter-active .filter-icon {
+    opacity: 1;
+    color: var(--primary);
+    transform: scale(1.2);
 }
 
-/* Filter Dropdown Menu (YouTube Style) */
-.filter-menu-dropdown {
+.filter-dropdown {
     position: absolute;
     top: 100%;
-    right: 0;
-    margin-top: 8px;
-    width: 320px;
+    left: 0;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    z-index: 100;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    /* gap: 1px; */
-    animation: slideDown 0.2s ease-out;
+    box-shadow: var(--shadow-lg);
+    padding: 12px;
+    z-index: 50;
+    min-width: 220px;
+    border-radius: 8px;
+    margin-top: 4px;
+    animation: slideDown 0.15s ease-out forwards;
 }
 
 @keyframes slideDown {
@@ -149,130 +267,85 @@
     }
 }
 
-.filter-section h4 {
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-    letter-spacing: 0.05em;
-}
-
-.filter-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.filter-options.scrollable {
-    max-height: 150px;
-    overflow-y: auto;
-}
-
-.filter-options button {
-    padding: 6px 12px;
-    border-radius: 8px;
+.filter-dropdown input {
+    width: 100%;
+    padding: 8px 12px;
     border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-color);
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.1s;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--input-text);
+    background: var(--input-bg);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.filter-options button:hover {
-    background: rgba(99, 102, 241, 0.1);
+.filter-dropdown input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.filter-options button.active {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark, #4f46e5) 100%);
-    color: white;
-    border-color: transparent;
-}
 
-/* Active Filters List (Chips) */
-.active-filters-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding-top: 4px;
-}
-
-.filter-chip {
-    padding: 4px 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 100px;
-    font-size: 0.85rem;
-    display: flex;
+/* Status Badges */
+[class^="status-badge-"] {
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+    line-height: 1.5;
+    min-width: 70px;
 }
 
-.gradient-chip {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    color: var(--primary);
-    font-weight: 500;
+.status-badge-live {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-.filter-chip span {
-    cursor: pointer;
-    font-size: 1.1rem;
-    opacity: 0.6;
+.status-badge-dead {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-.filter-chip span:hover {
-    opacity: 1;
+.status-badge-terminated {
+    background: rgba(234, 179, 8, 0.15);
+    color: #ca8a04;
+    border: 1px solid rgba(234, 179, 8, 0.2);
 }
 
-.clear-all-btn {
-    background: none;
-    border: none;
+.status-badge-undefined,
+.status-badge- {
+    background: var(--bg-color);
     color: var(--text-muted);
-    text-decoration: underline;
-    cursor: pointer;
-    font-size: 0.85rem;
+    border: 1px solid var(--border);
 }
 
-/* --- Table --- */
-.members-table-container {
-    flex: 1;
-    overflow-y: auto;
-    background: var(--surface);
+/* Guardian Badge */
+.guardian-badge {
+    color: var(--primary);
+    font-weight: 600;
+    background: rgba(59, 130, 246, 0.1);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-.interactive-table tr.clickable-row {
-    cursor: pointer;
+/* Empty State */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--text-muted);
 }
 
-.interactive-table tr.clickable-row:hover td {
-    background: rgba(99, 102, 241, 0.05);
+.empty-state p {
+    font-size: 14px;
+    margin-top: 8px;
 }
-
-/* Column Widths Update (Removed Actions) */
-.members-table-container th:nth-child(1) {
-    width: 80px;
-}
-
-/* ID */
-.members-table-container th:nth-child(2) {
-    width: 25%;
-}
-
-/* Name */
-.members-table-container th:nth-child(3) {
-    width: 20%;
-}
-
-/* Area */
-.members-table-container th:nth-child(4) {
-    width: 120px;
-}
-
-/* Status */
-.members-table-container th:nth-child(5) {
-    width: 120px;
-}
-
-/* Role */
-/* Contact Info takes remaining */

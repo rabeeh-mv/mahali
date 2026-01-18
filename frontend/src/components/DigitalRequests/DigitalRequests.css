@@ -186,12 +186,83 @@
   color: var(--primary);
 }
 
-.connection-row {
+.rel-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px dashed var(--border);
+  align-items: start;
+}
+
+.rel-section:last-child {
+  border-bottom: none;
+}
+
+.rel-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.request-col {
+  border-right: 1px solid var(--border);
+  padding-right: 20px;
+}
+
+.rel-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px dashed var(--border);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.rel-val {
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+.rel-val strong {
+  color: var(--primary);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.linked-details {
+  background: rgba(var(--primary-rgb), 0.05);
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
+}
+
+.unlinked-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.unlinked-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.linked-badge-pill {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .connection-row:last-child {
@@ -261,6 +332,41 @@
   background: var(--bg-color);
   color: var(--text-color);
   border: 1px solid var(--border);
+}
+
+.btn-outline-small {
+  padding: 4px 10px !important;
+  font-size: 0.8rem !important;
+  background: transparent !important;
+  border: 1px solid var(--primary) !important;
+  color: var(--primary) !important;
+  border-radius: 4px !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-outline-small:hover {
+  background: rgba(var(--primary-rgb), 0.1) !important;
+}
+
+.rel-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  margin-bottom: 2px;
+}
+
+.linked-badge,
+.unlinked-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .digital-requests-container button:hover,

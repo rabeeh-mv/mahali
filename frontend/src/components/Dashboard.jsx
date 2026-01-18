@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { dashboardAPI } from '../api';
 import Todos from './Todos';
+import {
+  FaUsers,
+  FaHome,
+  FaMapMarkedAlt,
+  FaTasks,
+  FaCheckCircle,
+  FaExclamationCircle,
+  FaTimesCircle,
+  FaMoneyBillWave,
+  FaChartPie
+} from 'react-icons/fa';
+import './Dashboard.css';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
@@ -24,95 +36,153 @@ const Dashboard = () => {
     }
   };
 
-  if (loading) return <div>Loading dashboard...</div>;
-  if (error) return <div className="error">Error: {error}</div>;
+  if (loading) return <div className="loading-container"><div className="spinner"></div><p>Loading overview...</p></div>;
+  if (error) return <div className="error-container"><h3>Unable to load dashboard</h3><p>{error}</p></div>;
   if (!stats) return <div>No data available</div>;
 
+  // Calculate percentages for bars
+  const totalMembers = stats.members_count || 1;
+  const livePercent = ((stats.members_by_status.live || 0) / totalMembers) * 100;
+
+  const totalObligations = (stats.obligations_by_status.paid + stats.obligations_by_status.pending + stats.obligations_by_status.overdue) || 1;
+  const paidPercent = (stats.obligations_by_status.paid / totalObligations) * 100;
+
   return (
-    <div className="dashboard animate-in">
-      <div className="data-section">
-        <div className="section-header">
-          <h2>
-            <div className="header-icon-wrapper">
-              📊
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h1>Dashboard Overview</h1>
+        <p className="dashboard-subtitle">Welcome back, here is what is happening today.</p>
+      </div>
+
+      {/* Key Metrics Grid */}
+      <div className="stats-grid">
+        <div className="stat-card-new">
+          <div className="stat-header">
+            <span className="stat-label">Total Members</span>
+            <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
+              <FaUsers />
             </div>
-            Overview
-          </h2>
+          </div>
+          <div className="stat-value">{stats.members_count}</div>
+          <div className="metric-bar-container" style={{ margin: '8px 0 0 0', width: '100%', maxWidth: 'none', height: '4px' }}>
+            <div className="metric-bar" style={{ width: '100%', background: '#3b82f6' }}></div>
+          </div>
         </div>
-        <div className="dashboard-stats">
-          <div className="stat-card">
-            <h3>{stats.members_count}</h3>
-            <p>Total Members</p>
+
+        <div className="stat-card-new">
+          <div className="stat-header">
+            <span className="stat-label">Total Houses</span>
+            <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+              <FaHome />
+            </div>
           </div>
-          <div className="stat-card">
-            <h3>{stats.houses_count}</h3>
-            <p>Total Houses</p>
+          <div className="stat-value">{stats.houses_count}</div>
+          <div className="metric-bar-container" style={{ margin: '8px 0 0 0', width: '100%', maxWidth: 'none', height: '4px' }}>
+            <div className="metric-bar" style={{ width: '100%', background: '#10b981' }}></div>
           </div>
-          <div className="stat-card">
-            <h3>{stats.areas_count}</h3>
-            <p>Managed Areas</p>
+        </div>
+
+        <div className="stat-card-new">
+          <div className="stat-header">
+            <span className="stat-label">Managed Areas</span>
+            <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+              <FaMapMarkedAlt />
+            </div>
           </div>
-          <div className="stat-card">
-            <h3 className="text-primary">{stats.pending_todos_count}/{stats.todos_count}</h3>
-            <p>Tasks Pending</p>
+          <div className="stat-value">{stats.areas_count}</div>
+          <div className="metric-bar-container" style={{ margin: '8px 0 0 0', width: '100%', maxWidth: 'none', height: '4px' }}>
+            <div className="metric-bar" style={{ width: '100%', background: '#f59e0b' }}></div>
+          </div>
+        </div>
+
+        <div className="stat-card-new">
+          <div className="stat-header">
+            <span className="stat-label">Pending Tasks</span>
+            <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+              <FaTasks />
+            </div>
+          </div>
+          <div className="stat-value">{stats.pending_todos_count} <span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>/ {stats.todos_count}</span></div>
+          <div className="metric-bar-container" style={{ margin: '8px 0 0 0', width: '100%', maxWidth: 'none', height: '4px' }}>
+            <div className="metric-bar" style={{ width: `${(stats.pending_todos_count / (stats.todos_count || 1)) * 100}%`, background: '#ef4444' }}></div>
           </div>
         </div>
       </div>
 
-      <div className="dashboard-grid">
-        <div className="data-section">
-          <div className="section-header">
-            <h2>
-              <div className="header-icon-wrapper" style={{ background: 'var(--header-bg)' }}>
-                👥
-              </div>
-              Member Metrics
-            </h2>
+      <div className="dashboard-widgets">
+        {/* Left Col - Charts/Status */}
+        <div className="widget-card widget-half">
+          <div className="widget-header">
+            <div className="widget-title">
+              <FaChartPie style={{ color: '#8b5cf6' }} /> Member Status
+            </div>
           </div>
-          <div className="dashboard-stats compact">
-            <div className="stat-card minimal">
-              <span className="badge-primary">{stats.members_by_status.live}</span>
-              <p>Live</p>
+          <div className="widget-content">
+            <div className="metric-item">
+              <div className="status-pill success"><FaCheckCircle /> Live</div>
+              <div className="metric-bar-container">
+                <div className="metric-bar" style={{ width: `${livePercent}%`, background: '#10b981' }}></div>
+              </div>
+              <div className="metric-value">{stats.members_by_status.live}</div>
             </div>
-            <div className="stat-card minimal">
-              <span className="badge-outline">{stats.members_by_status.dead}</span>
-              <p>Deceased</p>
+            <div className="metric-item">
+              <div className="status-pill danger"><FaTimesCircle /> Deceased</div>
+              <div className="metric-bar-container">
+                <div className="metric-bar" style={{ width: '10%', background: '#ef4444' }}></div>
+              </div>
+              <div className="metric-value">{stats.members_by_status.dead}</div>
             </div>
-            <div className="stat-card minimal">
-              <span className="badge-outline" style={{ opacity: 0.6 }}>{stats.members_by_status.terminated}</span>
-              <p>Terminated</p>
+            <div className="metric-item">
+              <div className="status-pill warning"><FaExclamationCircle /> Terminated</div>
+              <div className="metric-bar-container">
+                <div className="metric-bar" style={{ width: '5%', background: '#f59e0b' }}></div>
+              </div>
+              <div className="metric-value">{stats.members_by_status.terminated}</div>
             </div>
           </div>
         </div>
 
-        <div className="data-section">
-          <div className="section-header">
-            <h2>
-              <div className="header-icon-wrapper" style={{ background: 'var(--accent-gradient)' }}>
-                💰
-              </div>
-              Financial Pulse
-            </h2>
+        <div className="widget-card widget-half">
+          <div className="widget-header">
+            <div className="widget-title">
+              <FaMoneyBillWave style={{ color: '#10b981' }} /> Financial Pulse
+            </div>
           </div>
-          <div className="dashboard-stats compact">
-            <div className="stat-card minimal">
-              <span className="badge-primary">{stats.obligations_by_status.paid}</span>
-              <p>Paid</p>
+          <div className="widget-content">
+            <div className="metric-item">
+              <div className="metric-info">
+                <span className="metric-label">Paid Obligations</span>
+              </div>
+              <div className="metric-bar-container">
+                <div className="metric-bar" style={{ width: `${paidPercent}%`, background: '#10b981' }}></div>
+              </div>
+              <div className="metric-value" style={{ color: '#10b981' }}>{stats.obligations_by_status.paid}</div>
             </div>
-            <div className="stat-card minimal">
-              <span className="badge-outline" style={{ color: '#ef4444', borderColor: '#ef4444' }}>{stats.obligations_by_status.pending}</span>
-              <p>Pending</p>
+            <div className="metric-item">
+              <div className="metric-info">
+                <span className="metric-label">Pending Payments</span>
+              </div>
+              <div className="metric-bar-container">
+                <div className="metric-bar" style={{ width: '30%', background: '#ef4444' }}></div>
+              </div>
+              <div className="metric-value" style={{ color: '#ef4444' }}>{stats.obligations_by_status.pending}</div>
             </div>
-            <div className="stat-card minimal">
-              <span className="badge-outline" style={{ color: '#f59e0b', borderColor: '#f59e0b' }}>{stats.obligations_by_status.overdue}</span>
-              <p>Overdue</p>
+            <div className="metric-item">
+              <div className="metric-info">
+                <span className="metric-label">Overdue</span>
+              </div>
+              <div className="metric-bar-container">
+                <div className="metric-bar" style={{ width: '15%', background: '#f59e0b' }}></div>
+              </div>
+              <div className="metric-value" style={{ color: '#f59e0b' }}>{stats.obligations_by_status.overdue}</div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="data-section">
-        <Todos />
+        {/* Todos Section - Full Width */}
+        <div className="widget-card widget-full">
+          <Todos />
+        </div>
       </div>
     </div>
   );

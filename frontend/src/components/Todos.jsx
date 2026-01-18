@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { todoAPI } from '../api';
+import { FaTrash } from 'react-icons/fa';
 
 const Todos = () => {
   const [todos, setTodos] = useState([]);

@@ -79,14 +79,50 @@ const DigitalRequestsPage = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm("Are you sure you want to delete this request?")) {
-            try {
-                await digitalRequestAPI.delete(id);
-                setRequests(requests.filter(req => req.request_id !== id));
-            } catch (err) {
-                alert("Failed to delete request");
+    const handleDelete = async (request) => {
+        if (!window.confirm("Are you sure you want to delete this request? This will try to remove it from Firebase as well.")) return;
+
+        setLoading(true);
+        try {
+            // 1. Delete from Firebase
+            if (request.firebase_id) {
+                try {
+                    const settingsRes = await settingsAPI.getAll();
+                    const settings = settingsRes.data[0];
+                    if (settings && settings.firebase_config) {
+                        const firebaseConfig = JSON.parse(settings.firebase_config);
+
+                        // Dynamic Import
+                        const { initializeApp } = await import('firebase/app');
+                        const { getFirestore, doc, deleteDoc } = await import('firebase/firestore');
+
+                        const appName = 'deleteApp' + Date.now();
+                        const app = initializeApp(firebaseConfig, appName);
+                        const db = getFirestore(app);
+
+                        await deleteDoc(doc(db, 'families', request.firebase_id));
+                        console.log("Deleted from Firebase:", request.firebase_id);
+                    }
+                } catch (fbErr) {
+                    console.error("Firebase delete error:", fbErr);
+                    // Decide if we should stop or continue. 
+                    // Usually better to ask user, or just warn.
+                    if (!window.confirm(`Warning: Could not delete from Firebase (${fbErr.message}). Delete from local database anyway?`)) {
+                        setLoading(false);
+                        return;
+                    }
+                }
             }
+
+            // 2. Delete from Backend
+            await digitalRequestAPI.delete(request.request_id);
+            setRequests(requests.filter(req => req.request_id !== request.request_id));
+            setLoading(false);
+
+        } catch (err) {
+            console.error("Delete failed:", err);
+            alert("Failed to delete request: " + err.message);
+            setLoading(false);
         }
     };
 
@@ -142,7 +178,7 @@ const DigitalRequestsPage = () => {
                                         <button className="edit-btn" onClick={() => handleProcess(req)}>
                                             Process Request
                                         </button>
-                                        <button className="delete-btn" onClick={() => handleDelete(req.request_id)}>
+                                        <button className="delete-btn" onClick={() => handleDelete(req)}>
                                             Delete
                                         </button>
                                     </td>
