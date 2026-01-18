@@ -843,3 +843,178 @@ class RecentActionViewSet(viewsets.ModelViewSet):
     serializer_class = RecentActionSerializer
     ordering_fields = ['timestamp']
     filterset_fields = ['model_name', 'action_type', 'is_sync_pending']
+
+class GoogleDriveViewSet(viewsets.ViewSet):
+    """
+    ViewSet for Google Drive integration
+    """
+    
+    @action(detail=False, methods=['get'])
+    def auth_url(self, request):
+        """Get the Google OAuth 2.0 authorization URL"""
+        try:
+            from .google_drive_service import GoogleDriveService
+            service = GoogleDriveService()
+            
+            # The redirect URI should match what's configured in Google Cloud Console
+            # For this desktop/local app, we might need a specific handling.
+            # We'll expect the frontend to provide the redirect_uri it's using (or we define one)
+            redirect_uri = request.query_params.get('redirect_uri', 'http://localhost:5173/settings/google-callback')
+            
+            auth_url = service.get_auth_url(redirect_uri)
+            return Response({'auth_url': auth_url})
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'])
+    def connect(self, request):
+        """Exchange auth code for credentials"""
+        try:
+            code = request.data.get('code')
+            redirect_uri = request.data.get('redirect_uri', 'http://localhost:5173/settings/google-callback')
+            
+            if not code:
+                return Response({'error': 'Auth code is required'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            from .google_drive_service import GoogleDriveService
+            service = GoogleDriveService()
+            success = service.exchange_code(code, redirect_uri)
+            
+            if success:
+                return Response({'message': 'Successfully connected to Google Drive'})
+            else:
+                return Response({'error': 'Failed to connect'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def disconnect(self, request):
+        """Disconnect Google Drive"""
+        try:
+            settings = AppSettings.objects.order_by('-updated_at').first()
+            if settings:
+                settings.google_drive_enabled = False
+                settings.google_drive_refresh_token = None
+                settings.save()
+            return Response({'message': 'Disconnected from Google Drive'})
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def upload_backup(self, request):
+        """Trigger a backup and upload to Google Drive"""
+        try:
+            from .google_drive_service import GoogleDriveService
+            # Check if enabled
+            settings_obj = AppSettings.objects.order_by('-updated_at').first()
+            if not settings_obj or not settings_obj.google_drive_enabled:
+                return Response({'error': 'Google Drive backup is not enabled'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 1. Create Local Backup
+            from backup_restore import create_backup
+            backup_path = create_backup()
+            
+            # 2. Upload to Drive
+            service = GoogleDriveService()
+            file_id = service.upload_file(backup_path)
+            
+            # 3. Update last backup time
+            from django.utils import timezone
+            settings_obj.last_backup_at = timezone.now()
+            settings_obj.save()
+            
+            # Optional: Clean up local backup if desired, or keep it.
+            # For now we keep it as it's useful.
+            
+            return Response({
+                'message': 'Backup created and uploaded successfully',
+                'file_id': file_id,
+                'local_path': backup_path
+            })
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def list_backups(self, request):
+        """List available backups from Google Drive"""
+        try:
+            from .google_drive_service import GoogleDriveService
+            service = GoogleDriveService()
+            files = service.list_backups()
+            return Response(files)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def restore(self, request):
+        """Restore from a Google Drive backup file"""
+        try:
+            file_id = request.data.get('file_id')
+            if not file_id:
+                return Response({'error': 'File ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            from .google_drive_service import GoogleDriveService
+            import tempfile
+            import os
+            
+            service = GoogleDriveService()
+            
+            # Download to temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+                temp_path = temp_file.name
+            
+            try:
+                service.download_file(file_id, temp_path)
+                
+                # Reuse the logic from import_data
+                # We need to simulate the request.FILES or just call the logic directly
+                # To be DRY, let's copy the extraction logic here or refactor.
+                # Refactoring is better, but for now copying logic is safer to avoid breaking existing view.
+                
+                import zipfile
+                import shutil
+                from django.conf import settings
+                
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    with zipfile.ZipFile(temp_path, 'r') as zf:
+                        zf.extractall(temp_dir)
+
+                    # Replace database
+                    db_source = os.path.join(temp_dir, 'db.sqlite3')
+                    db_dest = settings.DATABASES['default']['NAME']
+                    if os.path.exists(db_source):
+                        # Close existing connections? Django usually handles this on request start
+                        # but replacing the file might require care.
+                        # For SQLite, replacing the file while app is running is risky but usually works if no write lock.
+                        
+                        # Backup current DB just in case?
+                        # shutil.copy2(db_dest, db_dest + '.bak') 
+                        
+                        shutil.copy2(db_source, db_dest)
+
+                    # Replace media files
+                    media_temp = os.path.join(temp_dir)
+                    # The zip structure might vary. Usually it's root -> db.sqlite3, media/
+                    # Let's check if 'media' folder exists
+                    
+                    # If the zip was created by us (shutil.make_archive), it might not have 'media' folder if we zipped contents.
+                    # Our backup script zips: db.sqlite3 and media folder.
+                    
+                    media_source_folder = os.path.join(temp_dir, 'media')
+                    if os.path.exists(media_source_folder):
+                         if os.path.exists(settings.MEDIA_ROOT):
+                                shutil.rmtree(settings.MEDIA_ROOT)
+                         shutil.copytree(media_source_folder, settings.MEDIA_ROOT)
+                    else:
+                        # Maybe files are in root?
+                        pass
+
+                return Response({'message': 'Restore completed successfully'})
+                
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

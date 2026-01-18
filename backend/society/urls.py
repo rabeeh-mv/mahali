@@ -14,8 +14,9 @@ router.register(r'settings', AppSettingsViewSet)
 router.register(r'dashboard', DashboardViewSet, basename='dashboard')
 router.register(r'digital-requests', DigitalRequestViewSet)
 
-from .views import RecentActionViewSet
+from .views import RecentActionViewSet, GoogleDriveViewSet
 router.register(r'recent-actions', RecentActionViewSet)
+router.register(r'google-drive', GoogleDriveViewSet, basename='google-drive')
 
 
 urlpatterns = [

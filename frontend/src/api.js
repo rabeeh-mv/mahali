@@ -115,6 +115,16 @@ export const digitalRequestAPI = {
 
 
 
+export const googleDriveAPI = {
+  getAuthUrl: (redirectUri) => api.get('/google-drive/auth_url/', { params: { redirect_uri: redirectUri } }),
+  connect: (data) => api.post('/google-drive/connect/', data),
+  disconnect: () => api.post('/google-drive/disconnect/'),
+  uploadBackup: () => api.post('/google-drive/upload_backup/'),
+  listBackups: () => api.get('/google-drive/list_backups/'),
+  restore: (fileId) => api.post('/google-drive/restore/', { file_id: fileId }),
+};
+
 // Export the api instance as well
+
 export { api };
 export default api;

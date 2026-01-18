@@ -239,6 +239,14 @@ class AppSettings(models.Model):
     theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='light')
     firebase_enabled = models.BooleanField(default=True, help_text="Global switch to enable/disable Firebase sync")
     firebase_config = models.TextField(blank=True, null=True, help_text="Firebase configuration JSON")
+    
+    # Google Drive Backup Settings
+    google_drive_enabled = models.BooleanField(default=False)
+    google_drive_client_id = models.CharField(max_length=255, blank=True, null=True)
+    google_drive_client_secret = models.CharField(max_length=255, blank=True, null=True)
+    google_drive_refresh_token = models.TextField(blank=True, null=True)
+    google_drive_folder_id = models.CharField(max_length=100, blank=True, null=True)
+    last_backup_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
