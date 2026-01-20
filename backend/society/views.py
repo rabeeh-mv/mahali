@@ -204,7 +204,12 @@ class MemberViewSet(viewsets.ModelViewSet):
         house_id = self.request.query_params.get('house', None) or self.request.query_params.get('home_id', None)
         if house_id:
             queryset = queryset.filter(house__home_id=house_id)
-            
+
+        # Add support for firebase_id filtering
+        firebase_id = self.request.query_params.get('firebase_id', None)
+        if firebase_id:
+            queryset = queryset.filter(firebase_id=firebase_id)
+
         return queryset
     
     @action(detail=False, methods=['get'])

@@ -350,12 +350,13 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     house: finalizedHouseId,
 
                     // Link to Parents (External IDs only here)
-                    father: rels.fatherId?.toString().startsWith('NEW') ? null : rels.fatherId,
-                    mother: rels.motherId?.toString().startsWith('NEW') ? null : rels.motherId,
-                    married_to: rels.spouseId?.toString().startsWith('NEW') ? null : rels.spouseId,
+                    father: rels.fatherId?.toString().startsWith('NEW') ? null : (rels.fatherId ? String(rels.fatherId) : null),
+                    mother: rels.motherId?.toString().startsWith('NEW') ? null : (rels.motherId ? String(rels.motherId) : null),
+                    married_to: rels.spouseId?.toString().startsWith('NEW') ? null : (rels.spouseId ? String(rels.spouseId) : null),
                 };
 
-                console.log("Creating Member:", mappedMember);
+                // DEBUG LOGGING
+                console.log(`[Step] Creating Member ${i}:`, mappedMember);
 
                 const res = await memberAPI.create(mappedMember);
                 createdMembers.push({
@@ -374,7 +375,11 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                 const updates = {};
                 // Helper to find ID from created list
                 const findId = (newStr) => {
-                    const idx = parseInt(newStr.split('_')[1]);
+                    if (!newStr) return null;
+                    const cleanStr = newStr.toString().trim();
+                    const parts = cleanStr.split('_');
+                    if (parts.length < 2) return null;
+                    const idx = parseInt(parts[1]);
                     return createdMembers.find(cm => cm.index === idx)?.id;
                 };
 
@@ -738,7 +743,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                             if (fatherIdx !== -1) {
                                 newMap[idx] = {
                                     ...newMap[idx],
-                                    fatherId: `NEW_${fatherIdx} `,
+                                    fatherId: `NEW_${fatherIdx}`,
                                     fatherName: membersData[fatherIdx].name
                                 };
                                 linksCount++;
@@ -747,7 +752,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                             if (motherIdx !== -1) {
                                 newMap[idx] = {
                                     ...newMap[idx],
-                                    motherId: `NEW_${motherIdx} `,
+                                    motherId: `NEW_${motherIdx}`,
                                     motherName: membersData[motherIdx].name
                                 };
                                 linksCount++;
@@ -760,7 +765,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                             if (idx === motherIdx) {
                                 newMap[idx] = {
                                     ...newMap[idx],
-                                    spouseId: `NEW_${fatherIdx} `,
+                                    spouseId: `NEW_${fatherIdx}`,
                                     spouseName: membersData[fatherIdx].name
                                 };
                             }

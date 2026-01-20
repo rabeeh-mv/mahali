@@ -292,21 +292,16 @@ const Obligations = ({
   }
 
   const handleBack = () => {
-    console.log('handleBack called');
-    console.log('selectedSubcollection:', selectedSubcollection);
-    console.log('setSelectedSubcollection:', setSelectedSubcollection);
-    console.log('setActiveTab:', setActiveTab);
-
-    // We can navigate back without needing the subcollections and collections props
-    // Just clear the selected subcollection and go back to collections tab
+    // Clear the selected subcollection
     if (setSelectedSubcollection) {
       setSelectedSubcollection(null);
     }
-    // Set the active tab to collections to navigate back
+    // Set the active tab to subcollections to match the route we are navigating to
     if (setActiveTab) {
-      console.log('Setting active tab to collections');
-      setActiveTab('collections');
+      setActiveTab('subcollections');
     }
+    // Navigate back to the subcollections page
+    navigate('/subcollections');
   }
 
   const handleReload = async () => {
