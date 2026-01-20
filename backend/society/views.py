@@ -224,6 +224,51 @@ class MemberViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'])
+    def family_tree(self, request, member_id=None):
+        """
+        Get the family tree graph for a specific member.
+        Returns: [Target, Parents, Spouse, Children, Siblings]
+        """
+        try:
+            member = self.get_object()
+        except Member.DoesNotExist:
+            return Response({'error': 'Member not found'}, status=404)
+
+        # 1. Collect all related members
+        relatives = {member}
+
+        # Parents
+        if member.father: relatives.add(member.father)
+        if member.mother: relatives.add(member.mother)
+
+        # Spouse
+        if member.married_to: relatives.add(member.married_to)
+
+        # Children (where this member is father OR mother)
+        children = Member.objects.filter(
+            Q(father=member) | Q(mother=member)
+        )
+        for child in children:
+            relatives.add(child)
+
+        # Siblings (share father OR mother, exclude self)
+        # Only fetch if parents exist to avoid fetching all orphans
+        if member.father or member.mother:
+            siblings_query = Q()
+            if member.father:
+                siblings_query |= Q(father=member.father)
+            if member.mother:
+                siblings_query |= Q(mother=member.mother)
+            
+            siblings = Member.objects.filter(siblings_query).exclude(pk=member.pk)
+            for sib in siblings:
+                relatives.add(sib)
+
+        # Serialize
+        serializer = self.get_serializer(list(relatives), many=True)
+        return Response(serializer.data)
+
 class CollectionViewSet(viewsets.ModelViewSet):
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer

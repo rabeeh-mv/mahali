@@ -16,18 +16,15 @@ const FamilyTreePage = () => {
         const loadData = async () => {
             try {
                 setLoading(true);
-                // Fetch current member
-                const memberRes = await memberAPI.get(memberId);
-                setMember(memberRes.data);
+                // Fetch family tree (includes target member + relatives)
+                const treeRes = await memberAPI.getFamilyTree(memberId);
+                const familyMembers = treeRes.data;
 
-                // Fetch all members for tree logic
-                // Optimization: In a real large app, we might want a specific endpoint for relations
-                // For now, consistent with MemberDetailsPage approach:
-                const allMembersRes = await memberAPI.getAll();
-                const safeMembers = Array.isArray(allMembersRes.data)
-                    ? allMembersRes.data
-                    : (allMembersRes.data.results || []);
-                setAllMembers(safeMembers);
+                setAllMembers(familyMembers);
+
+                // Set the specific member object from the response list
+                const foundMember = familyMembers.find(m => String(m.member_id) === String(memberId));
+                setMember(foundMember);
 
             } catch (error) {
                 console.error("Failed to load family tree data", error);

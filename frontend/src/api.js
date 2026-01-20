@@ -12,6 +12,7 @@ export const memberAPI = {
   partialUpdate: (id, data) => api.patch(`/members/${id}/`, data),
   delete: (id) => api.delete(`/members/${id}/`),
   search: (params) => api.get('/members/search/', { params }),
+  getFamilyTree: (id) => api.get(`/members/${id}/family_tree/`),
 };
 
 export const houseAPI = {

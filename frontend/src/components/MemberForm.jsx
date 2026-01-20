@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaUser, FaArrowLeft, FaSave, FaTimes, FaSearch, FaUpload } from 'react-icons/fa';
 import { memberAPI, houseAPI } from '../api';
@@ -30,7 +30,7 @@ const MemberForm = () => {
     });
 
     const [houses, setHouses] = useState([]);
-    const [allMembers, setAllMembers] = useState([]);
+    // Removed allMembers as we now fetch on demand
     const [filteredHouses, setFilteredHouses] = useState([]);
     const [filteredMembers, setFilteredMembers] = useState([]);
 
@@ -47,6 +47,7 @@ const MemberForm = () => {
 
     const [loading, setLoading] = useState(false);
     const [dataLoading, setDataLoading] = useState(false);
+    const [searchLoading, setSearchLoading] = useState(false);
     const [error, setError] = useState(null);
 
     const navigate = useNavigate();
@@ -59,7 +60,8 @@ const MemberForm = () => {
             setDataLoading(true);
             setError(null);
             try {
-                const [housesRes, membersRes] = await Promise.all([houseAPI.getAll(), memberAPI.getAll()]);
+                // Only load houses initially, not all members
+                const housesRes = await houseAPI.getAll();
 
                 // Normalize house data - handle both paginated and non-paginated responses
                 let houseList = [];
@@ -71,32 +73,18 @@ const MemberForm = () => {
                     houseList = housesRes.data.data;
                 }
 
-                // Normalize member data - handle both paginated and non-paginated responses
-                let memberList = [];
-                if (Array.isArray(membersRes.data)) {
-                    memberList = membersRes.data;
-                } else if (membersRes.data?.results && Array.isArray(membersRes.data.results)) {
-                    memberList = membersRes.data.results;
-                } else if (membersRes.data?.data && Array.isArray(membersRes.data.data)) {
-                    memberList = membersRes.data.data;
-                }
-
                 setHouses(houseList);
                 setFilteredHouses(houseList);
-                setAllMembers(memberList);
-                setFilteredMembers(memberList);
 
                 if (isEditMode) {
                     try {
                         const memberRes = await memberAPI.get(id);
                         if (memberRes.data) {
-                            mapMemberToForm(memberRes.data, houseList, memberList);
+                            mapMemberToForm(memberRes.data, houseList);
                         }
                     } catch (fetchErr) {
-                        console.warn("Direct fetch failed, trying list...", fetchErr);
-                        const member = memberList.find(m => m.member_id.toString() === id);
-                        if (member) mapMemberToForm(member, houseList, memberList);
-                        else setError("Failed to load member details.");
+                        console.error("Failed to load member details.", fetchErr);
+                        setError("Failed to load member details.");
                     }
                 }
             } catch (err) {
@@ -109,7 +97,7 @@ const MemberForm = () => {
         init();
     }, [id]);
 
-    const mapMemberToForm = (data, houseList, memberList) => {
+    const mapMemberToForm = async (data, houseList) => {
         const hId = data.house?.home_id || data.house?.id || data.house || '';
         const fId = data.father?.member_id || data.father?.id || data.father || '';
         const mId = data.mother?.member_id || data.mother?.id || data.mother || '';
@@ -145,19 +133,63 @@ const MemberForm = () => {
             const h = houseList.find(h => h.home_id === hId);
             if (h) setHouseSearchTerm(`${h.home_id} - ${h.house_name}`);
         }
-        if (fId) {
-            const f = memberList.find(m => m.member_id === fId);
-            if (f) setFatherSearchTerm(`${f.member_id} - ${f.name} ${f.surname || ''}`);
+
+        // Fetch related members details if we only have IDs (or partial data)
+        const fetchAndSetName = async (memId, setter) => {
+            if (!memId) return;
+            try {
+                // It might already be an object or we might need to fetch
+                if (typeof memId === 'object') {
+                    setter(`${memId.member_id} - ${memId.name} ${memId.surname || ''}`);
+                    return;
+                }
+                const res = await memberAPI.get(memId);
+                const m = res.data;
+                setter(`${m.member_id} - ${m.name} ${m.surname || ''}`);
+            } catch (e) {
+                console.log("Could not load relation name", e);
+            }
         }
-        if (mId) {
-            const m = memberList.find(m => m.member_id === mId);
-            if (m) setMotherSearchTerm(`${m.member_id} - ${m.name} ${m.surname || ''}`);
+
+        fetchAndSetName(fId, setFatherSearchTerm);
+        fetchAndSetName(mId, setMotherSearchTerm);
+        fetchAndSetName(sId, setSpouseSearchTerm);
+    };
+
+    // Debounce utility
+    const debounce = (func, wait) => {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func(...args), wait);
+        };
+    };
+
+    // Async Member Search
+    const searchMembers = async (term) => {
+        if (!term.trim()) {
+            setFilteredMembers([]);
+            return;
         }
-        if (sId) {
-            const s = memberList.find(m => m.member_id === sId);
-            if (s) setSpouseSearchTerm(`${s.member_id} - ${s.name} ${s.surname || ''}`);
+        setSearchLoading(true);
+        try {
+            const res = await memberAPI.search({ search: term });
+            let list = [];
+            if (Array.isArray(res.data)) {
+                list = res.data;
+            } else if (res.data?.results) {
+                list = res.data.results;
+            }
+            setFilteredMembers(list);
+        } catch (err) {
+            console.error("Search failed", err);
+            setFilteredMembers([]);
+        } finally {
+            setSearchLoading(false);
         }
     };
+
+    const debouncedSearchMembers = useCallback(debounce(searchMembers, 500), []);
 
     const handleHouseSearch = (term) => {
         setHouseSearchTerm(term);
@@ -165,7 +197,6 @@ const MemberForm = () => {
             setFilteredHouses(Array.isArray(houses) ? houses : []);
             setFormData(prev => ({ ...prev, house: '' }));
         } else {
-            // Defensive check: ensure houses is an array before filtering
             if (Array.isArray(houses)) {
                 const filtered = houses.filter(house =>
                     house.house_name?.toLowerCase().includes(term.toLowerCase()) ||
@@ -179,52 +210,30 @@ const MemberForm = () => {
         setShowHouseSearch(true);
     };
 
-    const handleFatherSearch = (term) => {
-        setFatherSearchTerm(term);
+    const handleSearchInput = (term, setTerm, setShow) => {
+        setTerm(term);
+        setShow(true);
         if (!term.trim()) {
-            setFilteredMembers(Array.isArray(allMembers) ? allMembers : []);
-            setFormData(prev => ({ ...prev, father: '' }));
+            setFilteredMembers([]);
         } else {
-            filterMembers(term, setFilteredMembers);
+            setFilteredMembers([]); // Clear previous results while typing
+            debouncedSearchMembers(term);
         }
-        setShowFatherSearch(true);
+    };
+
+    const handleFatherSearch = (term) => {
+        handleSearchInput(term, setFatherSearchTerm, setShowFatherSearch);
+        if (!term) setFormData(prev => ({ ...prev, father: '' }));
     };
 
     const handleMotherSearch = (term) => {
-        setMotherSearchTerm(term);
-        if (!term.trim()) {
-            setFilteredMembers(Array.isArray(allMembers) ? allMembers : []);
-            setFormData(prev => ({ ...prev, mother: '' }));
-        } else {
-            filterMembers(term, setFilteredMembers);
-        }
-        setShowMotherSearch(true);
+        handleSearchInput(term, setMotherSearchTerm, setShowMotherSearch);
+        if (!term) setFormData(prev => ({ ...prev, mother: '' }));
     };
 
     const handleSpouseSearch = (term) => {
-        setSpouseSearchTerm(term);
-        if (!term.trim()) {
-            setFilteredMembers(Array.isArray(allMembers) ? allMembers : []);
-            setFormData(prev => ({ ...prev, married_to: '' }));
-        } else {
-            filterMembers(term, setFilteredMembers);
-        }
-        setShowSpouseSearch(true);
-    };
-
-    const filterMembers = (term, setter) => {
-        // Defensive check: ensure allMembers is an array before filtering
-        if (!Array.isArray(allMembers)) {
-            setter([]);
-            return;
-        }
-
-        const filtered = allMembers.filter(member =>
-            member.name?.toLowerCase().includes(term.toLowerCase()) ||
-            member.surname?.toLowerCase().includes(term.toLowerCase()) ||
-            member.member_id?.toString().includes(term.toLowerCase())
-        );
-        setter(filtered);
+        handleSearchInput(term, setSpouseSearchTerm, setShowSpouseSearch);
+        if (!term) setFormData(prev => ({ ...prev, married_to: '' }));
     };
 
     const selectHouse = (house) => {
@@ -349,20 +358,26 @@ const MemberForm = () => {
     }
 
     // Dropdown results sub-component
-    const DropdownResults = ({ results, onSelect, type, show }) => {
+    const DropdownResults = ({ results, onSelect, type, show, isLoading }) => {
         if (!show) return null;
         return (
             <div className="inline-dropdown-results animate-in">
-                {results.length > 0 ? results.map(item => (
-                    <div key={item.home_id || item.member_id} className="dropdown-item" onClick={() => onSelect(item)}>
-                        <div className="item-name">
-                            {type === 'house'
-                                ? `${item.home_id} - ${item.house_name}`
-                                : `${item.member_id} - ${item.name} ${item.surname || ''}`
-                            }
+                {isLoading ? (
+                    <div className="no-results-item">Searching...</div>
+                ) : results.length > 0 ? (
+                    results.map(item => (
+                        <div key={item.home_id || item.member_id} className="dropdown-item" onClick={() => onSelect(item)}>
+                            <div className="item-name">
+                                {type === 'house'
+                                    ? `${item.home_id} - ${item.house_name}`
+                                    : `${item.member_id} - ${item.name} ${item.surname || ''}`
+                                }
+                            </div>
                         </div>
-                    </div>
-                )) : <div className="no-results-item">No records found</div>}
+                    ))
+                ) : (
+                    <div className="no-results-item">No records found. Try a different name or ID.</div>
+                )}
             </div>
         );
     };
@@ -499,7 +514,7 @@ const MemberForm = () => {
                             <div className="search-input-container">
                                 <input type="text" value={fatherSearchTerm} onChange={(e) => handleFatherSearch(e.target.value)} onFocus={() => setShowFatherSearch(true)} placeholder="Search father by name or ID..." className="form-input" />
                                 <FaSearch className="search-field-icon" />
-                                <DropdownResults results={filteredMembers} onSelect={selectFather} type="member" show={showFatherSearch} />
+                                <DropdownResults results={filteredMembers} onSelect={selectFather} type="member" show={showFatherSearch} isLoading={searchLoading} />
                             </div>
                         </div>
 
@@ -516,7 +531,7 @@ const MemberForm = () => {
                             <div className="search-input-container">
                                 <input type="text" value={motherSearchTerm} onChange={(e) => handleMotherSearch(e.target.value)} onFocus={() => setShowMotherSearch(true)} placeholder="Search mother by name or ID..." className="form-input" />
                                 <FaSearch className="search-field-icon" />
-                                <DropdownResults results={filteredMembers} onSelect={selectMother} type="member" show={showMotherSearch} />
+                                <DropdownResults results={filteredMembers} onSelect={selectMother} type="member" show={showMotherSearch} isLoading={searchLoading} />
                             </div>
                         </div>
                     </div>
@@ -539,7 +554,7 @@ const MemberForm = () => {
                             <div className="search-input-container">
                                 <input type="text" value={spouseSearchTerm} onChange={(e) => handleSpouseSearch(e.target.value)} onFocus={() => setShowSpouseSearch(true)} placeholder="Search spouse by name or ID..." className="form-input" />
                                 <FaSearch className="search-field-icon" />
-                                <DropdownResults results={filteredMembers} onSelect={selectSpouse} type="member" show={showSpouseSearch} />
+                                <DropdownResults results={filteredMembers} onSelect={selectSpouse} type="member" show={showSpouseSearch} isLoading={searchLoading} />
                             </div>
                         </div>
                     </div>

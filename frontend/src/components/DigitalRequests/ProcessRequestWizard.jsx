@@ -69,6 +69,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
             const res = await digitalRequestAPI.get(reqId);
             setRequest(res.data);
             initializeData(res.data.data);
+            await resolveFirebaseIdRelationships(res.data.data);
             setLoading(false);
         } catch (err) {
             console.error("Failed to load request", err);
@@ -103,6 +104,58 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
             status: 'live',
             isGuardian: m.isGuardian || false
         })));
+    };
+
+    const resolveFirebaseIdRelationships = async (data) => {
+        let membersList = [];
+        if (Array.isArray(data.members)) {
+            membersList = data.members;
+        } else if (data.members && typeof data.members === 'object') {
+            membersList = Object.values(data.members);
+        }
+
+        const newMap = {};
+        for (let i = 0; i < membersList.length; i++) {
+            const m = membersList[i];
+            const updates = {};
+
+            // Helper to lookup and add to updates
+            const checkAndResolve = async (field, type) => {
+                const fbId = m[field];
+                if (fbId) {
+                    try {
+                        const res = await memberAPI.getAll({ firebase_id: fbId });
+                        if (res.data && res.data.length > 0) {
+                            const found = res.data[0];
+                            updates[`${type}Id`] = found.member_id; // Using member_id as ID
+                            updates[`${type}Name`] = found.name;
+                            console.log(`[Auto-Resolve] Found ${type} for ${m.name}: ${found.name} (ID: ${found.member_id})`);
+                        }
+                    } catch (e) {
+                        console.error(`Failed to resolve ${type} with firebase_id ${fbId}`, e);
+                    }
+                }
+            };
+
+            await checkAndResolve('father_firebase_id', 'father');
+            await checkAndResolve('mother_firebase_id', 'mother');
+            await checkAndResolve('spouse_firebase_id', 'spouse');
+
+            if (Object.keys(updates).length > 0) {
+                newMap[i] = updates;
+            }
+        }
+
+        if (Object.keys(newMap).length > 0) {
+            setRelationshipMap(prev => {
+                const merged = { ...prev };
+                for (const [key, val] of Object.entries(newMap)) {
+                    merged[key] = { ...merged[key], ...val };
+                }
+                return merged;
+            });
+            console.log("Updated Relationship Map with Resolved IDs:", newMap);
+        }
     };
 
     const loadAreas = async () => {
@@ -932,6 +985,29 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                         </div>
 
                         <div className="results-list">
+                            {/* Local Request Members Option */}
+                            <div className="local-results-section" style={{ marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+                                <h5 style={{ margin: '0 0 10px 0', color: '#0ebfa0' }}>Select from this Request:</h5>
+                                {membersData.map((m, idx) => {
+                                    if (idx === searchContext.index) return null; // Skip self
+                                    return (
+                                        <div key={`local-${idx}`} className="result-item local-item"
+                                            onClick={() => selectParent({ id: `NEW_${idx}`, name: m.name, surname: m.surname })}
+                                            style={{ borderLeft: '3px solid #0ebfa0' }}>
+                                            <div className="r-head">
+                                                <strong>{m.name} {m.surname || ''}</strong>
+                                                <small className="badge-new">NEW</small>
+                                            </div>
+                                            <div className="r-body">
+                                                <span>Relation: {m.relationToGuardian}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {membersData.length <= 1 && <p className="no-res" style={{ fontSize: '0.85em' }}>No other members in this request.</p>}
+                            </div>
+
+                            <h5 style={{ margin: '10px 0 5px 0', color: '#666' }}>Or Database Search Results:</h5>
                             {searchResults.map(r => (
                                 <div key={r.id} className="result-item" onClick={() => selectParent(r)}>
                                     <div className="r-head">
@@ -944,7 +1020,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                                     </div>
                                 </div>
                             ))}
-                            {searchResults.length === 0 && <p className="no-res">No results.</p>}
+                            {searchResults.length === 0 && <p className="no-res">No database results.</p>}
                         </div>
                     </div>
                 )}
