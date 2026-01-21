@@ -16,6 +16,7 @@ class Area(models.Model):
         return self.name
 
 
+
 class House(models.Model):
     home_id = models.CharField(max_length=50, unique=True, db_index=True)  # Custom sequential ID, indexed
     firebase_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)  # Link to Firestore document

@@ -388,60 +388,91 @@ const BulkObligationPage = () => {
                             </button>
                         </div>
 
-                        <div className="member-list">
-                            {filteredMembers.map(member => {
-                                const isAdded = existingMemberIds.includes(member.member_id);
-                                const isSelected = selectedMembers.includes(member.member_id);
-                                const isGuardian = checkBoolean(member.isGuardian || member.isguardian);
-                                const isGB = checkBoolean(member.general_body_member);
+                        <div className="table-container-no-bg" style={{ overflowX: 'auto' }}>
+                            <table className="bulk-members-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '40px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isAllSelected}
+                                                onChange={handleSelectAllFiltered}
+                                                disabled={eligibleCount === 0}
+                                            />
+                                        </th>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Surname</th>
+                                        <th>Father Name</th>
+                                        <th>House Name</th>
+                                        <th>Area</th>
+                                        <th className="text-center">Guardian</th>
+                                        <th className="text-center">GBM</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredMembers.map(member => {
+                                        const isAdded = existingMemberIds.includes(member.member_id);
+                                        const isSelected = selectedMembers.includes(member.member_id);
+                                        const isGuardian = checkBoolean(member.isGuardian || member.isguardian);
+                                        const isGB = checkBoolean(member.general_body_member);
 
-                                return (
-                                    <div
-                                        key={member.member_id}
-                                        className={`member-card ${isSelected ? 'selected' : ''} ${isAdded ? 'disabled' : ''}`}
-                                        onClick={() => handleMemberToggle(member.member_id)}
-                                    >
-                                        <div className="member-info">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span className="member-id-badge">#{member.member_id}</span>
-                                                <h4>{member.name} {member.surname || ''}</h4>
-                                            </div>
+                                        // Resolve House Name
+                                        const houseName = member.house_details?.house_name ||
+                                            (typeof member.house === 'object' ? member.house?.house_name : '-') || '-';
 
-                                            <div className="member-details">
-                                                <span className="badge badge-area">
-                                                    {(() => {
-                                                        const resolvedAreaId = getAreaId(member);
-                                                        if (!resolvedAreaId) return 'No Area';
-                                                        const areaObj = areas.find(a => a.id === resolvedAreaId);
-                                                        return areaObj ? areaObj.name : 'Unknown Area';
-                                                    })()}
-                                                </span>
-                                            </div>
+                                        // Resolve Area Name
+                                        const resolvedAreaId = getAreaId(member);
+                                        const areaName = resolvedAreaId ? areas.find(a => a.id === resolvedAreaId)?.name : '-';
 
-                                            <div className="member-tags">
-                                                {isGuardian && (
-                                                    <span className="tag tag-guardian" title="Guardian">
-                                                        GD
-                                                    </span>
-                                                )}
-                                                {isGB && (
-                                                    <span className="tag tag-gb" title="General Body Member">
-                                                        GBM
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="select-indicator">
-                                            {isAdded ? <FaCheck size={10} /> : isSelected && <FaCheck size={12} />}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {filteredMembers.length === 0 && (
-                                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', gridColumn: '1/-1' }}>
-                                    No members found matching your filters.
-                                </div>
-                            )}
+                                        return (
+                                            <tr
+                                                key={member.member_id}
+                                                onClick={() => !isAdded && handleMemberToggle(member.member_id)}
+                                                className={`${isSelected ? 'selected-row' : ''} ${isAdded ? 'disabled-row' : ''}`}
+                                                style={{ cursor: isAdded ? 'default' : 'pointer', opacity: isAdded ? 0.6 : 1 }}
+                                            >
+                                                <td onClick={(e) => e.stopPropagation()}>
+                                                    {isAdded ? (
+                                                        <FaCheck className="text-muted" size={12} />
+                                                    ) : (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => handleMemberToggle(member.member_id)}
+                                                        />
+                                                    )}
+                                                </td>
+                                                <td className="font-mono">{member.member_id}</td>
+                                                <td style={{ fontWeight: 600 }}>{member.name}</td>
+                                                <td>{member.surname}</td>
+                                                <td>{member.father_name}</td>
+                                                <td>{houseName}</td>
+                                                <td>{areaName}</td>
+                                                <td className="text-center">
+                                                    {isGuardian ?
+                                                        <span className="part-badge guardian">Yes</span> :
+                                                        <span className="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td className="text-center">
+                                                    {isGB ?
+                                                        <span className="part-badge gbm">Yes</span> :
+                                                        <span className="text-muted">-</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {filteredMembers.length === 0 && (
+                                        <tr>
+                                            <td colSpan="9" className="text-center py-10 text-muted">
+                                                No members found matching your filters.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 

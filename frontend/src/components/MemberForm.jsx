@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaUser, FaArrowLeft, FaSave, FaTimes, FaSearch, FaUpload } from 'react-icons/fa';
 import { memberAPI, houseAPI } from '../api';
+import MemberSearchPanel from './MemberSearchPanel';
+import './MemberForm.css';
 
 const MemberForm = () => {
     const [formData, setFormData] = useState({
@@ -30,24 +32,23 @@ const MemberForm = () => {
     });
 
     const [houses, setHouses] = useState([]);
-    // Removed allMembers as we now fetch on demand
-    const [filteredHouses, setFilteredHouses] = useState([]);
-    const [filteredMembers, setFilteredMembers] = useState([]);
 
-    const [showHouseSearch, setShowHouseSearch] = useState(false);
-    const [showFatherSearch, setShowFatherSearch] = useState(false);
-    const [showMotherSearch, setShowMotherSearch] = useState(false);
-    const [showSpouseSearch, setShowSpouseSearch] = useState(false);
+    // Search Panel State
+    const [searchPanel, setSearchPanel] = useState({
+        isOpen: false,
+        type: 'member', // 'member' or 'house'
+        onSelect: () => { },
+        initialValues: {}
+    });
 
-    // State for filtering
-    const [houseSearchTerm, setHouseSearchTerm] = useState('');
-    const [fatherSearchTerm, setFatherSearchTerm] = useState('');
-    const [motherSearchTerm, setMotherSearchTerm] = useState('');
-    const [spouseSearchTerm, setSpouseSearchTerm] = useState('');
+    // Display strings for connected entities
+    const [houseDisplay, setHouseDisplay] = useState('');
+    const [fatherDisplay, setFatherDisplay] = useState('');
+    const [motherDisplay, setMotherDisplay] = useState('');
+    const [spouseDisplay, setSpouseDisplay] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [dataLoading, setDataLoading] = useState(false);
-    const [searchLoading, setSearchLoading] = useState(false);
     const [error, setError] = useState(null);
 
     const navigate = useNavigate();
@@ -74,7 +75,6 @@ const MemberForm = () => {
                 }
 
                 setHouses(houseList);
-                setFilteredHouses(houseList);
 
                 if (isEditMode) {
                     try {
@@ -128,10 +128,11 @@ const MemberForm = () => {
             photo: null
         });
 
-        // Set search terms (input text) for display
+        // Set display strings
         if (hId) {
             const h = houseList.find(h => h.home_id === hId);
-            if (h) setHouseSearchTerm(`${h.home_id} - ${h.house_name}`);
+            if (h) setHouseDisplay(`${h.home_id} - ${h.house_name}`);
+            else setHouseDisplay(hId);
         }
 
         // Fetch related members details if we only have IDs (or partial data)
@@ -148,131 +149,67 @@ const MemberForm = () => {
                 setter(`${m.member_id} - ${m.name} ${m.surname || ''}`);
             } catch (e) {
                 console.log("Could not load relation name", e);
+                setter(memId);
             }
         }
 
-        fetchAndSetName(fId, setFatherSearchTerm);
-        fetchAndSetName(mId, setMotherSearchTerm);
-        fetchAndSetName(sId, setSpouseSearchTerm);
+        fetchAndSetName(fId, setFatherDisplay);
+        fetchAndSetName(mId, setMotherDisplay);
+        fetchAndSetName(sId, setSpouseDisplay);
     };
 
-    // Debounce utility
-    const debounce = (func, wait) => {
-        let timeout;
-        return (...args) => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func(...args), wait);
-        };
-    };
+    const handleOpenSearchInfo = (type) => {
+        let initialValues = {};
+        let onSelect = null;
 
-    // Async Member Search
-    const searchMembers = async (term) => {
-        if (!term.trim()) {
-            setFilteredMembers([]);
-            return;
+        if (type === 'house') {
+            initialValues = { house_name: '', home_id: '' }; // Could pre-fill if needed
+            onSelect = (house) => {
+                setFormData(prev => ({ ...prev, house: house.home_id }));
+                setHouseDisplay(`${house.home_id} - ${house.house_name}`);
+            };
+        } else if (type === 'father') {
+            initialValues = { name: formData.father_name, surname: formData.father_surname };
+            onSelect = (member) => {
+                setFormData(prev => ({
+                    ...prev,
+                    father: member.member_id,
+                    father_name: member.name || '',
+                    father_surname: member.surname || ''
+                }));
+                setFatherDisplay(`${member.member_id} - ${member.name} ${member.surname || ''}`);
+            };
+        } else if (type === 'mother') {
+            initialValues = { name: formData.mother_name, surname: formData.mother_surname };
+            onSelect = (member) => {
+                setFormData(prev => ({
+                    ...prev,
+                    mother: member.member_id,
+                    mother_name: member.name || '',
+                    mother_surname: member.surname || ''
+                }));
+                setMotherDisplay(`${member.member_id} - ${member.name} ${member.surname || ''}`);
+            };
+        } else if (type === 'spouse') {
+            initialValues = { name: formData.married_to_name, surname: formData.married_to_surname };
+            onSelect = (member) => {
+                setFormData(prev => ({
+                    ...prev,
+                    married_to: member.member_id,
+                    married_to_name: member.name || '',
+                    married_to_surname: member.surname || ''
+                }));
+                setSpouseDisplay(`${member.member_id} - ${member.name} ${member.surname || ''}`);
+            };
         }
-        setSearchLoading(true);
-        try {
-            const res = await memberAPI.search({ search: term });
-            let list = [];
-            if (Array.isArray(res.data)) {
-                list = res.data;
-            } else if (res.data?.results) {
-                list = res.data.results;
-            }
-            setFilteredMembers(list);
-        } catch (err) {
-            console.error("Search failed", err);
-            setFilteredMembers([]);
-        } finally {
-            setSearchLoading(false);
-        }
-    };
 
-    const debouncedSearchMembers = useCallback(debounce(searchMembers, 500), []);
 
-    const handleHouseSearch = (term) => {
-        setHouseSearchTerm(term);
-        if (!term.trim()) {
-            setFilteredHouses(Array.isArray(houses) ? houses : []);
-            setFormData(prev => ({ ...prev, house: '' }));
-        } else {
-            if (Array.isArray(houses)) {
-                const filtered = houses.filter(house =>
-                    house.house_name?.toLowerCase().includes(term.toLowerCase()) ||
-                    house.home_id?.toString().includes(term.toLowerCase())
-                );
-                setFilteredHouses(filtered);
-            } else {
-                setFilteredHouses([]);
-            }
-        }
-        setShowHouseSearch(true);
-    };
-
-    const handleSearchInput = (term, setTerm, setShow) => {
-        setTerm(term);
-        setShow(true);
-        if (!term.trim()) {
-            setFilteredMembers([]);
-        } else {
-            setFilteredMembers([]); // Clear previous results while typing
-            debouncedSearchMembers(term);
-        }
-    };
-
-    const handleFatherSearch = (term) => {
-        handleSearchInput(term, setFatherSearchTerm, setShowFatherSearch);
-        if (!term) setFormData(prev => ({ ...prev, father: '' }));
-    };
-
-    const handleMotherSearch = (term) => {
-        handleSearchInput(term, setMotherSearchTerm, setShowMotherSearch);
-        if (!term) setFormData(prev => ({ ...prev, mother: '' }));
-    };
-
-    const handleSpouseSearch = (term) => {
-        handleSearchInput(term, setSpouseSearchTerm, setShowSpouseSearch);
-        if (!term) setFormData(prev => ({ ...prev, married_to: '' }));
-    };
-
-    const selectHouse = (house) => {
-        setFormData(prev => ({ ...prev, house: house.home_id }));
-        setHouseSearchTerm(`${house.home_id} - ${house.house_name}`);
-        setShowHouseSearch(false);
-    };
-
-    const selectFather = (member) => {
-        setFormData(prev => ({
-            ...prev,
-            father: member.member_id,
-            father_name: member.name || '',
-            father_surname: member.surname || ''
-        }));
-        setFatherSearchTerm(`${member.member_id} - ${member.name} ${member.surname || ''}`);
-        setShowFatherSearch(false);
-    };
-
-    const selectMother = (member) => {
-        setFormData(prev => ({
-            ...prev,
-            mother: member.member_id,
-            mother_name: member.name || '',
-            mother_surname: member.surname || ''
-        }));
-        setMotherSearchTerm(`${member.member_id} - ${member.name} ${member.surname || ''}`);
-        setShowMotherSearch(false);
-    };
-
-    const selectSpouse = (member) => {
-        setFormData(prev => ({
-            ...prev,
-            married_to: member.member_id,
-            married_to_name: member.name || '',
-            married_to_surname: member.surname || ''
-        }));
-        setSpouseSearchTerm(`${member.member_id} - ${member.name} ${member.surname || ''}`);
-        setShowSpouseSearch(false);
+        setSearchPanel({
+            isOpen: true,
+            type: type === 'house' ? 'house' : 'member',
+            onSelect,
+            initialValues
+        });
     };
 
     const handlePhotoChange = (e) => {
@@ -332,7 +269,7 @@ const MemberForm = () => {
                 } else {
                     // Show field-specific errors
                     const errors = Object.entries(err.response.data)
-                        .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+                        .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs} `)
                         .join('; ');
                     if (errors) errorMessage = errors;
                 }
@@ -357,56 +294,19 @@ const MemberForm = () => {
         );
     }
 
-    // Dropdown results sub-component
-    const DropdownResults = ({ results, onSelect, type, show, isLoading }) => {
-        if (!show) return null;
-        return (
-            <div className="inline-dropdown-results animate-in">
-                {isLoading ? (
-                    <div className="no-results-item">Searching...</div>
-                ) : results.length > 0 ? (
-                    results.map(item => (
-                        <div key={item.home_id || item.member_id} className="dropdown-item" onClick={() => onSelect(item)}>
-                            <div className="item-name">
-                                {type === 'house'
-                                    ? `${item.home_id} - ${item.house_name}`
-                                    : `${item.member_id} - ${item.name} ${item.surname || ''}`
-                                }
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                    <div className="no-results-item">No records found. Try a different name or ID.</div>
-                )}
-            </div>
-        );
-    };
+
 
     return (
         <div className="data-section animate-in member-form-container">
-            <div className="section-header">
-                <div className="header-content-wrapper">
-                    <button onClick={() => navigate('/members')} className="back-btn">
-                        <FaArrowLeft />
-                    </button>
-                    <h2>
-                        <div className="header-icon-wrapper">
-                            <FaUser />
-                        </div>
-                        {isEditMode ? 'Edit Member' : 'Add New Member'}
-                    </h2>
-                </div>
-            </div>
+            <MemberSearchPanel
+                isOpen={searchPanel.isOpen}
+                onClose={() => setSearchPanel(prev => ({ ...prev, isOpen: false }))}
+                onSelect={searchPanel.onSelect}
+                type={searchPanel.type}
+                initialValues={searchPanel.initialValues}
+            />
 
-            <form onSubmit={handleSubmit} className="edit-form responsive-form" onClick={(e) => {
-                // Closer dropdowns on click outside (simplified)
-                if (!e.target.closest('.searchable-input-wrapper')) {
-                    setShowHouseSearch(false);
-                    setShowFatherSearch(false);
-                    setShowMotherSearch(false);
-                    setShowSpouseSearch(false);
-                }
-            }}>
+            <form onSubmit={handleSubmit} className="edit-form responsive-form">
                 {/* 1. Personal Information */}
                 <div className="form-section-card">
                     <h3 className="form-section-title">Personal Information</h3>
@@ -475,12 +375,23 @@ const MemberForm = () => {
                             <label htmlFor="whatsapp">WhatsApp Number</label>
                             <input type="tel" id="whatsapp" name="whatsapp" value={formData.whatsapp} onChange={handleChange} disabled={loading} className='form-input' placeholder="WhatsApp number" />
                         </div>
-                        <div className="input-wrapper searchable-input-wrapper">
+                        <div className="input-wrapper full-width">
                             <label>House</label>
-                            <div className="search-input-container">
-                                <input type="text" value={houseSearchTerm} onChange={(e) => handleHouseSearch(e.target.value)} onFocus={() => setShowHouseSearch(true)} placeholder="Search by name or ID..." className="form-input" />
-                                <FaSearch className="search-field-icon" />
-                                <DropdownResults results={filteredHouses} onSelect={selectHouse} type="house" show={showHouseSearch} />
+                            <div className="combined-input-group">
+                                <input
+                                    type="text"
+                                    value={houseDisplay}
+                                    readOnly
+                                    placeholder="No house linked"
+                                    className="form-input"
+                                />
+                                <button
+                                    type="button"
+                                    className="connect-btn"
+                                    onClick={() => handleOpenSearchInfo('house')}
+                                >
+                                    <FaSearch /> Connect House
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -509,12 +420,23 @@ const MemberForm = () => {
                             <label htmlFor="father_surname">Father's Surname</label>
                             <input type="text" id="father_surname" name="father_surname" value={formData.father_surname} onChange={handleChange} disabled={loading} className='form-input' placeholder="Father's surname" />
                         </div>
-                        <div className="input-wrapper full-width searchable-input-wrapper">
-                            <label>Link to Father (Optional)</label>
-                            <div className="search-input-container">
-                                <input type="text" value={fatherSearchTerm} onChange={(e) => handleFatherSearch(e.target.value)} onFocus={() => setShowFatherSearch(true)} placeholder="Search father by name or ID..." className="form-input" />
-                                <FaSearch className="search-field-icon" />
-                                <DropdownResults results={filteredMembers} onSelect={selectFather} type="member" show={showFatherSearch} isLoading={searchLoading} />
+                        <div className="input-wrapper full-width">
+                            <label>Link to Father</label>
+                            <div className="combined-input-group">
+                                <input
+                                    type="text"
+                                    value={fatherDisplay}
+                                    readOnly
+                                    placeholder="No father linked"
+                                    className="form-input"
+                                />
+                                <button
+                                    type="button"
+                                    className="connect-btn"
+                                    onClick={() => handleOpenSearchInfo('father')}
+                                >
+                                    <FaSearch /> Connect Father
+                                </button>
                             </div>
                         </div>
 
@@ -526,12 +448,23 @@ const MemberForm = () => {
                             <label htmlFor="mother_surname">Mother's Surname</label>
                             <input type="text" id="mother_surname" name="mother_surname" value={formData.mother_surname} onChange={handleChange} disabled={loading} className='form-input' placeholder="Mother's surname" />
                         </div>
-                        <div className="input-wrapper full-width searchable-input-wrapper">
-                            <label>Link to Mother (Optional)</label>
-                            <div className="search-input-container">
-                                <input type="text" value={motherSearchTerm} onChange={(e) => handleMotherSearch(e.target.value)} onFocus={() => setShowMotherSearch(true)} placeholder="Search mother by name or ID..." className="form-input" />
-                                <FaSearch className="search-field-icon" />
-                                <DropdownResults results={filteredMembers} onSelect={selectMother} type="member" show={showMotherSearch} isLoading={searchLoading} />
+                        <div className="input-wrapper full-width">
+                            <label>Link to Mother</label>
+                            <div className="combined-input-group">
+                                <input
+                                    type="text"
+                                    value={motherDisplay}
+                                    readOnly
+                                    placeholder="No mother linked"
+                                    className="form-input"
+                                />
+                                <button
+                                    type="button"
+                                    className="connect-btn"
+                                    onClick={() => handleOpenSearchInfo('mother')}
+                                >
+                                    <FaSearch /> Connect Mother
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -549,12 +482,23 @@ const MemberForm = () => {
                             <label htmlFor="married_to_surname">Spouse's Surname</label>
                             <input type="text" id="married_to_surname" name="married_to_surname" value={formData.married_to_surname} onChange={handleChange} disabled={loading} className='form-input' placeholder="Spouse's surname" />
                         </div>
-                        <div className="input-wrapper full-width searchable-input-wrapper">
-                            <label>Link to Spouse (Optional)</label>
-                            <div className="search-input-container">
-                                <input type="text" value={spouseSearchTerm} onChange={(e) => handleSpouseSearch(e.target.value)} onFocus={() => setShowSpouseSearch(true)} placeholder="Search spouse by name or ID..." className="form-input" />
-                                <FaSearch className="search-field-icon" />
-                                <DropdownResults results={filteredMembers} onSelect={selectSpouse} type="member" show={showSpouseSearch} isLoading={searchLoading} />
+                        <div className="input-wrapper full-width">
+                            <label>Link to Spouse</label>
+                            <div className="combined-input-group">
+                                <input
+                                    type="text"
+                                    value={spouseDisplay}
+                                    readOnly
+                                    placeholder="No spouse linked"
+                                    className="form-input"
+                                />
+                                <button
+                                    type="button"
+                                    className="connect-btn"
+                                    onClick={() => handleOpenSearchInfo('spouse')}
+                                >
+                                    <FaSearch /> Connect Spouse
+                                </button>
                             </div>
                         </div>
                     </div>

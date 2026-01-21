@@ -214,14 +214,114 @@ class MemberViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def search(self, request):
-        """Search members with filters and pagination"""
-        queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
+        """Search members with fuzzy matching filters and pagination"""
+        search_term = request.query_params.get('search', '').strip()
+        
+        # If no search term, use standard filtering/pagination
+        if not search_term:
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+            
+        # --- Fuzzy Search Logic ---
+        
+        # 1. Get base queryset with OTHER filters applied (e.g. Area, Status)
+        # We temporarily remove the 'search' param from request to avoid double-filtering
+        # if the standard filter logic does simple icontains.
+        # But `get_queryset` handles 'search' manually. 
+        # Strategy: We'll manually call filter_queryset but strictly we want to avoid 
+        # the standard `icontains` if we are doing fuzzy.
+        # However, `get_queryset` implementation (lines 165-171) applies strict filter if `search` is present.
+        # We should probably bypass `get_queryset`'s search filter or relax it.
+        # EASIEST: Just use `get_queryset` but pass `search=None` to it by tricking it, 
+        # or better: Fetch all (filtered by other params) and filter in memory.
+        
+        # Determine filters from request, excluding 'search'
+        base_qs = Member.objects.all().select_related('house')
+        area_id = request.query_params.get('area', None)
+        status_param = request.query_params.get('status', None)
+        
+        if area_id:
+            base_qs = base_qs.filter(house__area=area_id)
+        if status_param:
+            base_qs = base_qs.filter(status=status_param)
+            
+        # Fetch candidates
+        candidates = list(base_qs)
+        
+        scored_results = []
+        term_lower = search_term.lower()
+        
+        for m in candidates:
+            # Calculate match score
+            # We check: Name (high weight), Surname, House Name, ID
+            score = 0
+            max_possible = 0
+            
+            # Name
+            if m.name:
+                s = difflib.SequenceMatcher(None, term_lower, m.name.lower()).ratio()
+                score += (s * 3) # Weight 3
+                max_possible += 3
+                
+                # Check contains bonus
+                if term_lower in m.name.lower():
+                    score += 0.5
+            
+            # Surname
+            if m.surname:
+                s = difflib.SequenceMatcher(None, term_lower, m.surname.lower()).ratio()
+                score += s
+                max_possible += 1
+                
+            # House Name
+            if m.house and m.house.house_name:
+                s = difflib.SequenceMatcher(None, term_lower, m.house.house_name.lower()).ratio()
+                score += s
+                max_possible += 1
+            
+            # Member ID (Exact or approximate)
+            if str(m.member_id).lower() == term_lower:
+                score += 5 # Massive boost for ID match
+            elif term_lower in str(m.member_id).lower():
+                score += 2
+                
+            # Normalize? Or just use raw score.
+            # Let's normalize slightly by dividing by weights if we want a 0-1 range, 
+            # but raw score is fine for sorting.
+            
+            # Heuristic threshold: 
+            # If name match is decent (>0.6), score will be > 1.8. 
+            # Let's simple filter low matches.
+            
+            # A simple fast includes check to always include strict matches even if diff is weird
+            is_strict_match = (
+                term_lower in (m.name or "").lower() or 
+                term_lower in (m.surname or "").lower() or 
+                term_lower in str(m.member_id).lower()
+            )
+            
+            if score > 1.5 or is_strict_match:
+                scored_results.append((m, score))
+        
+        # Sort by score descending
+        scored_results.sort(key=lambda x: x[1], reverse=True)
+        
+        # Extract members
+        final_list = [x[0] for x in scored_results]
+        
+        # Pagination
+        page = self.paginate_queryset(final_list)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(final_list, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'])

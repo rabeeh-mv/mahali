@@ -249,9 +249,14 @@ const BulkAddObligationsModal = ({
                       style={{ width: '18px', height: '18px' }}
                     />
                   </th>
-                  <th>Member</th>
+                  <th>Member ID</th>
+                  <th>Name</th>
+                  <th>Surname</th>
+                  <th>Father Name</th>
+                  <th>House Name</th>
                   <th>Area</th>
-                  <th>Guardian</th>
+                  <th className="text-center">Guardian</th>
+                  <th className="text-center">GBM</th>
                 </tr>
               </thead>
               <tbody>
@@ -266,21 +271,29 @@ const BulkAddObligationsModal = ({
                           style={{ width: '18px', height: '18px' }}
                         />
                       </td>
-                      <td style={{ fontWeight: 600 }}>
-                        {`${member.member_id || member.id} - ${member.name} ${member.surname || ''}`}
-                      </td>
-                      <td>{member.house?.area?.name || 'N/A'}</td>
-                      <td>
+                      <td className="font-mono">{member.member_id}</td>
+                      <td style={{ fontWeight: 600 }}>{member.name}</td>
+                      <td>{member.surname}</td>
+                      <td>{member.father_name}</td>
+                      <td>{member.house_details?.house_name || member.house?.house_name || '-'}</td>
+                      <td>{member.house_details?.area_name || member.house?.area?.name || 'N/A'}</td>
+                      <td className="text-center">
                         {member.isguardian ?
-                          <span className="badge-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>Guardian</span> :
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Member</span>
+                          <span className="badge-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>Yes</span> :
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
+                        }
+                      </td>
+                      <td className="text-center">
+                        {member.general_body_member ?
+                          <span className="badge-success" style={{ padding: '2px 8px', fontSize: '0.7rem', background: '#e6fffa', color: '#047857' }}>Yes</span> :
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
                         }
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                       {searchTerm || selectedArea || selectedGuardian ? 'No members match your filters' : 'No members found'}
                     </td>
                   </tr>

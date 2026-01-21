@@ -503,10 +503,15 @@ const Obligations = ({
                   onChange={handleSelectAll}
                 />
               </th>
-              <th>Member Name</th>
-              <th>Region</th>
+              <th>Member ID</th>
+              <th>Name</th>
+              <th>Surname</th>
+              <th>Father Name</th>
+              <th>Area</th>
+              <th className="text-center">GBM</th>
+              <th className="text-center">Guardian</th>
               <th>Due Amount</th>
-              <th className="text-center">Settlement Status</th>
+              <th className="text-center">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -520,11 +525,24 @@ const Obligations = ({
                       onChange={() => handleSelectObligation(obligation.id)}
                     />
                   </td>
-                  <td className="font-semibold">
-                    {`${obligation.member?.member_id} - ${obligation.member?.name || 'Unknown'}`}
-                  </td>
+                  <td className="font-mono">{obligation.member?.member_id}</td>
+                  <td className="font-semibold">{obligation.member?.name || 'Unknown'}</td>
+                  <td>{obligation.member?.surname}</td>
+                  <td>{obligation.member?.father_name}</td>
                   <td>
                     <span className="badge-outline">{getAreaName(obligation)}</span>
+                  </td>
+                  <td className="text-center">
+                    {obligation.member?.general_body_member ?
+                      <FaCheck className="text-success" /> :
+                      <span className="text-muted">-</span>
+                    }
+                  </td>
+                  <td className="text-center">
+                    {obligation.member?.isGuardian ?
+                      <FaCheck className="text-success" /> :
+                      <span className="text-muted">-</span>
+                    }
                   </td>
                   <td className="font-mono" style={{ color: 'var(--primary)', fontWeight: 700 }}>
                     <FaRupeeSign fontSize="0.8em" /> {obligation.amount}
@@ -538,7 +556,7 @@ const Obligations = ({
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="text-center py-10">
+                <td colSpan="10" className="text-center py-10">
                   <div className="empty-state">
                     <p>{searchTerm || selectedArea || selectedStatus ? 'No matching records found.' : 'No obligations for this period.'}</p>
                   </div>
