@@ -874,7 +874,13 @@ class DigitalRequestViewSet(viewsets.ModelViewSet):
                 'age': m.date_of_birth,
                 'father_name': father_name_disp,
                 'grandfather_name': m.grandfather_name,
-                'spouse_name': m.married_to.name if m.married_to else m.married_to_name or "N/A"
+                'grandfather_name': m.grandfather_name,
+                'spouse_name': m.married_to.name if m.married_to else m.married_to_name or "N/A",
+                'phone': m.phone,
+                'whatsapp': m.whatsapp,
+                'adhar': m.adhar,
+                'mother_name': m.mother.name if m.mother else m.mother_name,
+                'mother_surname': m.mother.surname if m.mother else m.mother_surname,
             })
             
         return Response(data)

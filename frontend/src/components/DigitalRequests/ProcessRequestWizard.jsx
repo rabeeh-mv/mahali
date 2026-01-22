@@ -52,6 +52,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
     const [searchResults, setSearchResults] = useState([]);
     const [searchFilters, setSearchFilters] = useState({ search: '', surname: '', father: '', grandfather: '', spouse: '' });
     const [selectedMemberIdx, setSelectedMemberIdx] = useState(null);
+    const [expandedMatchId, setExpandedMatchId] = useState(null);
 
 
     useEffect(() => {
@@ -705,17 +706,33 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
 
                             <div className="results-list">
                                 {duplicateMatches?.map(match => (
-                                    <div key={match.id} className="result-item">
+                                    <div key={match.id}
+                                        className={`result-item ${expandedMatchId === match.id ? 'expanded' : ''}`}
+                                        onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
+                                    >
                                         <div className="r-head">
                                             <strong>{match.name} {match.surname}</strong>
                                             <small>#{match.id}</small>
+                                            <span className="expand-hint">{expandedMatchId === match.id ? '▲' : '▼'}</span>
                                         </div>
                                         <div className="r-body">
                                             <span>House: {match.house}</span>
                                             <span>Father: {match.father_name}</span>
                                             <span>Phone: {match.phone}</span>
                                         </div>
-                                        {/* Future: Add "Merge" button here? */}
+
+                                        {expandedMatchId === match.id && (
+                                            <div className="r-details-full">
+                                                <div className="detail-grid">
+                                                    <div><label>Mother:</label> {match.mother_name} {match.mother_surname}</div>
+                                                    <div><label>Spouse:</label> {match.spouse_name}</div>
+                                                    <div><label>Gender:</label> {match.gender}</div>
+                                                    <div><label>DOB:</label> {match.age}</div>
+                                                    <div><label>WhatsApp:</label> {match.whatsapp}</div>
+                                                    <div><label>Aadhaar:</label> {match.adhar}</div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

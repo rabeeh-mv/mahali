@@ -26,6 +26,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
   const [columnFilters, setColumnFilters] = useState({
     member_id: '',
     name: '',
+    surname: '',
     father_name: '',
     mother_name: '',
     phone: '',
@@ -200,7 +201,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     setFilterCriteria({ area: '', status: '', role: '' })
     setSearchTerm('')
     setColumnFilters({
-      member_id: '', name: '', father_name: '', mother_name: '',
+      member_id: '', name: '', surname: '', father_name: '', mother_name: '',
       phone: '', whatsapp: '', house_name: '', adhar: '', gender: ''
     })
   }
@@ -385,7 +386,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
 
               <th className="col-name">
                 <div className="th-content" onClick={(e) => { e.stopPropagation(); setActiveFilterColumn(activeFilterColumn === 'name' ? null : 'name'); }}>
-                  Full Name <FaFilter className={`filter-icon ${columnFilters.name ? 'opacity-100 text-blue-500' : ''}`} />
+                  Name <FaFilter className={`filter-icon ${columnFilters.name ? 'opacity-100 text-blue-500' : ''}`} />
                 </div>
                 {activeFilterColumn === 'name' && (
                   <div className="filter-dropdown" onClick={(e) => e.stopPropagation()}>
@@ -394,6 +395,23 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                       placeholder="Filter Name..."
                       value={columnFilters.name}
                       onChange={(e) => setColumnFilters(prev => ({ ...prev, name: e.target.value }))}
+                      autoFocus
+                    />
+                  </div>
+                )}
+              </th>
+
+              <th className="col-surname">
+                <div className="th-content" onClick={(e) => { e.stopPropagation(); setActiveFilterColumn(activeFilterColumn === 'surname' ? null : 'surname'); }}>
+                  Surname <FaFilter className={`filter-icon ${columnFilters.surname ? 'opacity-100 text-blue-500' : ''}`} />
+                </div>
+                {activeFilterColumn === 'surname' && (
+                  <div className="filter-dropdown" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="text"
+                      placeholder="Filter Surname..."
+                      value={columnFilters.surname}
+                      onChange={(e) => setColumnFilters(prev => ({ ...prev, surname: e.target.value }))}
                       autoFocus
                     />
                   </div>
@@ -473,7 +491,8 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                     />
                   </td>
                   <td className="col-id is-id-cell">{member.member_id}</td>
-                  <td className="col-name font-semibold">{member.name} {member.surname}</td>
+                  <td className="col-name font-semibold">{member.name}</td>
+                  <td className="col-surname font-semibold">{member.surname}</td>
 
                   <td>
                     {member.house?.house_name /* Nested object from search */ ||

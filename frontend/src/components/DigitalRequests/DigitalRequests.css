@@ -81,7 +81,6 @@
   margin-bottom: 20px;
   margin-right: 6px;
   color: var(--text-color);
-  width: 80px;
   display: inline-block;
 }
 
@@ -159,6 +158,60 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border-color: var(--primary);
+}
+
+/* Expanded Card Styling */
+.result-item.expanded {
+  border-color: var(--primary);
+  background: var(--input-bg);
+  /* Use a slightly different bg for expanded */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.result-item .expand-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  /* Push to right */
+}
+
+.result-item .r-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.r-details-full {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px dashed var(--border);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.detail-grid label {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-right: 5px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .duplicate-card.selected {

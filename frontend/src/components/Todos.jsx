@@ -28,7 +28,11 @@ const Todos = () => {
   const handleCreateTodo = async (e) => {
     e.preventDefault();
     try {
-      await todoAPI.create(newTodo);
+      const payload = { ...newTodo };
+      if (!payload.due_date) {
+        payload.due_date = null;
+      }
+      await todoAPI.create(payload);
       setNewTodo({ title: '', description: '', priority: 'medium', due_date: '' });
       loadTodos(); // Refresh the list
     } catch (err) {
