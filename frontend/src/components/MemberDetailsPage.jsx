@@ -189,8 +189,17 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
                 {member.status || 'Live'}
               </div>
             </div>
-            <div className="avatar-large">
-              {getInitials(member.name)}
+            <div className={`avatar-large ${member.photo ? 'has-photo' : ''}`}>
+              {member.photo ? (
+                <img
+                  src={member.photo}
+                  alt={`${member.name}'s profile`}
+                  className="member-photo"
+                  onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.classList.remove('has-photo'); }}
+                />
+              ) : (
+                getInitials(member.name)
+              )}
             </div>
             <h2 className="member-name">{member.name}.{member.surname}</h2>
             <div className="member-id-badge">ID: {member.member_id}</div>
@@ -255,7 +264,7 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
 
             <div className="info-item">
               <div className="info-label">Aadhar Number</div>
-              <div className="info-value blurred">{member.adhar || 'Unavailable'}</div>
+              <div className="info-value ">{member.adhar || 'Unavailable'}</div>
             </div>
             <div className="info-item">
               <div className="info-label">Father's Name</div>

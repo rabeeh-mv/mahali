@@ -6,10 +6,20 @@ const api = axios.create({
 
 export const memberAPI = {
   getAll: (params) => api.get('/members/', { params }),
+  getAllNoPagination: (params) => api.get('/members/all_members/', { params }),
   get: (id) => api.get(`/members/${id}/`),
-  create: (data) => api.post('/members/', data),
-  update: (id, data) => api.put(`/members/${id}/`, data),
-  partialUpdate: (id, data) => api.patch(`/members/${id}/`, data),
+  create: (data) => {
+    const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+    return api.post('/members/', data, { headers });
+  },
+  update: (id, data) => {
+    const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+    return api.put(`/members/${id}/`, data, { headers });
+  },
+  partialUpdate: (id, data) => {
+    const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+    return api.patch(`/members/${id}/`, data, { headers });
+  },
   delete: (id) => api.delete(`/members/${id}/`),
   search: (params) => api.get('/members/search/', { params }),
   getFamilyTree: (id) => api.get(`/members/${id}/family_tree/`),

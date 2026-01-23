@@ -83,7 +83,13 @@ class SafeSlugRelatedField(serializers.SlugRelatedField):
 
 class MemberSerializer(serializers.ModelSerializer):
     firebase_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    photo = serializers.ImageField(required=False)
+    photo = serializers.ImageField(required=False, allow_null=True)
+
+    def validate_photo(self, value):
+        if value == '':
+            return None
+        return value
+
     house = SafeSlugRelatedField(
         queryset=House.objects.all(),
         slug_field='home_id',

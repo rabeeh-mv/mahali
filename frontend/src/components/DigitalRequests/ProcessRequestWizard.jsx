@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { digitalRequestAPI, houseAPI, memberAPI, areaAPI, todoAPI } from '../../api';
 import './DigitalRequests.css';
-import { FaAddressCard, FaHome, FaUsers, FaArrowRight, FaCheck, FaExclamationTriangle, FaMale, FaFemale, FaHeart, FaLink, FaSearch } from 'react-icons/fa';
+import { FaAddressCard, FaHome, FaUsers, FaArrowRight, FaArrowLeft, FaCheck, FaExclamationTriangle, FaMale, FaFemale, FaHeart, FaLink, FaSearch } from 'react-icons/fa';
+
+
 
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -44,8 +46,10 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
     // --- Duplicate Check State ---
     const [duplicateHouses, setDuplicateHouses] = useState([]);
     const [selectedExistingHouse, setSelectedExistingHouse] = useState(null); // If user chooses to link to existing house
+    const [updateExistingHouse, setUpdateExistingHouse] = useState(false); // If true, overwrite DB data with Request data
 
     const [memberDuplicateMap, setMemberDuplicateMap] = useState({}); // { memberIndex: [possibleMatches] }
+    const [memberLinkMap, setMemberLinkMap] = useState({}); // { memberIndex: { id: db_id, shouldUpdate: boolean } }
 
     // --- Search State (Stage 3) ---
     const [searchContext, setSearchContext] = useState(null); // { index, type }
@@ -53,6 +57,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
     const [searchFilters, setSearchFilters] = useState({ search: '', surname: '', father: '', grandfather: '', spouse: '' });
     const [selectedMemberIdx, setSelectedMemberIdx] = useState(null);
     const [expandedMatchId, setExpandedMatchId] = useState(null);
+    const [searchMode, setSearchMode] = useState('database');
 
 
     useEffect(() => {
@@ -97,14 +102,34 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
             membersList = Object.values(data.members);
         }
 
-        setMembersData(membersList.map((m, i) => ({
-            ...m,
-            // Ensure essential fields exist
-            name: m.name || m.memberName || m.fullName || m.full_name || `Unknown Member(Keys: ${Object.keys(m).join(', ')})`,
-            relationToGuardian: m.relationToGuardian || m.relation || 'Member',
-            status: 'live',
-            isGuardian: m.isGuardian || false
-        })));
+        setMembersData(membersList.map((m, i) => {
+            const normRel = (m.relationToGuardian || m.relation || 'member').toLowerCase();
+            const isGuardian = m.isGuardian || false;
+
+            // Auto-infer gender logic
+            let inferredGender = m.gender || '';
+            if (!inferredGender) {
+                if (isGuardian) inferredGender = 'male';
+                else if (['wife', 'mother', 'daughter', 'sister', 'grandmother', 'aunt', 'niece'].includes(normRel)) inferredGender = 'female';
+                else if (['husband', 'father', 'son', 'brother', 'grandfather', 'uncle', 'nephew'].includes(normRel)) inferredGender = 'male';
+                else if (normRel === 'partner') inferredGender = 'female'; // Assuming 'wife/partner' context from request
+                else if (normRel === 'child') inferredGender = 'male'; // Per user request: "if Guardian's child set that auto male"
+                else if (normRel === 'spouse') inferredGender = 'female'; // Default spouse to female (wife) if ambiguous, or check head?
+            }
+
+            // Per specific user request "if Guardian's wife/patner set member female"
+            // This is covered by 'wife'/'partner' check above.
+
+            return {
+                ...m,
+                // Ensure essential fields exist
+                name: m.name || m.memberName || m.fullName || m.full_name || `Unknown Member(Keys: ${Object.keys(m).join(', ')})`,
+                relationToGuardian: m.relationToGuardian || m.relation || 'Member',
+                gender: inferredGender,
+                status: 'live',
+                isGuardian: isGuardian
+            };
+        }));
     };
 
     const resolveFirebaseIdRelationships = async (data) => {
@@ -362,6 +387,17 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
             if (selectedExistingHouse) {
                 finalizedHouseId = selectedExistingHouse.home_id;
                 console.log("Using Existing House ID:", finalizedHouseId);
+
+                // If update requested
+                if (updateExistingHouse) {
+                    try {
+                        await houseAPI.update(finalizedHouseId, houseData);
+                        console.log("Updated Existing House:", finalizedHouseId);
+                    } catch (hErr) {
+                        console.error("Failed to update house", hErr);
+                        alert("Warning: Failed to update house data, but proceeding with linking.");
+                    }
+                }
             } else {
                 const res = await houseAPI.create(houseData);
                 console.log("House Create Response:", res.data);
@@ -381,6 +417,10 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                 // Rel map might have external IDs
                 const rels = relationshipMap[i] || {};
 
+                // Check if updating existing member - Check both number and string keys
+                const linkInfo = memberLinkMap[i] || memberLinkMap[String(i)];
+                const isUpdating = !!(linkInfo && linkInfo.shouldUpdate && linkInfo.id);
+
                 // --- ROBUST MAPPING ---
                 // Map Firebase keys to Django keys
                 const mappedMember = {
@@ -393,7 +433,6 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     mobile_number: m.phone || m.mobile || m.mobileNumber || m.mobile_number || '',
                     whatsapp: m.whatsapp || '',
                     adhar: m.adhar || m.aadhaar || '',
-                    // Job/Education/BloodGroup removed as per user request/model mismatch
 
                     grandfather_name: m.grandfather_name || m.grandFather || '',
                     father_name: m.father_name || m.fatherName || '',
@@ -410,14 +449,25 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                 };
 
                 // DEBUG LOGGING
-                console.log(`[Step] Creating Member ${i}:`, mappedMember);
+                console.log(`[Step] Processing Member ${i} (Update: ${!!isUpdating}):`, mappedMember);
 
-                const res = await memberAPI.create(mappedMember);
-                createdMembers.push({
-                    index: i,
-                    id: res.data.member_id,
-                    name: res.data.name
-                });
+                if (isUpdating) {
+                    // UPDATE Existing
+                    await memberAPI.update(linkInfo.id, mappedMember);
+                    createdMembers.push({
+                        index: i,
+                        id: linkInfo.id,
+                        name: mappedMember.name
+                    });
+                } else {
+                    // CREATE New
+                    const res = await memberAPI.create(mappedMember);
+                    createdMembers.push({
+                        index: i,
+                        id: res.data.member_id,
+                        name: res.data.name
+                    });
+                }
             }
 
             // 3. Link Internal Relations (The "NEW_" ones)
@@ -599,14 +649,32 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     {duplicateHouses.length === 0 && <p className="safe-text"><FaCheck /> No direct duplicates found.</p>}
                     {duplicateHouses.map(h => (
                         <div key={h.home_id}
-                            className={`duplicate - card ${selectedExistingHouse?.home_id === h.home_id ? 'selected' : ''} `}
+                            className={`duplicate-card ${selectedExistingHouse?.home_id === h.home_id ? 'selected' : ''}`}
                             onClick={() => handleUseExistingHouse(h)}>
                             <div className="card-header">
                                 <strong>{h.house_name}</strong>
                                 <span>{h.family_name}</span>
                             </div>
                             <p className="subtext">ID: {h.home_id} • Area: {h.area_name}</p>
-                            {selectedExistingHouse?.home_id === h.home_id && <div className="selected-badge">Selected for Linking</div>}
+
+                            {selectedExistingHouse?.home_id === h.home_id && (
+                                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div className="selected-badge">Selected for Linking</div>
+
+                                    <button
+                                        className={`btn-small ${updateExistingHouse ? 'primary' : 'secondary'}`}
+                                        style={{ fontSize: '0.8rem', padding: '4px 8px' }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setUpdateExistingHouse(!updateExistingHouse);
+                                        }}
+                                    >
+                                        {updateExistingHouse ? '✓ Will Update Database with Request Data' : 'Update Database with Request Data?'}
+                                    </button>
+
+                                    {updateExistingHouse && <span className="warning-text" style={{ fontSize: '0.75rem' }}>⚠️ Existing DB data will be overwritten!</span>}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -642,6 +710,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                                 <div className="m-header">
                                     <strong>{m.name}</strong>
                                     <span className="relation-tag">{m.relationToGuardian}</span>
+                                    {memberLinkMap[i] && <span className="linked-badge-mini" style={{ marginLeft: 'auto', fontSize: '0.7rem', background: '#e8f5e9', color: '#2e7d32', padding: '2px 6px', borderRadius: '4px' }}>Linked</span>}
                                 </div>
                                 {selectedMemberIdx === i && (
                                     <div className="m-details-expanded">
@@ -731,6 +800,33 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                                                     <div><label>WhatsApp:</label> {match.whatsapp}</div>
                                                     <div><label>Aadhaar:</label> {match.adhar}</div>
                                                 </div>
+
+                                                <div style={{ marginTop: '15px' }}>
+                                                    <button
+                                                        className={`btn-small ${memberLinkMap[selectedMemberIdx]?.id === match.id ? 'primary' : 'secondary'}`}
+                                                        style={{ width: '100%', fontSize: '0.9rem' }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const current = memberLinkMap[selectedMemberIdx];
+                                                            if (current?.id === match.id) {
+                                                                // Deselect
+                                                                const newMap = { ...memberLinkMap };
+                                                                delete newMap[selectedMemberIdx];
+                                                                setMemberLinkMap(newMap);
+                                                            } else {
+                                                                // Select for Update
+                                                                setMemberLinkMap({
+                                                                    ...memberLinkMap,
+                                                                    [selectedMemberIdx]: { id: match.id, shouldUpdate: true }
+                                                                });
+                                                            }
+                                                        }}
+                                                    >
+                                                        {memberLinkMap[selectedMemberIdx]?.id === match.id
+                                                            ? '✓ Linked for Update (Will Overwrite)'
+                                                            : 'Update on This Member'}
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -741,6 +837,28 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                 </div>
             </div>
         );
+    };
+
+    const handleDisconnect = (index, type) => {
+        setRelationshipMap(prev => {
+            const newMap = { ...prev };
+            if (!newMap[index]) return newMap;
+
+            const updated = { ...newMap[index] };
+            if (type === 'father') {
+                delete updated.fatherId;
+                delete updated.fatherName;
+            } else if (type === 'mother') {
+                delete updated.motherId;
+                delete updated.motherName;
+            } else if (type === 'spouse') {
+                delete updated.spouseId;
+                delete updated.spouseName;
+            }
+
+            newMap[index] = updated;
+            return newMap;
+        });
     };
 
     const renderStage3 = () => (
@@ -909,6 +1027,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                                             <div className="rel-val"><strong>ID:</strong> {relationshipMap[i].fatherId || 'NEW'}</div>
                                             <div className="rel-val"><strong>Name:</strong> {relationshipMap[i].fatherName}</div>
                                             <span className="linked-badge-pill"><FaCheck /> Connected</span>
+                                            <button className="disconnect-btn" onClick={() => handleDisconnect(i, 'father')}>×</button>
                                         </div>
                                     ) : (
                                         <div className="unlinked-details">
@@ -934,6 +1053,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                                             <div className="rel-val"><strong>ID:</strong> {relationshipMap[i].motherId || 'NEW'}</div>
                                             <div className="rel-val"><strong>Name:</strong> {relationshipMap[i].motherName}</div>
                                             <span className="linked-badge-pill"><FaCheck /> Connected</span>
+                                            <button className="disconnect-btn" onClick={() => handleDisconnect(i, 'mother')}>×</button>
                                         </div>
                                     ) : (
                                         <div className="unlinked-details">
@@ -959,6 +1079,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                                             <div className="rel-val"><strong>ID:</strong> {relationshipMap[i].spouseId || 'NEW'}</div>
                                             <div className="rel-val"><strong>Name:</strong> {relationshipMap[i].spouseName}</div>
                                             <span className="linked-badge-pill"><FaCheck /> Connected</span>
+                                            <button className="disconnect-btn" onClick={() => handleDisconnect(i, 'spouse')}>×</button>
                                         </div>
                                     ) : (
                                         <div className="unlinked-details">
@@ -980,65 +1101,87 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     <p className="placeholder-text">Click "Connect" next to a relative to search.</p>
                 ) : (
                     <div className="search-interface">
-                        <h4>Find {searchContext.type} for {membersData[searchContext.index].name}</h4>
-                        <div className="search-inputs">
-                            <input className="compact-input" placeholder="Name" value={searchFilters.search} onChange={e => setSearchFilters({ ...searchFilters, search: e.target.value })} />
-                            <input className="compact-input" placeholder="Surname" value={searchFilters.surname} onChange={e => setSearchFilters({ ...searchFilters, surname: e.target.value })} />
-
-                            {searchContext.type === 'father' && (
-                                <>
-                                    <label style={{ marginTop: 5, display: 'block' }}>Father's Name (Grandfather):</label>
-                                    <input className="compact-input" placeholder="Grandfather Name" value={searchFilters.father} onChange={e => setSearchFilters({ ...searchFilters, father: e.target.value })} />
-                                </>
-                            )}
-                            {searchContext.type === 'mother' && (
-                                <>
-                                    <label style={{ marginTop: 5, display: 'block' }}>Mother's Spouse:</label>
-                                    <input className="compact-input" placeholder="Spouse Name" value={searchFilters.spouse} onChange={e => setSearchFilters({ ...searchFilters, spouse: e.target.value })} />
-                                </>
-                            )}
-
-                            <button className="primary" style={{ marginTop: 10, width: '100%' }} onClick={handleSearch}>Search Database</button>
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                            <button
+                                className={searchMode === 'database' ? 'primary' : 'secondary'}
+                                onClick={() => setSearchMode('database')}
+                                style={{ flex: 1 }}
+                            >
+                                Database Search Results
+                            </button>
+                            <button
+                                className={searchMode === 'request' ? 'primary' : 'secondary'}
+                                onClick={() => setSearchMode('request')}
+                                style={{ flex: 1 }}
+                            >
+                                Select from this Request
+                            </button>
                         </div>
+                        <h4>Find {searchContext.type} for {membersData[searchContext.index].name}</h4>
 
-                        <div className="results-list">
-                            {/* Local Request Members Option */}
-                            <div className="local-results-section" style={{ marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-                                <h5 style={{ margin: '0 0 10px 0', color: '#0ebfa0' }}>Select from this Request:</h5>
-                                {membersData.map((m, idx) => {
-                                    if (idx === searchContext.index) return null; // Skip self
-                                    return (
-                                        <div key={`local-${idx}`} className="result-item local-item"
-                                            onClick={() => selectParent({ id: `NEW_${idx}`, name: m.name, surname: m.surname })}
-                                            style={{ borderLeft: '3px solid #0ebfa0' }}>
+                        {searchMode === 'database' ? (
+                            <>
+                                <div className="search-inputs">
+                                    <input className="compact-input" placeholder="Name" value={searchFilters.search} onChange={e => setSearchFilters({ ...searchFilters, search: e.target.value })} />
+                                    <input className="compact-input" placeholder="Surname" value={searchFilters.surname} onChange={e => setSearchFilters({ ...searchFilters, surname: e.target.value })} />
+
+                                    {searchContext.type === 'father' && (
+                                        <>
+                                            <label style={{ marginTop: 5, display: 'block' }}>Father's Name (Grandfather):</label>
+                                            <input className="compact-input" placeholder="Grandfather Name" value={searchFilters.father} onChange={e => setSearchFilters({ ...searchFilters, father: e.target.value })} />
+                                        </>
+                                    )}
+                                    {searchContext.type === 'mother' && (
+                                        <>
+                                            <label style={{ marginTop: 5, display: 'block' }}>Mother's Spouse:</label>
+                                            <input className="compact-input" placeholder="Spouse Name" value={searchFilters.spouse} onChange={e => setSearchFilters({ ...searchFilters, spouse: e.target.value })} />
+                                        </>
+                                    )}
+
+                                    <button className="primary" style={{ marginTop: 10, width: '100%' }} onClick={handleSearch}>Search Database</button>
+                                </div>
+
+                                <div className="results-list">
+                                    <h5 style={{ margin: '10px 0 5px 0', color: '#666' }}>Database Search Results:</h5>
+                                    {searchResults.map(r => (
+                                        <div key={r.id} className="result-item" onClick={() => selectParent(r)}>
                                             <div className="r-head">
-                                                <strong>{m.name} {m.surname || ''}</strong>
-                                                <small className="badge-new">NEW</small>
+                                                <strong>{r.name} {r.surname}</strong>
+                                                <small>#{r.id}</small>
                                             </div>
                                             <div className="r-body">
-                                                <span>Relation: {m.relationToGuardian}</span>
+                                                <span>House: {r.house}</span>
+                                                <span>Father: {r.father_name}</span>
                                             </div>
                                         </div>
-                                    );
-                                })}
-                                {membersData.length <= 1 && <p className="no-res" style={{ fontSize: '0.85em' }}>No other members in this request.</p>}
-                            </div>
-
-                            <h5 style={{ margin: '10px 0 5px 0', color: '#666' }}>Or Database Search Results:</h5>
-                            {searchResults.map(r => (
-                                <div key={r.id} className="result-item" onClick={() => selectParent(r)}>
-                                    <div className="r-head">
-                                        <strong>{r.name} {r.surname}</strong>
-                                        <small>#{r.id}</small>
-                                    </div>
-                                    <div className="r-body">
-                                        <span>House: {r.house}</span>
-                                        <span>Father: {r.father_name}</span>
-                                    </div>
+                                    ))}
+                                    {searchResults.length === 0 && <p className="no-res">No database results.</p>}
                                 </div>
-                            ))}
-                            {searchResults.length === 0 && <p className="no-res">No database results.</p>}
-                        </div>
+                            </>
+                        ) : (
+                            <div className="results-list">
+                                <div className="local-results-section" style={{ marginBottom: '15px', paddingBottom: '10px' }}>
+                                    <h5 style={{ margin: '0 0 10px 0', color: '#0ebfa0' }}>Select from this Request:</h5>
+                                    {membersData.map((m, idx) => {
+                                        if (idx === searchContext.index) return null; // Skip self
+                                        return (
+                                            <div key={`local-${idx}`} className="result-item local-item"
+                                                onClick={() => selectParent({ id: `NEW_${idx}`, name: m.name, surname: m.surname })}
+                                                style={{ borderLeft: '3px solid #0ebfa0' }}>
+                                                <div className="r-head">
+                                                    <strong>{m.name} {m.surname || ''}</strong>
+                                                    <small className="badge-new">NEW</small>
+                                                </div>
+                                                <div className="r-body">
+                                                    <span>Relation: {m.relationToGuardian}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {membersData.length <= 1 && <p className="no-res" style={{ fontSize: '0.85em' }}>No other members in this request.</p>}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -1048,14 +1191,16 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
     return (
         <div className="process-wizard-full">
             <div className="wizard-header">
-                <button onClick={goBack}>&larr; Exit</button>
-                <h2>Processing Request: {houseData.house_name || '...'}</h2>
+                <button className="secondary" onClick={goBack} style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', background: 'transparent', padding: '8px 12px', color: '#6c757d', cursor: 'pointer' }}>
+                    <FaArrowLeft /> Exit
+                </button>
+                <h2>Processing: {houseData.house_name || '...'}</h2>
                 <div className="steps-indicator">
-                    <span className={step === 1 ? 'active' : ''}>1. House Check</span>
+                    <span className={step === 1 ? 'active' : ''} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FaHome /> 1. House</span>
                     <span className="separator">&gt;</span>
-                    <span className={step === 2 ? 'active' : ''}>2. Members Check</span>
+                    <span className={step === 2 ? 'active' : ''} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FaUsers /> 2. Members</span>
                     <span className="separator">&gt;</span>
-                    <span className={step === 3 ? 'active' : ''}>3. Relationships</span>
+                    <span className={step === 3 ? 'active' : ''} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FaLink /> 3. Relations</span>
                 </div>
             </div>
 
@@ -1071,9 +1216,9 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     {step === 1 && !selectedExistingHouse && <span className="status-msg">Creating new house</span>}
                 </div>
                 <div className="actions">
-                    {step > 1 && <button onClick={() => setStep(step - 1)}>Back</button>}
-                    {step < 3 && <button className="primary" onClick={() => setStep(step + 1)}>Next Step &rarr;</button>}
-                    {step === 3 && <button className="success" onClick={handleFinalSubmit}>Complete & Save</button>}
+                    {step > 1 && <button className="secondary" onClick={() => setStep(step - 1)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FaArrowLeft /> Back</button>}
+                    {step < 3 && <button className="primary" onClick={() => setStep(step + 1)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Next Step <FaArrowRight /></button>}
+                    {step === 3 && <button className="success" onClick={handleFinalSubmit} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FaCheck /> Complete & Save</button>}
                 </div>
             </div>
             {/* Unlinked Members Modal */}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FaUser, FaArrowLeft, FaSave, FaTimes, FaSearch, FaUpload } from 'react-icons/fa';
+import { FaUser, FaArrowLeft, FaSave, FaTimes, FaSearch, FaUpload, FaTrash } from 'react-icons/fa';
 import { memberAPI, houseAPI } from '../api';
+import { compressImage } from '../utils/imageUtils';
 import MemberSearchPanel from './MemberSearchPanel';
 import './MemberForm.css';
 
@@ -46,6 +47,7 @@ const MemberForm = () => {
     const [fatherDisplay, setFatherDisplay] = useState('');
     const [motherDisplay, setMotherDisplay] = useState('');
     const [spouseDisplay, setSpouseDisplay] = useState('');
+    const [previewImage, setPreviewImage] = useState(null);
 
     const [loading, setLoading] = useState(false);
     const [dataLoading, setDataLoading] = useState(false);
@@ -125,8 +127,14 @@ const MemberForm = () => {
             phone: data.phone || '',
             whatsapp: data.whatsapp || '',
             isGuardian: data.isGuardian || data.isguardian || data.is_guardian || false,
-            photo: null
+            isGuardian: data.isGuardian || data.isguardian || data.is_guardian || false,
+            photo: null // We keep photo null initially to represent NO NEW FILE
         });
+
+        // If member has a photo, set it for preview
+        if (data.photo) {
+            setPreviewImage(data.photo);
+        }
 
         // Set display strings
         if (hId) {
@@ -212,9 +220,23 @@ const MemberForm = () => {
         });
     };
 
-    const handlePhotoChange = (e) => {
+    const handlePhotoChange = async (e) => {
         if (e.target.files && e.target.files[0]) {
-            setFormData(prev => ({ ...prev, photo: e.target.files[0] }));
+            const originalFile = e.target.files[0];
+            try {
+                // Compress image if needed (max 1MB)
+                const compressedFile = await compressImage(originalFile, 1);
+                setFormData(prev => ({ ...prev, photo: compressedFile }));
+
+                // Create preview URL
+                const objectUrl = URL.createObjectURL(compressedFile);
+                setPreviewImage(objectUrl);
+            } catch (err) {
+                console.error("Image compression failed", err);
+                // Fallback to original
+                setFormData(prev => ({ ...prev, photo: originalFile }));
+                setPreviewImage(URL.createObjectURL(originalFile));
+            }
         }
     };
 
@@ -226,25 +248,68 @@ const MemberForm = () => {
         }));
     };
 
+    const handleRemovePhoto = () => {
+        setFormData(prev => ({ ...prev, photo: null }));
+        setPreviewImage(null);
+        // If editing, we might need a flag to tell backend to remove specifically?
+        // DRF typically clears if 'photo' is sent as null or empty string depending on configuration.
+        // For now, setting to null. If problematic, we can use a separate flag.
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
 
         try {
-            const submitData = { ...formData };
+            const submitData = new FormData();
 
-            if (submitData.status !== 'dead') {
-                delete submitData.date_of_death;
+            // Append all simple text fields
+            Object.keys(formData).forEach(key => {
+                if (key === 'photo') return; // Handle photo separately
+
+                let value = formData[key];
+
+                // Skip if value is null or undefined (except specific fields if needed)
+                if (value === null || value === undefined) return;
+
+                // Specific handling for dates / booleans / connections
+                if (key === 'date_of_death' && formData.status !== 'dead') return;
+
+                // Clear out connections if not set
+                if ((key === 'father' || key === 'mother' || key === 'house' || key === 'married_to') && !value) {
+                    // For FormData, sending empty string usually works for clearing in DRF if allow_null/blank is True
+                    submitData.append(key, '');
+                    return;
+                }
+
+                submitData.append(key, value);
+            });
+
+            // Handle Photo
+            // Handle Photo
+            // Logic:
+            // 1. If formData.photo is a File -> User selected new photo -> Send it.
+            // 2. If formData.photo is null AND previewImage is null -> User removed photo (or never had one) -> Send empty string to clear.
+            // 3. If formData.photo is null BUT previewImage exists -> "No Change" (keep existing) -> Do NOT send 'photo' key.
+
+            if (formData.photo instanceof File) {
+                // New photo uploaded
+                submitData.append('photo', formData.photo);
+            } else if (!previewImage) {
+                // Photo removed or cleared
+                // We send an empty string. DRF should interpret this as clearing the field if configured correctly.
+                // If this causes validation error (e.g., "The submitted data was not a file"), 
+                // we might need to change backend to allow_null=True or allow_empty_file=True,
+                // or handle 'null' string specifically. But often empty string works for optional ImageField in multipart.
+                submitData.append('photo', '');
+            } else {
+                // Existing photo preserved (do nothing)
+                console.log('Preserving existing photo');
             }
-            if (!submitData.photo) delete submitData.photo;
-            if (!submitData.father) delete submitData.father;
-            if (!submitData.mother) delete submitData.mother;
-            if (!submitData.house) delete submitData.house;
-            if (!submitData.married_to) delete submitData.married_to;
 
-            // Log the data being sent for debugging
-            console.log('Submitting member data:', submitData);
+            // Log for debugging (FormData cannot be logged directly easily)
+            console.log('Submitting member data (FormData)');
 
             if (isEditMode) {
                 await memberAPI.update(id, submitData);
@@ -349,11 +414,48 @@ const MemberForm = () => {
                         <div className="input-wrapper full-width">
                             <label htmlFor="photo">Photo (Optional)</label>
                             <div className="photo-upload-container">
-                                <input type="file" id="photo" accept="image/*" onChange={handlePhotoChange} disabled={loading} className='form-input' style={{ display: 'none' }} />
-                                <label htmlFor="photo" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                    <FaUpload /> {formData.photo ? 'Change Photo' : 'Choose Photo'}
-                                </label>
-                                {formData.photo && <span className="badge-primary" style={{ marginLeft: '12px' }}>{formData.photo.name}</span>}
+                                <input
+                                    type="file"
+                                    id="photo"
+                                    accept="image/*"
+                                    onChange={handlePhotoChange}
+                                    disabled={loading}
+                                    className='form-input'
+                                    style={{ display: 'none' }}
+                                />
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                    <label htmlFor="photo" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                        <FaUpload /> {formData.photo || previewImage ? 'Change Photo' : 'Choose Photo'}
+                                    </label>
+
+                                    {(previewImage || formData.photo) && (
+                                        <div className="preview-container" style={{ position: 'relative', width: '50px', height: '50px' }}>
+                                            <img
+                                                src={previewImage || (typeof formData.photo === 'string' ? formData.photo : URL.createObjectURL(formData.photo))}
+                                                alt="Preview"
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', border: '2px solid var(--primary, #6366f1)' }}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {(formData.photo || previewImage) && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span className="badge-primary">
+                                                {formData.photo instanceof File ? formData.photo.name : 'Current Photo'}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={handleRemovePhoto}
+                                                className="delete-btn"
+                                                title="Remove Photo"
+                                                style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                            >
+                                                <FaTrash />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

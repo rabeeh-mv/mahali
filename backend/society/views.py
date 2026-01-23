@@ -19,7 +19,7 @@ import difflib
 class MemberPagination(PageNumberPagination):
     page_size = 15
     page_size_query_param = 'page_size'
-    max_page_size = 100
+    max_page_size = 5000
 
 class HousePagination(PageNumberPagination):
     page_size = 15
@@ -322,6 +322,13 @@ class MemberViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
         
         serializer = self.get_serializer(final_list, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def all_members(self, request):
+        """Get all members without pagination"""
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'])

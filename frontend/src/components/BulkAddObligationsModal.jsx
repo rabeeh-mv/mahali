@@ -45,9 +45,10 @@ const BulkAddObligationsModal = ({
 
   const loadMembers = async () => {
     try {
-      const response = await memberAPI.getAll();
-      setMembers(response.data);
-      setFilteredMembers(response.data);
+      const response = await memberAPI.getAllNoPagination();
+      const membersData = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      setMembers(membersData);
+      setFilteredMembers(membersData);
     } catch (error) {
       console.error('Failed to load members:', error);
       setError('Failed to load members');

@@ -1,10 +1,10 @@
 /* Members.css - Premium Dense Data Grid with Theme Support */
 
 .members-page-container {
-    padding: 24px;
-    height: 100vh;
+    /* padding: 24px; */
+    height: 95vh;
     /* Fallback */
-    height: 100dvh;
+    /* height: 100dvh; */
     /* Dynamic Viewport Height for mobile */
     display: flex;
     flex-direction: column;
