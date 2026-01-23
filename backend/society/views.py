@@ -49,15 +49,35 @@ class HouseViewSet(viewsets.ModelViewSet):
         search = self.request.query_params.get('search', None)
         area_id = self.request.query_params.get('area', None)
         
+        # Column specific filters
+        home_id_filter = self.request.query_params.get('home_id', None)
+        house_name_filter = self.request.query_params.get('house_name', None)
+        family_name_filter = self.request.query_params.get('family_name', None)
+        location_name_filter = self.request.query_params.get('location_name', None)
+
         if search:
             queryset = queryset.filter(
                 Q(house_name__icontains=search) | 
                 Q(family_name__icontains=search) | 
-                Q(location_name__icontains=search)
+                Q(location_name__icontains=search) |
+                Q(home_id__icontains=search)
             )
             
         if area_id:
             queryset = queryset.filter(area=area_id)
+            
+        # Apply column specific filters
+        if home_id_filter:
+            queryset = queryset.filter(home_id__icontains=home_id_filter)
+        
+        if house_name_filter:
+            queryset = queryset.filter(house_name__icontains=house_name_filter)
+            
+        if family_name_filter:
+            queryset = queryset.filter(family_name__icontains=family_name_filter)
+            
+        if location_name_filter:
+            queryset = queryset.filter(location_name__icontains=location_name_filter)
             
         return queryset
     

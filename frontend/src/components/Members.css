@@ -2,7 +2,8 @@
 
 .members-page-container {
     /* padding: 24px; */
-    height: 95vh;
+    height: 100%;
+    /* Changed from 95vh to fit container */
     /* Fallback */
     /* height: 100dvh; */
     /* Dynamic Viewport Height for mobile */
@@ -10,7 +11,12 @@
     flex-direction: column;
     gap: 16px;
     max-width: 100%;
+    /* overflow: hidden; Removed to ensure children don't get clipped unintentionally, but handled by children */
     overflow: hidden;
+    /* Actually we need overflow hidden to contain the table scroll, BUT we need min-width 0 to prevent flex blowout */
+    min-width: 0;
+    width: 100%;
+    /* Ensure it fills but doesn't exceed parent */
     background-color: var(--bg-color);
     /* Theme background */
     color: var(--text-color);
@@ -47,8 +53,9 @@
         gap: 12px;
     }
 
-    .page-title h1 {
-        font-size: 1.25rem;
+    .M-page-title {
+        display: flex;
+        /* font-size: 1.25rem; */
     }
 
     .top-actions {
@@ -68,6 +75,10 @@
 /* Table Container */
 .members-table-container {
     flex: 1;
+    width: 100%;
+    /* Force width to match parent */
+    max-width: 100%;
+    /* Prevent overflow */
     overflow: auto;
     background: var(--surface);
     /* Theme surface */

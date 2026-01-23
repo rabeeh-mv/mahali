@@ -2,6 +2,9 @@ from django.db import models, transaction
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from django.db.models import Max
+import os
+from django.dispatch import receiver
+from django.db.models.signals import post_delete, pre_save
 
 
 class Area(models.Model):
@@ -301,3 +304,42 @@ class RecentAction(models.Model):
 
     def __str__(self):
         return f"{self.action_type} {self.model_name} ({self.object_id})"
+
+
+# --- Signals for File Cleanup ---
+
+@receiver(post_delete, sender=Member)
+def auto_delete_file_on_delete(sender, instance, **kwargs):
+    """
+    Deletes file from filesystem when corresponding `Member` object is deleted.
+    """
+    if instance.photo:
+        if os.path.isfile(instance.photo.path):
+            try:
+                os.remove(instance.photo.path)
+            except Exception as e:
+                print(f"Error deleting file: {e}")
+
+@receiver(pre_save, sender=Member)
+def auto_delete_file_on_change(sender, instance, **kwargs):
+    """
+    Deletes old file from filesystem when corresponding `Member` object is updated
+    with a new file.
+    """
+    if not instance.pk:
+        return False
+
+    try:
+        old_file = Member.objects.get(pk=instance.pk).photo
+    except Member.DoesNotExist:
+        return False
+
+    new_file = instance.photo
+
+    if not old_file == new_file:
+        if old_file and os.path.isfile(old_file.path):
+            try:
+                os.remove(old_file.path)
+            except Exception as e:
+                print(f"Error deleting old file: {e}")
+

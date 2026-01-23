@@ -1,138 +1,203 @@
-/* Houses.css */
+/* Houses.css - Premium Dense Data Grid with Theme Support */
 
-/* Page Container */
 .houses-page-container {
-    background: var(--surface-glass);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    height: 90vh;
+    height: 95vh;
     display: flex;
     flex-direction: column;
+    gap: 16px;
+    max-width: 100%;
     overflow: hidden;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* --- Top Section 1 --- */
 .houses-top-section-1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 24px 32px;
-    border-bottom: 1px solid var(--border);
-}
-
-.page-title {
-    display: flex;
-    align-items: center;
+    flex-wrap: wrap;
     gap: 16px;
-}
-
-.page-title h1 {
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin: 0;
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    /* padding: 0 8px; Removed padding to match Members */
 }
 
 .top-actions {
     display: flex;
-    gap: 12px;
-}
-
-.icon-only-btn {
-
-    border: 1px solid var(--border);
-    background: var(--surface-light);
-    color: var(--text-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.icon-only-btn:hover {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-}
-
-/* --- Top Section 2 --- */
-.houses-top-section-2 {
-    padding: 16px 32px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    background: rgba(0, 0, 0, 0.02);
-}
-
-.search-filter-wrapper {
-    display: flex;
-    gap: 16px;
-}
-
-.search-bar {
-    flex: 1;
-}
-
-.search-bar input {
-    background: var(--surface);
-    border-radius: 50px;
-    padding-left: 24px;
-    border: 1px solid var(--border);
-}
-
-.search-bar input:focus {
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
-}
-
-.filter-container {
-    position: relative;
-}
-
-.filter-btn {
-    display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 24px;
-    border-radius: 50px;
-    border: 1px solid var(--border);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .houses-page-container {
+        padding: 12px;
+        gap: 12px;
+    }
+
+    .houses-top-section-1 {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+
+
+    .top-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .top-actions button {
+        flex: 1;
+        padding: 8px;
+        font-size: 0.8rem;
+    }
+}
+
+/* Table Container */
+.houses-table-container {
+    flex: 1;
+    overflow: auto;
     background: var(--surface);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    position: relative;
+    border: 1px solid var(--border);
+}
+
+/* Custom Scrollbar */
+.houses-table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.houses-table-container::-webkit-scrollbar-track {
+    background: transparent;
+    border-bottom-right-radius: 12px;
+    border-bottom-left-radius: 12px;
+}
+
+.houses-table-container::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+    border: 0px solid transparent;
+}
+
+.houses-table-container::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-muted);
+}
+
+/* Dense Table Styles */
+.houses-table-container .Hdense-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    /* min-width: 1000px; */
+    /* Changed from 1000px to allow fitting in container */
     color: var(--text-color);
-    font-weight: 600;
+}
+
+/* Header Styles */
+.dense-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background-color: var(--header-bg);
+    color: var(--text-color);
+    box-shadow: 0 1px 0 var(--border);
+}
+
+.dense-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: relative;
+    background-color: var(--header-bg);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+/* Row & Cell Styles */
+.dense-table tbody tr {
+    transition: background-color 0.2s ease;
+    background-color: var(--surface);
+}
+
+.dense-table tbody tr:hover {
+    background-color: rgba(99, 102, 241, 0.03);
     cursor: pointer;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    position: relative;
+    z-index: 5;
+}
+
+.dense-table tbody tr.selected-row {
+    background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+.dense-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+    vertical-align: middle;
+    color: var(--text-color);
+    font-size: 0.8rem;
+}
+
+/* Column Header Content & Filtering */
+.th-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.th-content:hover {
+    color: var(--primary);
+}
+
+.filter-icon {
+    font-size: 10px;
+    opacity: 0.4;
     transition: all 0.2s;
 }
 
-.filter-btn:hover,
-.filter-btn.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
+.th-content:hover .filter-icon,
+.filter-active .filter-icon {
+    opacity: 1;
+    color: var(--primary);
+    transform: scale(1.2);
 }
 
-/* Filter Dropdown Menu (YouTube Style) */
-.filter-menu-dropdown {
+.filter-dropdown {
     position: absolute;
     top: 100%;
-    right: 0;
-    margin-top: 8px;
-    width: 320px;
+    left: 0;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    z-index: 100;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    /* gap: 1px; */
-    animation: slideDown 0.2s ease-out;
+    box-shadow: var(--shadow-lg);
+    padding: 12px;
+    z-index: 50;
+    min-width: 220px;
+    border-radius: 8px;
+    margin-top: 4px;
+    animation: slideDown 0.15s ease-out forwards;
 }
 
 @keyframes slideDown {
@@ -147,223 +212,60 @@
     }
 }
 
-.filter-section h4 {
-    font-size: 0.85rem;
-    text-transform: uppercase;
+.filter-dropdown input,
+.filter-dropdown select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--input-text);
+    background: var(--input-bg);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filter-dropdown input:focus,
+.filter-dropdown select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Status/Badges adapted for Houses */
+.badge-outline {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
     color: var(--text-muted);
-    margin-bottom: 8px;
-    letter-spacing: 0.05em;
-    padding-left: 4px;
 }
 
-.filter-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.filter-options.scrollable {
-    max-height: 150px;
-    overflow-y: auto;
-}
-
-.filter-options button {
-    padding: 6px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-color);
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.1s;
-}
-
-.filter-options button:hover {
-    background: rgba(99, 102, 241, 0.1);
-}
-
-.filter-options button.active {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark, #4f46e5) 100%);
-    color: white;
-    border-color: transparent;
-}
-
-/* Active Filters List (Chips) */
-.active-filters-list {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
-    padding-top: 12px;
-    margin-top: 12px;
-    border-top: 1px dashed var(--border);
-    animation: slideDownFade 0.3s ease-out;
-}
-
-@keyframes slideDownFade {
-    from {
-        opacity: 0;
-        transform: translateY(-8px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.filter-chip {
-    padding: 6px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 100px;
-    font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.2s ease;
-    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes popIn {
-    from {
-        opacity: 0;
-        transform: scale(0.8);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-.gradient-chip {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    color: var(--primary);
-    font-weight: 500;
-    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.05);
-}
-
-.gradient-chip:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
-}
-
-.filter-chip span {
-    cursor: pointer;
-    font-size: 1.1rem;
-    opacity: 0.5;
-    display: flex;
+.badge-primary {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    min-width: 24px;
+    height: 24px;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
     border-radius: 50%;
-    transition: all 0.2s;
-    margin-right: -4px;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
-.filter-chip span:hover {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
-    color: #ef4444;
-}
-
-.clear-all-btn {
-    background: none;
-    border: none;
+/* Empty State */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
     color: var(--text-muted);
-    text-decoration: none;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    padding: 6px 12px;
-    border-radius: 8px;
-    transition: all 0.2s;
-    margin-left: 4px;
 }
 
-.clear-all-btn:hover {
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.06);
+.empty-state p {
+    font-size: 14px;
+    margin-top: 8px;
 }
-
-/* --- Table --- */
-.houses-table-container {
-    flex: 1;
-    overflow-y: auto;
-    background: transparent;
-    /* Changed from var(--surface) to prevent opaque block issues */
-}
-
-/* Ensure table cells have correct contrast */
-.houses-table-container table td {
-    color: var(--text-color);
-}
-
-/* Force dark text explicitly when in light mode context (safety fallback) */
-@media (prefers-color-scheme: light) {
-    .houses-table-container table td {
-        color: #1e293b;
-    }
-}
-
-/* If using class-based theming, ensure explicitly: */
-body.theme-light .houses-table-container table td {
-    color: #1e293b;
-}
-
-body.theme-dark .houses-table-container table td {
-    color: #f8fafc;
-}
-
-.houses-table-container table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background-color: var(--surface);
-    /* Keep header opaque */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.interactive-table tr.clickable-row {
-    cursor: pointer;
-}
-
-.interactive-table tr.clickable-row:hover td {
-    background: rgba(99, 102, 241, 0.05);
-}
-
-/* Column Widths */
-.houses-table-container th:nth-child(1) {
-    width: 80px;
-}
-
-/* ID */
-.houses-table-container th:nth-child(2) {
-    width: 25%;
-}
-
-/* House Name */
-.houses-table-container th:nth-child(3) {
-    width: 20%;
-}
-
-/* Family Name */
-.houses-table-container th:nth-child(4) {
-    width: 15%;
-}
-
-/* Area */
-.houses-table-container th:nth-child(5) {
-    width: 15%;
-}
-
-/* Location */
-.houses-table-container th:nth-child(6) {
-    width: 100px;
-}
-
-/* Members */

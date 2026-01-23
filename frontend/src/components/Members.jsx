@@ -328,7 +328,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
 
       {/* Top Section: Title & Actions */}
       <div className="members-top-section-1">
-        <div className="page-title">
+        <div className="M-page-title" style={{ display: 'flex', alignItems: 'center' }}>
           <div className="header-icon-wrapper">
             <FaUser />
           </div>
@@ -473,6 +473,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
 
               <FilterHeader label="Aadhaar" field="adhar" minWidth="120px" />
               <FilterHeader label="DOB" field="dob" minWidth="100px" />
+
             </tr>
           </thead>
           <tbody>
@@ -520,6 +521,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                   <td>{member.gender}</td>
                   <td>{member.adhar || '-'}</td>
                   <td>{member.date_of_birth || '-'}</td>
+
                 </tr>
               ))
             ) : !loading && (
