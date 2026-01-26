@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
 import { spawn, exec } from 'child_process';
 import os from 'os';
@@ -580,7 +580,7 @@ function createInstallWindow() {
   // Create a temporary file for the installation wizard
   const tempPath = path.join(app.getPath('temp'), 'install-wizard.html');
   fs.writeFileSync(tempPath, installWizardHtml);
-  
+
   // Load the installation wizard from the temporary file
   installWindow.loadFile(tempPath);
 
@@ -606,6 +606,14 @@ function createMainWindow() {
     }
   });
 
+  // Handle external links (like WhatsApp)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https:') || url.startsWith('http:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
@@ -616,15 +624,15 @@ function createMainWindow() {
     // Create a temporary file for the loading screen
     const tempPath = path.join(app.getPath('temp'), 'mahall-loading.html');
     fs.writeFileSync(tempPath, loadingHtml);
-    
+
     // Load the loading screen from the temporary file
     mainWindow.loadFile(tempPath);
-    
+
     // Listen for django-ready event from loading screen
     ipcMain.on('django-ready', () => {
       // Load the React frontend build
       const frontendPath = path.join(__dirname, 'dist', 'index.html');
-      
+
       // Check if the frontend build exists
       if (fs.existsSync(frontendPath)) {
         mainWindow.loadFile(frontendPath);
@@ -632,7 +640,7 @@ function createMainWindow() {
         // If the build doesn't exist, serve from the development server
         mainWindow.loadURL('http://localhost:5173');
       }
-      
+
       // Clean up the temporary file
       try {
         fs.unlinkSync(tempPath);
@@ -640,7 +648,7 @@ function createMainWindow() {
         console.error('Error cleaning up temporary file:', error);
       }
     });
-    
+
     // Start Django server
     startDjangoServer();
   }
@@ -707,7 +715,7 @@ function stopDjangoServer() {
         const killProcess = spawn('taskkill', ['/pid', djangoProcess.pid, '/T', '/F'], {
           stdio: 'ignore'
         });
-        
+
         killProcess.on('close', (code) => {
           if (code === 0) {
             console.log('Django server stopped successfully');
@@ -737,7 +745,7 @@ ipcMain.handle('select-backup-file', async () => {
     properties: ['openFile'],
     filters: [{ name: 'Backup Files', extensions: ['zip'] }]
   });
-  
+
   if (!result.canceled && result.filePaths.length > 0) {
     return result.filePaths[0];
   }
@@ -763,11 +771,11 @@ ipcMain.handle('restore-backup', async (event, backupPath) => {
     } else {
       // In production, call the backup/restore executable
       const backupExePath = path.join(process.resourcesPath, 'backend', 'mahall_backup_restore.exe');
-      
+
       if (!fs.existsSync(backupExePath)) {
         return { success: false, message: 'Backup/restore executable not found' };
       }
-      
+
       // Execute the backup/restore tool with restore command
       const command = `"${backupExePath}" restore "${backupPath}"`;
       const restoreProcess = exec(command, (error, stdout, stderr) => {
@@ -775,15 +783,15 @@ ipcMain.handle('restore-backup', async (event, backupPath) => {
           console.error('Restore process error:', error);
           return { success: false, message: `Restore failed: ${error.message}` };
         }
-        
+
         if (stderr) {
           console.error('Restore stderr:', stderr);
         }
-        
+
         console.log('Restore stdout:', stdout);
         return { success: true, message: 'Backup restored successfully' };
       });
-      
+
       // For now, return success (in a real implementation, you'd wait for the process to complete)
       return { success: true, message: 'Backup restore initiated successfully' };
     }
@@ -797,7 +805,7 @@ function isFirstRunAfterInstall() {
   // Check if we have the install marker but haven't completed the post-install setup
   const installMarker = path.join(app.getPath('userData'), 'mahall-installed');
   const postInstallMarker = path.join(app.getPath('userData'), 'mahall-post-install-complete');
-  
+
   return fs.existsSync(installMarker) && !fs.existsSync(postInstallMarker);
 }
 
@@ -813,31 +821,31 @@ async function runDjangoMigrations() {
     try {
       // In production, call the Django server executable with migrate command
       const djangoExePath = path.join(process.resourcesPath, 'backend', 'django_server.exe');
-      
+
       if (!fs.existsSync(djangoExePath)) {
         reject(new Error('Django server executable not found'));
         return;
       }
-      
+
       // Run migrations
       const command = `"${djangoExePath}" migrate`;
       console.log('Running Django migrations:', command);
-      
+
       const migrateProcess = exec(command, { cwd: path.join(process.resourcesPath, 'backend') }, (error, stdout, stderr) => {
         if (error) {
           console.error('Migration error:', error);
           reject(error);
           return;
         }
-        
+
         if (stderr) {
           console.error('Migration stderr:', stderr);
         }
-        
+
         console.log('Migration stdout:', stdout);
         resolve({ success: true, message: 'Migrations completed successfully' });
       });
-      
+
       // Set a timeout to prevent hanging
       setTimeout(() => {
         if (migrateProcess.exitCode === null) {
@@ -1134,7 +1142,7 @@ function createPostInstallWindow() {
   // Create a temporary file for the post-install setup
   const tempPath = path.join(app.getPath('temp'), 'post-install-setup.html');
   fs.writeFileSync(tempPath, postInstallHtml);
-  
+
   // Load the post-install setup from the temporary file
   postInstallWindow.loadFile(tempPath);
 
@@ -1156,16 +1164,16 @@ ipcMain.handle('complete-installation', async () => {
     console.log('Running Django migrations during installation...');
     await runDjangoMigrations();
     console.log('Django migrations completed successfully');
-    
+
     // Mark installation as complete
     const installMarker = path.join(app.getPath('userData'), 'mahall-installed');
     fs.writeFileSync(installMarker, 'installed');
-    
+
     // Close install window
     if (installWindow) {
       installWindow.close();
     }
-    
+
     // Show post-install setup window
     createPostInstallWindow();
   } catch (error) {
@@ -1173,11 +1181,11 @@ ipcMain.handle('complete-installation', async () => {
     // Even if migrations fail, we'll still mark as installed to avoid infinite loop
     const installMarker = path.join(app.getPath('userData'), 'mahall-installed');
     fs.writeFileSync(installMarker, 'installed');
-    
+
     if (installWindow) {
       installWindow.close();
     }
-    
+
     // Show post-install setup window even if migrations failed
     createPostInstallWindow();
   }
@@ -1187,7 +1195,7 @@ ipcMain.handle('complete-installation', async () => {
 ipcMain.handle('complete-post-install-setup', () => {
   // Mark post-install setup as complete
   markPostInstallComplete();
-  
+
   // Close post-install window and open main window
   if (postInstallWindow) {
     postInstallWindow.close();
@@ -1215,7 +1223,7 @@ app.whenReady().then(() => {
   } else {
     // Check if this is the first run (original installation)
     const isFirstRun = !fs.existsSync(path.join(app.getPath('userData'), 'mahall-installed'));
-    
+
     if (isFirstRun && !isDev) {
       createInstallWindow();
     } else {

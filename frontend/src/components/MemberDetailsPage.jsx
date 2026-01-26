@@ -246,7 +246,7 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
                       borderRadius: '4px'
                     }}
                   >
-                    <FaWhatsapp size={16} /> Message
+                    <FaWhatsapp size={16} /> Message {member.whatsapp}
                   </a>
                 </div>
               )}
