@@ -322,7 +322,7 @@
   flex: 1;
   padding: 32px;
   /* padding-bottom: px; */
-  max-width: 1600px;
+  /* max-width: 1600px; */
   /* Prevent overstretching on ultra-wide */
   margin: 0 auto;
   width: 100%;

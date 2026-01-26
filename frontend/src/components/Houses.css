@@ -158,78 +158,42 @@
     font-size: 0.8rem;
 }
 
-/* Column Header Content & Filtering */
-.th-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    cursor: pointer;
-    user-select: none;
+/* Filter Row Styles */
+.dense-table .filter-row th {
+    padding: 4px 8px 8px 8px;
+    /* Reduce top padding since row above has it, add bottom padding */
+    background-color: var(--header-bg);
 }
 
-.th-content:hover {
-    color: var(--primary);
-}
-
-.filter-icon {
-    font-size: 10px;
-    opacity: 0.4;
-    transition: all 0.2s;
-}
-
-.th-content:hover .filter-icon,
-.filter-active .filter-icon {
-    opacity: 1;
-    color: var(--primary);
-    transform: scale(1.2);
-}
-
-.filter-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
-    padding: 12px;
-    z-index: 50;
-    min-width: 220px;
-    border-radius: 8px;
-    margin-top: 4px;
-    animation: slideDown 0.15s ease-out forwards;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.filter-dropdown input,
-.filter-dropdown select {
+.table-filter-input,
+.table-filter-select {
     width: 100%;
-    padding: 8px 12px;
+    padding: 4px 8px;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 13px;
+    border-radius: 4px;
+    font-size: 11px;
     color: var(--input-text);
     background: var(--input-bg);
     outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: all 0.2s;
+    height: 28px;
 }
 
-.filter-dropdown input:focus,
-.filter-dropdown select:focus {
+.table-filter-input:focus,
+.table-filter-select:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
+
+.table-filter-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+/* Remove old dropdown styles if strictly not needed, or keep for other tables if shared. 
+   Currently Houses.css is scoped locally sort of, but let's keep it clean. 
+   Removing unused filter dropdown classes.
+*/
 
 /* Status/Badges adapted for Houses */
 .badge-outline {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { digitalRequestAPI, houseAPI, memberAPI, areaAPI, todoAPI } from '../../api';
 import './DigitalRequests.css';
-import { FaAddressCard, FaHome, FaUsers, FaArrowRight, FaArrowLeft, FaCheck, FaExclamationTriangle, FaMale, FaFemale, FaHeart, FaLink, FaSearch } from 'react-icons/fa';
+import { FaAddressCard, FaHome, FaUsers, FaArrowRight, FaArrowLeft, FaCheck, FaExclamationTriangle, FaMale, FaFemale, FaHeart, FaLink, FaSearch, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
 
 
@@ -58,6 +58,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
     const [selectedMemberIdx, setSelectedMemberIdx] = useState(null);
     const [expandedMatchId, setExpandedMatchId] = useState(null);
     const [searchMode, setSearchMode] = useState('database');
+    const [expandedSearchId, setExpandedSearchId] = useState(null);
 
 
     useEffect(() => {
@@ -1144,15 +1145,53 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                                 <div className="results-list">
                                     <h5 style={{ margin: '10px 0 5px 0', color: '#666' }}>Database Search Results:</h5>
                                     {searchResults.map(r => (
-                                        <div key={r.id} className="result-item" onClick={() => selectParent(r)}>
-                                            <div className="r-head">
-                                                <strong>{r.name} {r.surname}</strong>
-                                                <small>#{r.id}</small>
+                                        <div key={r.id}
+                                            className={`result-item ${expandedSearchId === r.id ? 'expanded' : ''}`}
+                                            onClick={() => setExpandedSearchId(expandedSearchId === r.id ? null : r.id)}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <div className="r-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <strong>{r.name} {r.surname}</strong>
+                                                    <span style={{ fontSize: '0.85em', color: '#555' }}>Father: {r.father_name}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <small>#{r.id}</small>
+                                                    {expandedSearchId === r.id ? <FaChevronUp /> : <FaChevronDown />}
+                                                </div>
                                             </div>
-                                            <div className="r-body">
-                                                <span>House: {r.house}</span>
-                                                <span>Father: {r.father_name}</span>
-                                            </div>
+
+                                            {expandedSearchId !== r.id && (
+                                                <div className="r-body">
+                                                    <span>House: {r.house}</span>
+                                                </div>
+                                            )}
+
+                                            {expandedSearchId === r.id && (
+                                                <div className="r-details-full" style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee' }}>
+                                                    <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.9rem' }}>
+                                                        <div><label>House:</label> {r.house}</div>
+                                                        <div><label>Mother:</label> {r.mother_name} {r.mother_surname}</div>
+                                                        <div><label>Spouse:</label> {r.spouse_name}</div>
+                                                        <div><label>Gender:</label> {r.gender}</div>
+                                                        <div><label>DOB:</label> {r.age || r.dob || r.date_of_birth}</div>
+                                                        <div><label>Phone:</label> {r.phone || r.mobile_number}</div>
+                                                        <div><label>WhatsApp:</label> {r.whatsapp}</div>
+                                                        <div><label>Aadhaar:</label> {r.adhar || r.aadhaar}</div>
+                                                    </div>
+
+                                                    <button
+                                                        className="primary"
+                                                        style={{ width: '100%', marginTop: '15px' }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            selectParent(r);
+                                                        }}
+                                                    >
+                                                        Connect
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                     {searchResults.length === 0 && <p className="no-res">No database results.</p>}

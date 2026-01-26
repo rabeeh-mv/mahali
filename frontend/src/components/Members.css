@@ -1,24 +1,13 @@
 /* Members.css - Premium Dense Data Grid with Theme Support */
 
 .members-page-container {
-    /* padding: 24px; */
-    height: 100%;
-    /* Changed from 95vh to fit container */
-    /* Fallback */
-    /* height: 100dvh; */
-    /* Dynamic Viewport Height for mobile */
+    height: 95vh;
     display: flex;
     flex-direction: column;
     gap: 16px;
     max-width: 100%;
-    /* overflow: hidden; Removed to ensure children don't get clipped unintentionally, but handled by children */
     overflow: hidden;
-    /* Actually we need overflow hidden to contain the table scroll, BUT we need min-width 0 to prevent flex blowout */
-    min-width: 0;
-    width: 100%;
-    /* Ensure it fills but doesn't exceed parent */
     background-color: var(--bg-color);
-    /* Theme background */
     color: var(--text-color);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -28,7 +17,6 @@
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    /* Handle smaller screens gracefully */
     gap: 16px;
 }
 
@@ -53,11 +41,6 @@
         gap: 12px;
     }
 
-    .M-page-title {
-        display: flex;
-        /* font-size: 1.25rem; */
-    }
-
     .top-actions {
         width: 100%;
         display: flex;
@@ -75,17 +58,10 @@
 /* Table Container */
 .members-table-container {
     flex: 1;
-    width: 100%;
-    /* Force width to match parent */
-    max-width: 100%;
-    /* Prevent overflow */
     overflow: auto;
     background: var(--surface);
-    /* Theme surface */
     border-radius: 16px;
-    /* Increased radius */
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    /* Softer, deeper shadow */
     position: relative;
     border: 1px solid var(--border);
 }
@@ -106,7 +82,6 @@
     background: var(--border);
     border-radius: 4px;
     border: 0px solid transparent;
-    /* Cleaner scrollbar */
 }
 
 .members-table-container::-webkit-scrollbar-thumb:hover {
@@ -119,7 +94,7 @@
     border-collapse: separate;
     border-spacing: 0;
     font-size: 13px;
-    min-width: 1500px;
+    /* min-width: 1500px; REMOVED to prevent forced overflow */
     color: var(--text-color);
 }
 
@@ -279,79 +254,44 @@
 */
 
 
-/* Column Header Content & Filtering */
-.th-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    cursor: pointer;
-    user-select: none;
+/* Filter Row Styles */
+.dense-table .filter-row th {
+    padding: 4px 8px 8px 8px;
+    /* Compact padding */
+    background-color: var(--header-bg);
+    border-bottom: 2px solid var(--border);
+    /* Slightly stronger separation for body */
 }
 
-.th-content:hover {
-    color: var(--primary);
-}
+/* Remove border-bottom from first header row to make them look connected if needed, 
+   but usually keeping them separate is fine. 
+   Optionally: .dense-table thead tr:first-child th { border-bottom: none; } 
+*/
 
-.filter-icon {
-    font-size: 10px;
-    opacity: 0.4;
-    transition: all 0.2s;
-}
-
-.th-content:hover .filter-icon,
-.filter-active .filter-icon {
-    opacity: 1;
-    color: var(--primary);
-    transform: scale(1.2);
-}
-
-.filter-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
-    padding: 12px;
-    z-index: 50;
-    min-width: 220px;
-    border-radius: 8px;
-    margin-top: 4px;
-    animation: slideDown 0.15s ease-out forwards;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.filter-dropdown input,
-.filter-dropdown select {
+.table-filter-input,
+.table-filter-select {
     width: 100%;
-    padding: 8px 12px;
+    padding: 4px 8px;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 13px;
+    border-radius: 4px;
+    font-size: 11px;
     color: var(--input-text);
     background: var(--input-bg);
     outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: all 0.2s;
+    height: 28px;
 }
 
-.filter-dropdown input:focus,
-.filter-dropdown select:focus {
+.table-filter-input:focus,
+.table-filter-select:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
+.table-filter-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
 
 /* Status Badges */
 [class^="status-badge-"] {

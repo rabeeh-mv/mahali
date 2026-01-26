@@ -34,8 +34,12 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     house_name: '',
     adhar: '',
     gender: '',
+    area: '',
+    role: '',
+    status: '',
+    dob: ''
   })
-  const [activeFilterColumn, setActiveFilterColumn] = useState(null) // Which dropdown is open
+
 
   // Filter states
   const [showFilterMenu, setShowFilterMenu] = useState(false)
@@ -202,7 +206,8 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     setSearchTerm('')
     setColumnFilters({
       member_id: '', name: '', surname: '', father_name: '', mother_name: '',
-      phone: '', whatsapp: '', house_name: '', adhar: '', gender: ''
+      phone: '', whatsapp: '', house_name: '', adhar: '', gender: '',
+      area: '', role: '', status: '', dob: ''
     })
   }
 
@@ -272,56 +277,7 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     }
   };
 
-  // Helper Component for Column Filter Header
-  const FilterHeader = ({ label, field, minWidth, type = 'text', options = [] }) => {
-    const isActive = !!columnFilters[field];
-
-    return (
-      <th style={{ minWidth: minWidth }}>
-        <div className={`th-content ${isActive ? 'filter-active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setActiveFilterColumn(activeFilterColumn === field ? null : field);
-          }}>
-          {label}
-          <FaFilter className="filter-icon" />
-        </div>
-        {activeFilterColumn === field && (
-          <div className="filter-dropdown" onClick={(e) => e.stopPropagation()}>
-            {type === 'select' ? (
-              <select
-                value={columnFilters[field]}
-                onChange={(e) => setColumnFilters(prev => ({ ...prev, [field]: e.target.value }))}
-                autoFocus
-                className="filter-select" // Consider adding CSS for this class
-              >
-                {options.map((opt, idx) => (
-                  <option key={idx} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                placeholder={`Filter ${label}...`}
-                value={columnFilters[field]}
-                onChange={(e) => setColumnFilters(prev => ({ ...prev, [field]: e.target.value }))}
-                autoFocus
-              />
-            )}
-          </div>
-        )}
-      </th>
-    );
-  };
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => setActiveFilterColumn(null);
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
+  // FilterHeader component removed in favor of inline filter row
 
   return (
     <div className="members-page-container animate-in">
@@ -355,8 +311,9 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
       <div className="members-table-container" onScroll={handleScroll}>
         <table className="dense-table">
           <thead>
+            {/* Row 1: Headers */}
             <tr>
-              <th className="col-checkbox">
+              <th className="col-checkbox" rowSpan="2" style={{ verticalAlign: 'middle' }}>
                 <input
                   type="checkbox"
                   onChange={handleSelectAll}
@@ -364,116 +321,150 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                 />
               </th>
 
-              <th className="col-id">
-                <div className="th-content" onClick={(e) => { e.stopPropagation(); setActiveFilterColumn(activeFilterColumn === 'member_id' ? null : 'member_id'); }}>
-                  ID <FaFilter className={`filter-icon ${columnFilters.member_id ? 'opacity-100 text-blue-500' : ''}`} />
-                </div>
-                {activeFilterColumn === 'member_id' && (
-                  <div className="filter-dropdown" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      placeholder="Filter ID..."
-                      value={columnFilters.member_id}
-                      onChange={(e) => setColumnFilters(prev => ({ ...prev, member_id: e.target.value }))}
-                      autoFocus
-                    />
-                  </div>
-                )}
+              <th className="col-id">ID</th>
+              <th className="col-name">Name</th>
+              <th className="col-surname">Surname</th>
+              <th style={{ minWidth: '150px' }}>House Name</th>
+              <th style={{ minWidth: '150px' }}>Father's Name</th>
+              <th style={{ minWidth: '120px' }}>Whatsapp</th>
+              <th style={{ minWidth: '120px' }}>Phone Number</th>
+              <th style={{ minWidth: '100px' }}>Area</th>
+              <th style={{ minWidth: '100px' }}>Role</th>
+              <th style={{ minWidth: '100px' }}>Status</th>
+              <th style={{ minWidth: '100px' }}>Gender</th>
+              <th style={{ minWidth: '120px' }}>Aadhaar</th>
+              <th style={{ minWidth: '100px' }}>DOB</th>
+            </tr>
+
+            {/* Row 2: Filters */}
+            <tr className="filter-row">
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.member_id}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, member_id: e.target.value }))}
+                  className="table-filter-input"
+                />
               </th>
-
-              {/* Manual sticky headers for ID and Name to ensure they match CSS logic */}
-              {/* Note: In CSS we targeted specific classes. We'll reuse logic or just use manual Th here for simplicity of sticky */}
-
-              <th className="col-name">
-                <div className="th-content" onClick={(e) => { e.stopPropagation(); setActiveFilterColumn(activeFilterColumn === 'name' ? null : 'name'); }}>
-                  Name <FaFilter className={`filter-icon ${columnFilters.name ? 'opacity-100 text-blue-500' : ''}`} />
-                </div>
-                {activeFilterColumn === 'name' && (
-                  <div className="filter-dropdown" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      placeholder="Filter Name..."
-                      value={columnFilters.name}
-                      onChange={(e) => setColumnFilters(prev => ({ ...prev, name: e.target.value }))}
-                      autoFocus
-                    />
-                  </div>
-                )}
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.name}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, name: e.target.value }))}
+                  className="table-filter-input"
+                />
               </th>
-
-              <th className="col-surname">
-                <div className="th-content" onClick={(e) => { e.stopPropagation(); setActiveFilterColumn(activeFilterColumn === 'surname' ? null : 'surname'); }}>
-                  Surname <FaFilter className={`filter-icon ${columnFilters.surname ? 'opacity-100 text-blue-500' : ''}`} />
-                </div>
-                {activeFilterColumn === 'surname' && (
-                  <div className="filter-dropdown" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      placeholder="Filter Surname..."
-                      value={columnFilters.surname}
-                      onChange={(e) => setColumnFilters(prev => ({ ...prev, surname: e.target.value }))}
-                      autoFocus
-                    />
-                  </div>
-                )}
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.surname}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, surname: e.target.value }))}
+                  className="table-filter-input"
+                />
               </th>
-
-              <FilterHeader label="House Name" field="house_name" minWidth="150px" />
-              <FilterHeader label="Father's Name" field="father_name" minWidth="150px" />
-              <FilterHeader label="Whatsapp" field="whatsapp" minWidth="120px" />
-              <FilterHeader label="Phone Number" field="phone" minWidth="120px" />
-
-              <FilterHeader
-                label="Area"
-                field="area"
-                minWidth="100px"
-                type="select"
-                options={[
-                  { label: 'All', value: '' },
-                  ...areas.map(a => ({ label: a.name, value: a.id }))
-                ]}
-              />
-
-              <FilterHeader
-                label="Role"
-                field="role"
-                minWidth="100px"
-                type="select"
-                options={[
-                  { label: 'All', value: '' },
-                  { label: 'Guardian', value: 'guardian' },
-                  { label: 'Non-Guardian', value: 'non-guardian' }
-                ]}
-              />
-
-              <FilterHeader
-                label="Status"
-                field="status"
-                minWidth="100px"
-                type="select"
-                options={[
-                  { label: 'All', value: '' },
-                  { label: 'Live', value: 'live' },
-                  { label: 'Deceased', value: 'dead' },
-                  { label: 'Terminated', value: 'terminated' }
-                ]}
-              />
-
-              <FilterHeader
-                label="Gender"
-                field="gender"
-                minWidth="100px"
-                type="select"
-                options={[
-                  { label: 'All', value: '' },
-                  { label: 'Male', value: 'male' },
-                  { label: 'Female', value: 'female' }
-                ]}
-              />
-
-              <FilterHeader label="Aadhaar" field="adhar" minWidth="120px" />
-              <FilterHeader label="DOB" field="dob" minWidth="100px" />
-
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.house_name}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, house_name: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.father_name}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, father_name: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.whatsapp}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, whatsapp: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.phone}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, phone: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
+              <th>
+                <select
+                  value={columnFilters.area}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, area: e.target.value }))}
+                  className="table-filter-select"
+                >
+                  <option value="">All</option>
+                  {areas.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </th>
+              <th>
+                <select
+                  value={columnFilters.role}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, role: e.target.value }))}
+                  className="table-filter-select"
+                >
+                  <option value="">All</option>
+                  <option value="guardian">Guardian</option>
+                  <option value="non-guardian">Non-Guardian</option>
+                </select>
+              </th>
+              <th>
+                <select
+                  value={columnFilters.status}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, status: e.target.value }))}
+                  className="table-filter-select"
+                >
+                  <option value="">All</option>
+                  <option value="live">Live</option>
+                  <option value="dead">Deceased</option>
+                  <option value="terminated">Terminated</option>
+                </select>
+              </th>
+              <th>
+                <select
+                  value={columnFilters.gender}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, gender: e.target.value }))}
+                  className="table-filter-select"
+                >
+                  <option value="">All</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.adhar}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, adhar: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.dob}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, dob: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
             </tr>
           </thead>
           <tbody>

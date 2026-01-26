@@ -25,7 +25,7 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
     area: '',
     location_name: ''
   })
-  const [activeFilterColumn, setActiveFilterColumn] = useState(null)
+
   const [localAreas, setLocalAreas] = useState([])
 
   // Selection State (for possible future bulk actions, or just visual parity)
@@ -150,54 +150,9 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
   const isAllSelected = houseList.length > 0 && selectedHouses.length === houseList.length;
 
   // Filter Header Helper
-  const FilterHeader = ({ label, field, minWidth, type = 'text', options = [] }) => {
-    const isActive = !!columnFilters[field];
+  // Filter Header Helper - REMOVED (replaced by direct row)
 
-    return (
-      <th style={{ minWidth: minWidth }}>
-        <div className={`th-content ${isActive ? 'filter-active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            setActiveFilterColumn(activeFilterColumn === field ? null : field);
-          }}>
-          {label}
-          <FaFilter className="filter-icon" />
-        </div>
-        {activeFilterColumn === field && (
-          <div className="filter-dropdown" onClick={(e) => e.stopPropagation()}>
-            {type === 'select' ? (
-              <select
-                value={columnFilters[field]}
-                onChange={(e) => setColumnFilters(prev => ({ ...prev, [field]: e.target.value }))}
-                autoFocus
-              >
-                {options.map((opt, idx) => (
-                  <option key={idx} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                placeholder={`Filter ${label}...`}
-                value={columnFilters[field]}
-                onChange={(e) => setColumnFilters(prev => ({ ...prev, [field]: e.target.value }))}
-                autoFocus
-              />
-            )}
-          </div>
-        )}
-      </th>
-    );
-  };
-
-  // Close dropdowns on click outside
-  useEffect(() => {
-    const handleClickOutside = () => setActiveFilterColumn(null);
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
+  // Close dropdowns on click outside - REMOVED (no longer needed)
 
   return (
     <div className="houses-page-container animate-in">
@@ -227,8 +182,9 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
       <div className="houses-table-container" onScroll={handleScroll}>
         <table className="Hdense-table">
           <thead>
+            {/* Row 1: Column Headers */}
             <tr>
-              <th className="col-checkbox" style={{ width: '48px', textAlign: 'center' }}>
+              <th className="col-checkbox" rowSpan="2" style={{ width: '48px', textAlign: 'center', verticalAlign: 'middle' }}>
                 <input
                   type="checkbox"
                   onChange={handleSelectAll}
@@ -236,26 +192,66 @@ const Houses = ({ areas, setEditing, deleteItem, loadDataForTab }) => {
                 />
               </th>
 
-              <FilterHeader label="ID" field="home_id" minWidth="60px" />
-              <FilterHeader label="House Name" field="house_name" minWidth="140px" />
-              <FilterHeader label="Family Name" field="family_name" minWidth="120px" />
+              <th style={{ minWidth: '60px' }}>ID</th>
+              <th style={{ minWidth: '140px' }}>House Name</th>
+              <th style={{ minWidth: '120px' }}>Family Name</th>
+              <th style={{ minWidth: '100px' }}>Area</th>
+              <th style={{ minWidth: '100px' }}>Location</th>
+              <th style={{ minWidth: '80px', textAlign: 'center' }}>Members</th>
+            </tr>
 
-              <FilterHeader
-                label="Area"
-                field="area"
-                minWidth="100px"
-                type="select"
-                options={[
-                  { label: 'All', value: '' },
-                  ...localAreas.map(a => ({ label: a.name, value: a.id }))
-                ]}
-              />
-
-              <FilterHeader label="Location" field="location_name" minWidth="100px" />
-
-              <th style={{ minWidth: '80px', textAlign: 'center' }}>
-                Members
+            {/* Row 2: Filter Inputs */}
+            <tr className="filter-row">
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.home_id}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, home_id: e.target.value }))}
+                  className="table-filter-input"
+                />
               </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.house_name}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, house_name: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.family_name}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, family_name: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
+              <th>
+                <select
+                  value={columnFilters.area}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, area: e.target.value }))}
+                  className="table-filter-select"
+                >
+                  <option value="">All</option>
+                  {localAreas.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </th>
+              <th>
+                <input
+                  type="text"
+                  placeholder="Filter..."
+                  value={columnFilters.location_name}
+                  onChange={(e) => setColumnFilters(prev => ({ ...prev, location_name: e.target.value }))}
+                  className="table-filter-input"
+                />
+              </th>
+              {/* No filter for Count currently */}
+              <th></th>
             </tr>
           </thead>
           <tbody>
