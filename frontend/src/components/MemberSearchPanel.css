@@ -178,3 +178,46 @@
 }
 
 /* Dark mode adjustments integration if variables allow, otherwise rely on CSS var fallback */
+
+.msp-current-connection {
+    background-color: var(--surface-hover, #f0f4f8);
+    border: 1px dashed var(--primary, #0056b3);
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.msp-current-connection .connection-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.msp-current-connection .connection-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #666);
+    margin-bottom: 4px;
+}
+
+.msp-current-connection .connection-value {
+    font-size: 1rem;
+    font-weight: bold;
+    color: var(--text-primary, #333);
+}
+
+.btn-disconnect {
+    background-color: #ff4d4f;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.btn-disconnect:hover {
+    background-color: #ff7875;
+}

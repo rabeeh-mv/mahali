@@ -278,6 +278,12 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
               <div className="info-label">Spouse's Name</div>
               <div className="info-value">{member.married_to_name || '---'}</div>
             </div>
+            {(member.second_spouse_name || member.second_spouse) && (
+              <div className="info-item">
+                <div className="info-label">Second Spouse's Name</div>
+                <div className="info-value">{member.second_spouse_name || '---'}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

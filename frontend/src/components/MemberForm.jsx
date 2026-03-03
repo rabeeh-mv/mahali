@@ -29,7 +29,10 @@ const MemberForm = () => {
         phone: '',
         whatsapp: '',
         isGuardian: false,
-        photo: null
+        photo: null,
+        second_spouse_name: '',
+        second_spouse_surname: '',
+        second_spouse: ''
     });
 
     const [houses, setHouses] = useState([]);
@@ -47,6 +50,8 @@ const MemberForm = () => {
     const [fatherDisplay, setFatherDisplay] = useState('');
     const [motherDisplay, setMotherDisplay] = useState('');
     const [spouseDisplay, setSpouseDisplay] = useState('');
+    const [secondSpouseDisplay, setSecondSpouseDisplay] = useState('');
+    const [showSecondSpouse, setShowSecondSpouse] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
 
     const [loading, setLoading] = useState(false);
@@ -127,9 +132,15 @@ const MemberForm = () => {
             phone: data.phone || '',
             whatsapp: data.whatsapp || '',
             isGuardian: data.isGuardian || data.isguardian || data.is_guardian || false,
-            isGuardian: data.isGuardian || data.isguardian || data.is_guardian || false,
-            photo: null // We keep photo null initially to represent NO NEW FILE
+            photo: null, // We keep photo null initially to represent NO NEW FILE
+            second_spouse_name: data.second_spouse_name || '',
+            second_spouse_surname: data.second_spouse_surname || '',
+            second_spouse: data.second_spouse?.member_id || data.second_spouse?.id || data.second_spouse || ''
         });
+
+        if (data.second_spouse_name || data.second_spouse_surname || data.second_spouse) {
+            setShowSecondSpouse(true);
+        }
 
         // If member has a photo, set it for preview
         if (data.photo) {
@@ -164,20 +175,40 @@ const MemberForm = () => {
         fetchAndSetName(fId, setFatherDisplay);
         fetchAndSetName(mId, setMotherDisplay);
         fetchAndSetName(sId, setSpouseDisplay);
+        const ssId = data.second_spouse?.member_id || data.second_spouse?.id || data.second_spouse || '';
+        fetchAndSetName(ssId, setSecondSpouseDisplay);
     };
 
     const handleOpenSearchInfo = (type) => {
         let initialValues = {};
         let onSelect = null;
 
+        let currentId = '';
+        let currentDisplay = '';
+        let onDisconnect = null;
+
         if (type === 'house') {
             initialValues = { house_name: '', home_id: '' }; // Could pre-fill if needed
+            currentId = formData.house;
+            currentDisplay = houseDisplay;
+            onDisconnect = () => {
+                setFormData(prev => ({ ...prev, house: '' }));
+                setHouseDisplay('');
+                setSearchPanel(prev => ({ ...prev, isOpen: false }));
+            };
             onSelect = (house) => {
                 setFormData(prev => ({ ...prev, house: house.home_id }));
                 setHouseDisplay(`${house.home_id} - ${house.house_name}`);
             };
         } else if (type === 'father') {
             initialValues = { name: formData.father_name, surname: formData.father_surname };
+            currentId = formData.father;
+            currentDisplay = fatherDisplay;
+            onDisconnect = () => {
+                setFormData(prev => ({ ...prev, father: '', father_name: '', father_surname: '' }));
+                setFatherDisplay('');
+                setSearchPanel(prev => ({ ...prev, isOpen: false }));
+            };
             onSelect = (member) => {
                 setFormData(prev => ({
                     ...prev,
@@ -189,6 +220,13 @@ const MemberForm = () => {
             };
         } else if (type === 'mother') {
             initialValues = { name: formData.mother_name, surname: formData.mother_surname };
+            currentId = formData.mother;
+            currentDisplay = motherDisplay;
+            onDisconnect = () => {
+                setFormData(prev => ({ ...prev, mother: '', mother_name: '', mother_surname: '' }));
+                setMotherDisplay('');
+                setSearchPanel(prev => ({ ...prev, isOpen: false }));
+            };
             onSelect = (member) => {
                 setFormData(prev => ({
                     ...prev,
@@ -200,6 +238,13 @@ const MemberForm = () => {
             };
         } else if (type === 'spouse') {
             initialValues = { name: formData.married_to_name, surname: formData.married_to_surname };
+            currentId = formData.married_to;
+            currentDisplay = spouseDisplay;
+            onDisconnect = () => {
+                setFormData(prev => ({ ...prev, married_to: '', married_to_name: '', married_to_surname: '' }));
+                setSpouseDisplay('');
+                setSearchPanel(prev => ({ ...prev, isOpen: false }));
+            };
             onSelect = (member) => {
                 setFormData(prev => ({
                     ...prev,
@@ -209,6 +254,24 @@ const MemberForm = () => {
                 }));
                 setSpouseDisplay(`${member.member_id} - ${member.name} ${member.surname || ''}`);
             };
+        } else if (type === 'second_spouse') {
+            initialValues = { name: formData.second_spouse_name, surname: formData.second_spouse_surname };
+            currentId = formData.second_spouse;
+            currentDisplay = secondSpouseDisplay;
+            onDisconnect = () => {
+                setFormData(prev => ({ ...prev, second_spouse: '', second_spouse_name: '', second_spouse_surname: '' }));
+                setSecondSpouseDisplay('');
+                setSearchPanel(prev => ({ ...prev, isOpen: false }));
+            };
+            onSelect = (member) => {
+                setFormData(prev => ({
+                    ...prev,
+                    second_spouse: member.member_id,
+                    second_spouse_name: member.name || '',
+                    second_spouse_surname: member.surname || ''
+                }));
+                setSecondSpouseDisplay(`${member.member_id} - ${member.name} ${member.surname || ''}`);
+            };
         }
 
 
@@ -216,6 +279,9 @@ const MemberForm = () => {
             isOpen: true,
             type: type === 'house' ? 'house' : 'member',
             onSelect,
+            onDisconnect,
+            currentId,
+            currentDisplay,
             initialValues
         });
     };
@@ -277,7 +343,7 @@ const MemberForm = () => {
                 if (key === 'date_of_death' && formData.status !== 'dead') return;
 
                 // Clear out connections if not set
-                if ((key === 'father' || key === 'mother' || key === 'house' || key === 'married_to') && !value) {
+                if ((key === 'father' || key === 'mother' || key === 'house' || key === 'married_to' || key === 'second_spouse') && !value) {
                     // For FormData, sending empty string usually works for clearing in DRF if allow_null/blank is True
                     submitData.append(key, '');
                     return;
@@ -367,6 +433,9 @@ const MemberForm = () => {
                 isOpen={searchPanel.isOpen}
                 onClose={() => setSearchPanel(prev => ({ ...prev, isOpen: false }))}
                 onSelect={searchPanel.onSelect}
+                onDisconnect={searchPanel.onDisconnect}
+                currentId={searchPanel.currentId}
+                currentDisplay={searchPanel.currentDisplay}
                 type={searchPanel.type}
                 initialValues={searchPanel.initialValues}
             />
@@ -604,6 +673,54 @@ const MemberForm = () => {
                             </div>
                         </div>
                     </div>
+                    {!showSecondSpouse && (
+                        <div style={{ marginTop: '15px' }}>
+                            <button type="button" className="connect-btn" onClick={() => setShowSecondSpouse(true)}>
+                                + Add Second Spouse
+                            </button>
+                        </div>
+                    )}
+                    {showSecondSpouse && (
+                        <div className="form-grid" style={{ marginTop: '15px', borderTop: '1px dashed #ccc', paddingTop: '15px' }}>
+                            <div className="input-wrapper full-width" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h4 style={{ margin: 0 }}>Second Spouse</h4>
+                                <button type="button" onClick={() => {
+                                    setShowSecondSpouse(false);
+                                    setFormData(prev => ({ ...prev, second_spouse: '', second_spouse_name: '', second_spouse_surname: '' }));
+                                    setSecondSpouseDisplay('');
+                                }} style={{ background: 'none', border: 'none', color: '#ff4d4f', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                    <FaTimes /> Remove
+                                </button>
+                            </div>
+                            <div className="input-wrapper">
+                                <label htmlFor="second_spouse_name">Second Spouse's Name</label>
+                                <input type="text" id="second_spouse_name" name="second_spouse_name" value={formData.second_spouse_name} onChange={handleChange} disabled={loading} className='form-input' placeholder="Second spouse's first name" />
+                            </div>
+                            <div className="input-wrapper">
+                                <label htmlFor="second_spouse_surname">Second Spouse's Surname</label>
+                                <input type="text" id="second_spouse_surname" name="second_spouse_surname" value={formData.second_spouse_surname} onChange={handleChange} disabled={loading} className='form-input' placeholder="Second spouse's surname" />
+                            </div>
+                            <div className="input-wrapper full-width">
+                                <label>Link to Second Spouse</label>
+                                <div className="combined-input-group">
+                                    <input
+                                        type="text"
+                                        value={secondSpouseDisplay}
+                                        readOnly
+                                        placeholder="No second spouse linked"
+                                        className="form-input"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="connect-btn"
+                                        onClick={() => handleOpenSearchInfo('second_spouse')}
+                                    >
+                                        <FaSearch /> Connect Spouse
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {error && <div className="status-banner error">{error}</div>}

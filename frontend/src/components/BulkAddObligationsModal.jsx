@@ -277,7 +277,23 @@ const BulkAddObligationsModal = ({
                       <td>{member.surname}</td>
                       <td>{member.father_name}</td>
                       <td>{member.house_details?.house_name || member.house?.house_name || '-'}</td>
-                      <td>{member.house_details?.area_name || member.house?.area?.name || 'N/A'}</td>
+                      <td>
+                        {(() => {
+                          let areaName = null;
+                          const houseAreaId = member.house_details?.area || member.house_details?.area_id || member.house?.area?.id || member.house?.area || member.area_id || member.area;
+                          const targetId = typeof houseAreaId === 'object' ? houseAreaId?.id : houseAreaId;
+                          if (targetId) {
+                            const foundArea = areas.find(a => String(a.id) === String(targetId));
+                            if (foundArea) {
+                              areaName = foundArea.name;
+                            }
+                          }
+                          if (!areaName) {
+                            areaName = member.house_details?.area_name || member.house?.area?.name || (member.area && member.area.name) || 'N/A';
+                          }
+                          return areaName;
+                        })()}
+                      </td>
                       <td className="text-center">
                         {member.isguardian ?
                           <span className="badge-primary" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>Yes</span> :

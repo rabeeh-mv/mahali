@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { memberAPI, obligationAPI, areaAPI, subcollectionAPI, houseAPI } from '../api';
-import { FaSearch, FaTimes, FaUsers, FaArrowLeft, FaCheck, FaExclamationCircle, FaUserTag, FaIdCard } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaUsers, FaArrowLeft, FaCheck, FaExclamationCircle, FaUserTag, FaIdCard, FaCheckSquare, FaRegSquare } from 'react-icons/fa';
 import './BulkObligationPage.css';
 
 const BulkObligationPage = () => {
@@ -32,6 +32,9 @@ const BulkObligationPage = () => {
     const [pageError, setPageError] = useState(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+
+    // Modal State
+    const [showReviewModal, setShowReviewModal] = useState(false);
 
     // Load initial data
     useEffect(() => {
@@ -290,221 +293,254 @@ const BulkObligationPage = () => {
                 </div>
             )}
 
-            {/* Controls Row */}
-            <div className="top-controls">
-                <div className="control-group">
-                    <label>Subcollection / Event *</label>
-                    <div className="input-with-icon">
-                        <select
-                            className="custom-select"
-                            value={selectedSubcollection?.id || ''}
-                            onChange={(e) => {
-                                const found = subcollections.find(s => s.id === parseInt(e.target.value));
-                                setSelectedSubcollection(found || null);
-                            }}
-                            disabled={loading || (initialSubcollection && location.state?.from === 'subcollections')}
-                        >
-                            <option value="">-- Select Subcollection --</option>
-                            {subcollections.map(s => (
-                                <option key={s.id} value={s.id}>{s.name} ({s.year})</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-                <div className="control-group">
-                    <label>Amount (₹) *</label>
-                    <input
-                        type="number"
-                        className="custom-input"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
-                        disabled={loading}
-                    />
-                </div>
-            </div>
-
-            {selectedSubcollection && (
-                <div className="bulk-grid">
-                    {/* Left Column: Selection */}
-                    <div className="selection-panel">
-                        <div className="filter-bar">
-                            <div className="search-input-wrapper">
-                                <FaSearch className="search-icon" />
-                                <input
-                                    type="text"
-                                    className="custom-input search-input"
-                                    placeholder="Search by text..."
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                            <div className="filter-group">
-                                <select
-                                    className="custom-select"
-                                    value={selectedArea}
-                                    onChange={e => setSelectedArea(e.target.value)}
-                                >
-                                    <option value="">All Areas</option>
-                                    {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="filter-group" style={{ maxWidth: '140px' }}>
-                                <select
-                                    className="custom-select"
-                                    value={guardianFilter}
-                                    onChange={e => setGuardianFilter(e.target.value)}
-                                >
-                                    <option value="">Any Role</option>
-                                    <option value="true">Guardian</option>
-                                    <option value="false">Non-Guardian</option>
-                                </select>
-                            </div>
-                            <div className="filter-group" style={{ maxWidth: '150px' }}>
-                                <select
-                                    className="custom-select"
-                                    value={generalBodyFilter}
-                                    onChange={e => setGeneralBodyFilter(e.target.value)}
-                                >
-                                    <option value="">All Members</option>
-                                    <option value="true">General Body</option>
-                                    <option value="false">Regular</option>
-                                </select>
-                            </div>
+            <div className="bulk-grid">
+                {/* Left Column: Selection */}
+                <div
+                    className="selection-panel"
+                    style={{
+                        borderRadius: '24px',
+                        opacity: selectedSubcollection ? 1 : 0.5,
+                        pointerEvents: selectedSubcollection ? 'auto' : 'none',
+                        border: '1px solid rgba(0, 0, 0, 0.1)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)'
+                    }}
+                >
+                    <div className="filter-bar">
+                        <div className="search-input-wrapper">
+                            <FaSearch className="search-icon" />
+                            <input
+                                type="text"
+                                className="custom-input search-input"
+                                placeholder="Search by text..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
                         </div>
-
-                        <div className="selection-stats">
-                            <span className="stats-text">
-                                {eligibleCount} members available
-                            </span>
-                            <button
-                                className="select-all-btn-text"
-                                onClick={handleSelectAllFiltered}
-                                disabled={eligibleCount === 0}
+                        <div className="filter-group">
+                            <select
+                                className="custom-select"
+                                value={selectedArea}
+                                onChange={e => setSelectedArea(e.target.value)}
                             >
-                                {isAllSelected ? 'Deselect All' : 'Select All'}
-                            </button>
+                                <option value="">All Areas</option>
+                                {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
                         </div>
+                        <div className="filter-group" style={{ maxWidth: '140px' }}>
+                            <select
+                                className="custom-select"
+                                value={guardianFilter}
+                                onChange={e => setGuardianFilter(e.target.value)}
+                            >
+                                <option value="">Any Role</option>
+                                <option value="true">Guardian</option>
+                                <option value="false">Non-Guardian</option>
+                            </select>
+                        </div>
+                        <div className="filter-group" style={{ maxWidth: '150px' }}>
+                            <select
+                                className="custom-select"
+                                value={generalBodyFilter}
+                                onChange={e => setGeneralBodyFilter(e.target.value)}
+                            >
+                                <option value="">All Members</option>
+                                <option value="true">General Body</option>
+                                <option value="false">Regular</option>
+                            </select>
+                        </div>
+                    </div>
 
-                        <div className="table-container-no-bg" style={{ overflowX: 'auto' }}>
-                            <table className="bulk-members-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '40px' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={isAllSelected}
-                                                onChange={handleSelectAllFiltered}
-                                                disabled={eligibleCount === 0}
-                                            />
-                                        </th>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>Surname</th>
-                                        <th>Father Name</th>
-                                        <th>House Name</th>
-                                        <th>Area</th>
-                                        <th className="text-center">Guardian</th>
-                                        <th className="text-center">GBM</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredMembers.map(member => {
-                                        const isAdded = existingMemberIds.includes(member.member_id);
-                                        const isSelected = selectedMembers.includes(member.member_id);
-                                        const isGuardian = checkBoolean(member.isGuardian || member.isguardian);
-                                        const isGB = checkBoolean(member.general_body_member);
+                    <div className="selection-stats">
+                        <span className="stats-text">
+                            {eligibleCount} members available
+                        </span>
+                        <button
+                            className="select-all-btn-text"
+                            onClick={handleSelectAllFiltered}
+                            disabled={eligibleCount === 0}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            {isAllSelected ? <FaRegSquare /> : <FaCheckSquare />}
+                            {isAllSelected ? 'Deselect All' : 'Select All'}
+                        </button>
+                    </div>
 
-                                        // Resolve House Name
-                                        const houseName = member.house_details?.house_name ||
-                                            (typeof member.house === 'object' ? member.house?.house_name : '-') || '-';
+                    <div className="table-container-no-bg" style={{ overflowX: 'auto' }}>
+                        <table className="bulk-members-table">
+                            <thead>
+                                <tr>
+                                    <th style={{ width: '40px' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isAllSelected}
+                                            onChange={handleSelectAllFiltered}
+                                            disabled={eligibleCount === 0}
+                                        />
+                                    </th>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Surname</th>
+                                    <th>Father Name</th>
+                                    <th>House Name</th>
+                                    <th>Area</th>
+                                    <th className="text-center">Guardian</th>
+                                    <th className="text-center">GBM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredMembers.map(member => {
+                                    const isAdded = existingMemberIds.includes(member.member_id);
+                                    const isSelected = selectedMembers.includes(member.member_id);
+                                    const isGuardian = checkBoolean(member.isGuardian || member.isguardian);
+                                    const isGB = checkBoolean(member.general_body_member);
 
-                                        // Resolve Area Name
-                                        const resolvedAreaId = getAreaId(member);
-                                        const areaName = resolvedAreaId ? areas.find(a => a.id === resolvedAreaId)?.name : '-';
+                                    // Resolve House Name
+                                    const houseName = member.house_details?.house_name ||
+                                        (typeof member.house === 'object' ? member.house?.house_name : '-') || '-';
 
-                                        return (
-                                            <tr
-                                                key={member.member_id}
-                                                onClick={() => !isAdded && handleMemberToggle(member.member_id)}
-                                                className={`${isSelected ? 'selected-row' : ''} ${isAdded ? 'disabled-row' : ''}`}
-                                                style={{ cursor: isAdded ? 'default' : 'pointer', opacity: isAdded ? 0.6 : 1 }}
-                                            >
-                                                <td onClick={(e) => e.stopPropagation()}>
-                                                    {isAdded ? (
-                                                        <FaCheck className="text-muted" size={12} />
-                                                    ) : (
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={() => handleMemberToggle(member.member_id)}
-                                                        />
-                                                    )}
-                                                </td>
-                                                <td className="font-mono">{member.member_id}</td>
-                                                <td style={{ fontWeight: 600 }}>{member.name}</td>
-                                                <td>{member.surname}</td>
-                                                <td>{member.father_name}</td>
-                                                <td>{houseName}</td>
-                                                <td>{areaName}</td>
-                                                <td className="text-center">
-                                                    {isGuardian ?
-                                                        <span className="part-badge guardian">Yes</span> :
-                                                        <span className="text-muted">-</span>
-                                                    }
-                                                </td>
-                                                <td className="text-center">
-                                                    {isGB ?
-                                                        <span className="part-badge gbm">Yes</span> :
-                                                        <span className="text-muted">-</span>
-                                                    }
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {filteredMembers.length === 0 && (
-                                        <tr>
-                                            <td colSpan="9" className="text-center py-10 text-muted">
-                                                No members found matching your filters.
+                                    // Resolve Area Name
+                                    const resolvedAreaId = getAreaId(member);
+                                    let areaName = resolvedAreaId ? areas.find(a => String(a.id) === String(resolvedAreaId))?.name : null;
+                                    if (!areaName) {
+                                        if (member.house_details && member.house_details.area_name) {
+                                            areaName = member.house_details.area_name;
+                                        } else if (member.house && member.house.area && member.house.area.name) {
+                                            areaName = member.house.area.name;
+                                        } else if (member.area && member.area.name) {
+                                            areaName = member.area.name;
+                                        } else {
+                                            areaName = '-';
+                                        }
+                                    }
+
+                                    return (
+                                        <tr
+                                            key={member.member_id}
+                                            onClick={() => !isAdded && handleMemberToggle(member.member_id)}
+                                            className={`${isSelected ? 'selected-row' : ''} ${isAdded ? 'disabled-row' : ''}`}
+                                            style={{ cursor: isAdded ? 'default' : 'pointer', opacity: isAdded ? 0.6 : 1 }}
+                                        >
+                                            <td onClick={(e) => e.stopPropagation()}>
+                                                {isAdded ? (
+                                                    <FaCheck className="text-muted" size={12} />
+                                                ) : (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => handleMemberToggle(member.member_id)}
+                                                    />
+                                                )}
+                                            </td>
+                                            <td className="font-mono">{member.member_id}</td>
+                                            <td style={{ fontWeight: 600 }}>{member.name}</td>
+                                            <td>{member.surname}</td>
+                                            <td>{member.father_name}</td>
+                                            <td>{houseName}</td>
+                                            <td>{areaName}</td>
+                                            <td className="text-center">
+                                                {isGuardian ?
+                                                    <span className="part-badge guardian">Yes</span> :
+                                                    <span className="text-muted">-</span>
+                                                }
+                                            </td>
+                                            <td className="text-center">
+                                                {isGB ?
+                                                    <span className="part-badge gbm">Yes</span> :
+                                                    <span className="text-muted">-</span>
+                                                }
                                             </td>
                                         </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                    );
+                                })}
+                                {filteredMembers.length === 0 && (
+                                    <tr>
+                                        <td colSpan="9" className="text-center py-10 text-muted">
+                                            No members found matching your filters.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Right Column: Setup & Summary */}
+                <div className="right-panel-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflow: 'hidden' }}>
+
+                    {/* Configuration moved to Top Right */}
+                    <div className="top-controls-vertical summary-panel" style={{ padding: '20px', borderTop: '4px solid #94a3b8', height: 'auto', flexShrink: 0 }}>
+                        <div className="summary-header" style={{ padding: '0 0 16px 0', borderBottom: 'none', background: 'transparent' }}>
+                            <h3>Configuration</h3>
+                        </div>
+                        <div className="control-group" style={{ marginBottom: '16px' }}>
+                            <label>Subcollection / Event *</label>
+                            <div className="input-with-icon">
+                                <select
+                                    className="custom-select"
+                                    value={selectedSubcollection?.id || ''}
+                                    onChange={(e) => {
+                                        const found = subcollections.find(s => s.id === parseInt(e.target.value));
+                                        setSelectedSubcollection(found || null);
+                                    }}
+                                    disabled={loading || (initialSubcollection && location.state?.from === 'subcollections')}
+                                >
+                                    <option value="">-- Select Subcollection --</option>
+                                    {subcollections.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name} ({s.year})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="control-group">
+                            <label>Amount (₹) *</label>
+                            <input
+                                type="number"
+                                className="custom-input"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                placeholder="0.00"
+                                min="0"
+                                step="0.01"
+                                disabled={loading}
+                            />
                         </div>
                     </div>
 
-                    {/* Right Column: Summary */}
-                    <div className="summary-panel">
+                    {/* Summary Panel */}
+                    <div className="summary-panel" style={{
+                        flex: 1,
+                        opacity: selectedSubcollection ? 1 : 0.5,
+                        pointerEvents: selectedSubcollection ? 'auto' : 'none'
+                    }}>
                         <div className="summary-header">
                             <h3>Selection Summary</h3>
                         </div>
 
-                        <div className="selected-list-container">
-                            {selectedMembers.length === 0 ? (
-                                <div style={{ textAlign: 'center', color: '#999', marginTop: '40px' }}>
-                                    <FaUsers size={32} style={{ opacity: 0.2, marginBottom: '10px' }} />
-                                    <p>Select members to add.</p>
-                                </div>
-                            ) : (
-                                selectedMembers.map(id => {
-                                    const m = members.find(x => x.member_id === id);
-                                    if (!m) return null;
-                                    return (
-                                        <div key={id} className="selected-member-mini animate-in">
-                                            <span>{m.name} {m.surname}</span>
-                                            <button
-                                                className="remove-btn"
-                                                onClick={() => handleMemberToggle(id)}
-                                            >
-                                                <FaTimes />
-                                            </button>
-                                        </div>
-                                    );
-                                })
-                            )}
+                        <div className="selected-list-container" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '15px', background: 'var(--bg-subtle, #f8f9fa)' }}>
+                            <div style={{ textAlign: 'center' }}>
+                                <FaUsers size={40} style={{ color: 'var(--primary, #3498db)', opacity: 0.8, marginBottom: '10px' }} />
+                                <h2 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-color, #2c3e50)' }}>{selectedMembers.length}</h2>
+                                <p style={{ margin: 0, color: 'var(--text-muted, #7f8c8d)', fontWeight: 600 }}>Members Selected</p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowReviewModal(true)}
+                                disabled={selectedMembers.length === 0}
+                                style={{
+                                    background: 'white',
+                                    border: '1px solid var(--primary, #3498db)',
+                                    color: 'var(--primary, #3498db)',
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    fontWeight: 600,
+                                    cursor: selectedMembers.length > 0 ? 'pointer' : 'not-allowed',
+                                    transition: 'all 0.2s',
+                                    opacity: selectedMembers.length > 0 ? 1 : 0.5
+                                }}
+                            >
+                                Review Selected Members
+                            </button>
                         </div>
 
                         <div className="summary-footer">
@@ -529,6 +565,74 @@ const BulkObligationPage = () => {
                                 disabled={loading || selectedMembers.length === 0 || !amount}
                             >
                                 {loading ? 'Processing...' : `Create ${selectedMembers.length} Obligations`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Review Modal */}
+            {showReviewModal && (
+                <div className="modal-overlay" onClick={() => setShowReviewModal(false)} style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div className="modal-content animate-in" onClick={e => e.stopPropagation()} style={{
+                        background: 'white', borderRadius: '16px', width: '90%', maxWidth: '500px',
+                        maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
+                    }}>
+                        <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <FaUsers color="var(--primary, #3498db)" />
+                                Review Selected Members ({selectedMembers.length})
+                            </h3>
+                            <button onClick={() => setShowReviewModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#666' }}>
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+                            {selectedMembers.map(id => {
+                                const m = members.find(x => x.member_id === id);
+                                if (!m) return null;
+                                return (
+                                    <div key={id} style={{
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        padding: '12px 16px', background: '#f8f9fa', borderRadius: '8px',
+                                        marginBottom: '10px', border: '1px solid #eee'
+                                    }}>
+                                        <div>
+                                            <div style={{ fontWeight: 600 }}>{m.name} {m.surname}</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#666' }}>ID: {m.member_id}</div>
+                                        </div>
+                                        <button
+                                            style={{
+                                                background: '#fee2e2', color: '#ef4444', border: 'none',
+                                                width: '30px', height: '30px', borderRadius: '6px',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                cursor: 'pointer'
+                                            }}
+                                            onClick={() => {
+                                                handleMemberToggle(id);
+                                                if (selectedMembers.length <= 1) setShowReviewModal(false);
+                                            }}
+                                        >
+                                            <FaTimes />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div style={{ padding: '20px', borderTop: '1px solid #eee', textAlign: 'right' }}>
+                            <button
+                                onClick={() => setShowReviewModal(false)}
+                                style={{
+                                    background: 'var(--primary, #3498db)', color: 'white', border: 'none',
+                                    padding: '10px 20px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer'
+                                }}
+                            >
+                                Done Reviewing
                             </button>
                         </div>
                     </div>

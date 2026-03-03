@@ -113,6 +113,12 @@ class MemberSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    second_spouse = SafeSlugRelatedField(
+        queryset=Member.objects.all(),
+        slug_field='member_id',
+        required=False,
+        allow_null=True
+    )
     
     # Read-only nested details for frontend display
     house_details = HouseDetailSerializer(source='house', read_only=True)

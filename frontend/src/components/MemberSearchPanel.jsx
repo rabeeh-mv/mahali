@@ -3,7 +3,7 @@ import { FaTimes, FaSearch, FaUserPlus, FaChevronDown, FaChevronUp, FaBuilding, 
 import { memberAPI, houseAPI } from '../api';
 import './MemberSearchPanel.css';
 
-const MemberSearchPanel = ({ isOpen, onClose, onSelect, type = 'member', initialValues = {} }) => {
+const MemberSearchPanel = ({ isOpen, onClose, onSelect, onDisconnect, currentId, currentDisplay, type = 'member', initialValues = {} }) => {
     const [searchParams, setSearchParams] = useState({
         name: '',
         surname: '',
@@ -131,6 +131,20 @@ const MemberSearchPanel = ({ isOpen, onClose, onSelect, type = 'member', initial
                 </div>
 
                 <div className="msp-content">
+                    {currentId && (
+                        <div className="msp-current-connection">
+                            <div className="connection-info">
+                                <span className="connection-label">Currently Connected:</span>
+                                <span className="connection-value">{currentDisplay}</span>
+                            </div>
+                            {onDisconnect && (
+                                <button className="btn-disconnect" onClick={onDisconnect}>
+                                    Disconnect
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     <form className="msp-search-form" onSubmit={(e) => { e.preventDefault(); handleSearch(); }}>
                         <div className="msp-search-grid">
                             {type === 'member' ? (
@@ -228,13 +242,6 @@ const MemberSearchPanel = ({ isOpen, onClose, onSelect, type = 'member', initial
                                             </div>
                                             <div className="msp-card-actions">
                                                 <button
-                                                    className="btn-text"
-                                                    onClick={() => toggleExpand(id)}
-                                                    title="View Details"
-                                                >
-                                                    {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
-                                                </button>
-                                                <button
                                                     className="btn-primary sm"
                                                     onClick={() => handleSelect(item)}
                                                 >
@@ -243,47 +250,51 @@ const MemberSearchPanel = ({ isOpen, onClose, onSelect, type = 'member', initial
                                             </div>
                                         </div>
 
-                                        {isExpanded && (
-                                            <div className="msp-card-details animate-in">
-                                                {type === 'member' ? (
-                                                    <>
+                                        <div className="msp-card-details animate-in">
+                                            {type === 'member' ? (
+                                                <>
+                                                    {item.father_name && (
                                                         <div className="msp-detail-item">
                                                             <label>Father</label>
                                                             <span>{item.father_name}</span>
                                                         </div>
+                                                    )}
+                                                    {item.mother_name && (
                                                         <div className="msp-detail-item">
                                                             <label>Mother</label>
                                                             <span>{item.mother_name}</span>
                                                         </div>
-                                                        <div className="msp-detail-item">
-                                                            <label>House</label>
-                                                            <span>
-                                                                {item.house_name ||
-                                                                    (typeof item.house === 'object' ? item.house?.house_name : item.house)}
-                                                            </span>
-                                                        </div>
-                                                        <div className="msp-detail-item">
-                                                            <label>Status</label>
-                                                            <span>{item.member_status || item.status}</span>
-                                                        </div>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div className="msp-detail-item">
-                                                            <label>Area</label>
-                                                            <span>
-                                                                {item.area_name ||
-                                                                    (typeof item.area === 'object' ? item.area?.area_name : item.area)}
-                                                            </span>
-                                                        </div>
+                                                    )}
+                                                    <div className="msp-detail-item">
+                                                        <label>House</label>
+                                                        <span>
+                                                            {item.house_name ||
+                                                                (typeof item.house === 'object' ? item.house?.house_name : item.house) || 'None'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="msp-detail-item">
+                                                        <label>Status</label>
+                                                        <span>{item.member_status || item.status}</span>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="msp-detail-item">
+                                                        <label>Area</label>
+                                                        <span>
+                                                            {item.area_name ||
+                                                                (typeof item.area === 'object' ? item.area?.area_name : item.area) || 'None'}
+                                                        </span>
+                                                    </div>
+                                                    {item.house_name_reference && (
                                                         <div className="msp-detail-item">
                                                             <label>Reference</label>
                                                             <span>{item.house_name_reference}</span>
                                                         </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })

@@ -85,6 +85,11 @@ class Member(models.Model):
     married_to_surname = models.CharField(max_length=100, blank=True)
     married_to = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='spouse')
     
+    # Second Marriage Information (e.g. if first spouse dies)
+    second_spouse_name = models.CharField(max_length=100, blank=True)
+    second_spouse_surname = models.CharField(max_length=100, blank=True)
+    second_spouse = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='second_spouse_reverse')
+    
     general_body_member = models.BooleanField(default=False)
     
     photo = models.ImageField(upload_to='members/photos/', null=True, blank=True)
@@ -133,6 +138,17 @@ class Member(models.Model):
             # This is complex because we don't know the former spouse easily here
             # For now, let's just handle set/update.
             pass
+
+        # Handle bidirectional second marriage
+        if self.second_spouse:
+            spouse2 = self.second_spouse
+            if spouse2.second_spouse != self:
+                spouse2.second_spouse = self
+                if not spouse2.second_spouse_name:
+                    spouse2.second_spouse_name = self.name
+                if not spouse2.second_spouse_surname:
+                    spouse2.second_spouse_surname = self.surname
+                spouse2.save(update_fields=['second_spouse', 'second_spouse_name', 'second_spouse_surname'])
 
 
 # Payments Models

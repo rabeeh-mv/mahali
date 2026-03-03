@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { memberAPI, houseAPI, areaAPI, collectionAPI, subcollectionAPI, obligationAPI, eventAPI, api } from '../api'
 import Sidebar from './Sidebar'
 import Dashboard from './Dashboard'
@@ -28,6 +28,15 @@ import DigitalRequestsPage from './DigitalRequests/DigitalRequestsPage'
 import ProcessRequestWizard from './DigitalRequests/ProcessRequestWizard'
 
 import '../App.css'
+
+function AnimatedRoutesWrapper({ children }) {
+  const location = useLocation();
+  return (
+    <div key={location.pathname} className="animate-in" style={{ animationDuration: '0.4s', animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationFillMode: 'both' }}>
+      {children}
+    </div>
+  );
+}
 
 function AppWithRouter() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -380,127 +389,129 @@ function AppWithRouter() {
             disabled={isBusy}
           />
 
-          <div className="main-content">
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/areas/add" element={<AreaForm />} />
-              <Route path="/areas/edit/:id" element={<AreaForm />} />
-              <Route path="/houses/add" element={<HouseForm />} />
-              <Route path="/houses/edit/:id" element={<HouseForm />} />
-              <Route path="/members/add" element={<MemberForm />} />
-              <Route path="/members/edit/:id" element={<MemberForm />} />
-              <Route path="/obligations/bulk-add" element={<BulkObligationPage />} />
-              <Route path="/areas" element={
-                <Areas
-                  areas={areas}
-                  setEditing={setEditing}
-                  deleteItem={deleteItem}
-                  loadDataForTab={loadDataForTab}
-                />
-              } />
-              <Route path="/houses" element={
-                <Houses
-                  houses={houses}
-                  areas={areas}
-                  setEditing={setEditing}
-                  deleteItem={deleteItem}
-                  loadDataForTab={loadDataForTab}
-                />
-              } />
-              <Route path="/houses/:houseId" element={
-                <HouseDetailsPage
-                  houses={houses}
-                  members={members}
-                  areas={areas}
-                  subcollections={subcollections}
-                  setEditing={setEditing}
-                  loadDataForTab={loadDataForTab}
-                  deleteItem={deleteItem}
-                />
-              } />
-              <Route path="/members" element={
-                <Members
-                  members={members}
-                  setEditing={setEditing}
-                  deleteItem={deleteItem}
-                  loadDataForTab={loadDataForTab}
-                />
-              } />
-              <Route path="/members/:memberId" element={
-                <MemberDetailsPage
-                  members={members}
-                  houses={houses}
-                  areas={areas}
-                  setEditing={setEditing}
-                  deleteItem={deleteItem}
-                  loadDataForTab={loadDataForTab}
-                />
-              } />
-              <Route path="/members/:memberId/tree" element={<FamilyTreePage />} />
-              <Route path="/my-actions" element={<MyActions />} />
-              <Route path="/collections" element={
-                <Collections
-                  collections={collections}
-                  setEditing={setEditing}
-                  deleteItem={deleteItem}
-                  setSelectedCollection={setSelectedCollection}
-                  handleEditCollection={(collection) => setEditing({ type: 'collections', data: collection })}
-                  handleAddCollection={() => setEditing({ type: 'collections', data: {} })}
-                  loadDataForTab={loadDataForTab}
-                  setActiveTab={setActiveTab}
-                />
-              } />
-              <Route path="/subcollections" element={
-                <Subcollections
-                  subcollections={subcollections}
-                  selectedCollection={selectedCollection}
-                  setEditing={setEditing}
-                  deleteItem={deleteItem}
-                  setSelectedSubcollection={setSelectedSubcollection}
-                  handleEditSubcollection={(subcollection) => setEditing({ type: 'subcollections', data: subcollection })}
-                  handleAddSubcollection={() => setEditing({ type: 'subcollections', data: {} })}
-                  loadDataForTab={loadDataForTab}
-                  setActiveTab={setActiveTab}
-                />
-              } />
-              <Route path="/obligations" element={
-                <Obligations
-                  memberObligations={memberObligations}
-                  selectedSubcollection={selectedSubcollection}
-                  members={members}
-                  setEditing={setEditing}
-                  deleteItem={deleteItem}
-                  handleAddObligation={() => setEditing({ type: 'obligations', data: {} })}
-                  handleEditObligation={(obligation) => setEditing({ type: 'obligations', data: obligation })}
-                  handlePayObligation={(obligation) => {
-                    // Handle payment logic here
-                    console.log('Pay obligation:', obligation)
-                  }}
-                  handleAddBulkObligation={() => {
-                    // Handle bulk obligation creation here
-                    console.log('Add bulk obligation')
-                  }}
-                  setSelectedSubcollection={setSelectedSubcollection}
-                  setSelectedCollection={setSelectedCollection}
-                  loadDataForTab={loadDataForTab}
-                  setActiveTab={setActiveTab}
-                />
-              } />
-              <Route path="/settings" element={
-                <Settings
-                  exportData={exportData}
-                  importData={importData}
-                  exportProgress={exportProgress}
-                  importProgress={importProgress}
-                  disabled={isBusy}
-                />
-              } /> {/* Settings route */}
+          <div className="main-content" >
+            <AnimatedRoutesWrapper>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/areas/add" element={<AreaForm />} />
+                <Route path="/areas/edit/:id" element={<AreaForm />} />
+                <Route path="/houses/add" element={<HouseForm />} />
+                <Route path="/houses/edit/:id" element={<HouseForm />} />
+                <Route path="/members/add" element={<MemberForm />} />
+                <Route path="/members/edit/:id" element={<MemberForm />} />
+                <Route path="/obligations/bulk-add" element={<BulkObligationPage />} />
+                <Route path="/areas" element={
+                  <Areas
+                    areas={areas}
+                    setEditing={setEditing}
+                    deleteItem={deleteItem}
+                    loadDataForTab={loadDataForTab}
+                  />
+                } />
+                <Route path="/houses" element={
+                  <Houses
+                    houses={houses}
+                    areas={areas}
+                    setEditing={setEditing}
+                    deleteItem={deleteItem}
+                    loadDataForTab={loadDataForTab}
+                  />
+                } />
+                <Route path="/houses/:houseId" element={
+                  <HouseDetailsPage
+                    houses={houses}
+                    members={members}
+                    areas={areas}
+                    subcollections={subcollections}
+                    setEditing={setEditing}
+                    loadDataForTab={loadDataForTab}
+                    deleteItem={deleteItem}
+                  />
+                } />
+                <Route path="/members" element={
+                  <Members
+                    members={members}
+                    setEditing={setEditing}
+                    deleteItem={deleteItem}
+                    loadDataForTab={loadDataForTab}
+                  />
+                } />
+                <Route path="/members/:memberId" element={
+                  <MemberDetailsPage
+                    members={members}
+                    houses={houses}
+                    areas={areas}
+                    setEditing={setEditing}
+                    deleteItem={deleteItem}
+                    loadDataForTab={loadDataForTab}
+                  />
+                } />
+                <Route path="/members/:memberId/tree" element={<FamilyTreePage />} />
+                <Route path="/my-actions" element={<MyActions />} />
+                <Route path="/collections" element={
+                  <Collections
+                    collections={collections}
+                    setEditing={setEditing}
+                    deleteItem={deleteItem}
+                    setSelectedCollection={setSelectedCollection}
+                    handleEditCollection={(collection) => setEditing({ type: 'collections', data: collection })}
+                    handleAddCollection={() => setEditing({ type: 'collections', data: {} })}
+                    loadDataForTab={loadDataForTab}
+                    setActiveTab={setActiveTab}
+                  />
+                } />
+                <Route path="/subcollections" element={
+                  <Subcollections
+                    subcollections={subcollections}
+                    selectedCollection={selectedCollection}
+                    setEditing={setEditing}
+                    deleteItem={deleteItem}
+                    setSelectedSubcollection={setSelectedSubcollection}
+                    handleEditSubcollection={(subcollection) => setEditing({ type: 'subcollections', data: subcollection })}
+                    handleAddSubcollection={() => setEditing({ type: 'subcollections', data: {} })}
+                    loadDataForTab={loadDataForTab}
+                    setActiveTab={setActiveTab}
+                  />
+                } />
+                <Route path="/obligations" element={
+                  <Obligations
+                    memberObligations={memberObligations}
+                    selectedSubcollection={selectedSubcollection}
+                    members={members}
+                    setEditing={setEditing}
+                    deleteItem={deleteItem}
+                    handleAddObligation={() => setEditing({ type: 'obligations', data: {} })}
+                    handleEditObligation={(obligation) => setEditing({ type: 'obligations', data: obligation })}
+                    handlePayObligation={(obligation) => {
+                      // Handle payment logic here
+                      console.log('Pay obligation:', obligation)
+                    }}
+                    handleAddBulkObligation={() => {
+                      // Handle bulk obligation creation here
+                      console.log('Add bulk obligation')
+                    }}
+                    setSelectedSubcollection={setSelectedSubcollection}
+                    setSelectedCollection={setSelectedCollection}
+                    loadDataForTab={loadDataForTab}
+                    setActiveTab={setActiveTab}
+                  />
+                } />
+                <Route path="/settings" element={
+                  <Settings
+                    exportData={exportData}
+                    importData={importData}
+                    exportProgress={exportProgress}
+                    importProgress={importProgress}
+                    disabled={isBusy}
+                  />
+                } /> {/* Settings route */}
 
-              <Route path="/digital-requests" element={<DigitalRequestsPage />} />
-              <Route path="/digital-requests/process/:id" element={<ProcessRequestWizard />} />
+                <Route path="/digital-requests" element={<DigitalRequestsPage />} />
+                <Route path="/digital-requests/process/:id" element={<ProcessRequestWizard />} />
 
-            </Routes>
+              </Routes>
+            </AnimatedRoutesWrapper>
 
             {editing && (
               <EditForm

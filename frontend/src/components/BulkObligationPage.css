@@ -5,11 +5,13 @@
     max-width: 1600px;
     margin: 0 auto;
     padding: 20px;
-    /* height: calc(100vh - 40px); */
+    height: 100vh;
     display: flex;
     flex-direction: column;
     gap: 15px;
     color: var(--text-color, #2c3e50);
+    box-sizing: border-box;
+    /* Ensure padding doesn't push past 100vh */
 }
 
 /* Glass Panels */
@@ -127,11 +129,11 @@
 .bulk-grid {
     display: grid;
     grid-template-columns: 75% 25%;
-    /* Fixed proportions */
     gap: 20px;
-    height: 75vh;
-    /* Request constraint */
-    min-height: 500px;
+    flex: 1;
+    /* Take up remaining space */
+    min-height: 0;
+    /* Important for preventing grid blowout in flex containers */
 }
 
 /* Selection Panel (Left) */
@@ -178,13 +180,61 @@
     /* Pill shape for search */
 }
 
+/* Selection Stats & Select All */
+.selection-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--bg-subtle, #f8f9fa);
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.05));
+    flex-shrink: 0;
+}
+
+.stats-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted, #64748b);
+}
+
+.select-all-btn-text {
+    background: white;
+    border: 1px solid var(--primary, #3498db);
+    color: var(--primary, #3498db);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.1);
+}
+
+.select-all-btn-text:hover:not(:disabled) {
+    background: var(--primary, #3498db);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+}
+
+.select-all-btn-text:disabled {
+    border-color: #e2e8f0;
+    color: #94a3b8;
+    background: #f1f5f9;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
 /* Table Container */
 .table-container-no-bg {
     flex: 1;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: auto;
     /* Enable scrolling */
     position: relative;
     background: white;
+    min-height: 0;
 }
 
 .bulk-members-table {
@@ -471,10 +521,31 @@
 }
 
 .app.theme-dark .filter-bar,
+.app.theme-dark .selection-stats,
 .app.theme-dark .bulk-members-table thead,
 .app.theme-dark .summary-header {
     background: rgba(15, 23, 42, 0.8);
     border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.app.theme-dark .stats-text {
+    color: #94a3b8;
+}
+
+.app.theme-dark .select-all-btn-text {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #38bdf8;
+}
+
+.app.theme-dark .select-all-btn-text:hover:not(:disabled) {
+    background: rgba(56, 189, 248, 0.15);
+}
+
+.app.theme-dark .select-all-btn-text:disabled {
+    background: rgba(30, 41, 59, 1);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.3);
 }
 
 .app.theme-dark .table-container-no-bg,

@@ -14,6 +14,7 @@ const MyActions = () => {
     const [firebaseConfig, setFirebaseConfig] = useState(null);
     const [firebaseEnabled, setFirebaseEnabled] = useState(true);
     const [showSyncModal, setShowSyncModal] = useState(false);
+    const [syncProgress, setSyncProgress] = useState(null);
 
     // Cloud Data Filtering & Selection
     const [searchTerm, setSearchTerm] = useState('');
@@ -541,10 +542,11 @@ const MyActions = () => {
             });
 
             // Build Payloads and Batch Write
-            const batchSize = 400;
+            const batchSize = 100; // Smaller batch size to prevent hitting burst limits
             let batch = writeBatch(db);
             let count = 0;
-            let batchCount = 0;
+            let totalProcessed = 0;
+            setSyncProgress({ current: 0, total: allHouses.length, status: "Preparing data..." });
 
             for (const house of allHouses) {
                 const members = houseMembersMap[house.home_id] || [];
@@ -560,21 +562,12 @@ const MyActions = () => {
                     name: `${m.name} ${m.surname}`.trim()
                 }));
 
-                // STRICT PAYLOAD as per user request
                 const payload = {
-                    // 1. house id
                     houseId: house.home_id,
-                    // 2. house name
                     houseName: house.house_name,
-                    // 3. gardient name + surname
                     guardianName: `${guardian.name || ''} ${guardian.surname || ''}`.trim(),
-                    // 4. date of birth
                     guardianDob: guardian.date_of_birth || '',
-                    // 5. adhar number(last 4 digit)
                     guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
-                    // 5. adhar number(last 4 digit)
-                    guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
-                    // 6. oblications - populated if exists
                     members: memberList,
                 };
 
@@ -584,19 +577,26 @@ const MyActions = () => {
 
                 batch.set(docRef, payload, { merge: true });
                 count++;
+                totalProcessed++;
 
                 if (count >= batchSize) {
+                    setSyncProgress({ current: totalProcessed, total: allHouses.length, status: `Pushing batch of ${batchSize}...` });
                     await batch.commit();
+                    // Add a timer delay between batches to respect free limits and avoid rate-limiting
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                     batch = writeBatch(db);
                     count = 0;
                 }
             }
 
             if (count > 0) {
+                setSyncProgress({ current: totalProcessed, total: allHouses.length, status: `Pushing final batch of ${count}...` });
                 await batch.commit();
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            alert(`Full Sync Complete! Synced ${allHouses.length} units.`);
+            setSyncProgress({ current: allHouses.length, total: allHouses.length, status: "Complete!" });
+            alert(`Full Sync Complete! Synced ${allHouses.length} units to the cloud safely.`);
             loadCloudData();
 
         } catch (e) {
@@ -604,6 +604,7 @@ const MyActions = () => {
             alert("Full sync failed: " + e.message);
         } finally {
             setSyncing(false);
+            setTimeout(() => setSyncProgress(null), 3000);
         }
     };
 
@@ -751,20 +752,38 @@ const MyActions = () => {
                                 <button
                                     className="action-btn danger small"
                                     onClick={handleDeleteSelected}
-                                    disabled={deleting || selectedCloudIds.size === 0}
+                                    disabled={deleting || selectedCloudIds.size === 0 || syncing}
                                 >
                                     <FaTrash /> Delete ({selectedCloudIds.size})
                                 </button>
                                 <button
                                     style={{ marginLeft: '10px' }}
-                                    className="action-btn secondary small"
+                                    className="action-btn secondary small push-all-btn"
                                     onClick={performFullSync}
                                     disabled={syncing}
                                 >
-                                    Push All
+                                    {syncing && syncProgress ? (
+                                        <><FaSync className="spin" /> Pushing...</>
+                                    ) : (
+                                        <><FaCloudUploadAlt /> Push All</>
+                                    )}
                                 </button>
                             </div>
                         </div>
+                        {syncProgress && (
+                            <div className="sync-progress-bar-container animate-in">
+                                <div className="progress-text-row">
+                                    <span className="progress-status">{syncProgress.status}</span>
+                                    <span className="progress-ratio">{syncProgress.current} / {syncProgress.total}</span>
+                                </div>
+                                <div className="progress-track">
+                                    <div
+                                        className="progress-fill"
+                                        style={{ width: `${syncProgress.total > 0 ? (syncProgress.current / syncProgress.total) * 100 : 0}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="panel-content">

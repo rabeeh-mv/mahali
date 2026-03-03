@@ -21,9 +21,10 @@ const FamilyTree = ({ member, allMembers = [] }) => {
     const relationships = useMemo(() => {
         if (!member) return {};
 
-        const father = findMember(member.father);
-        const mother = findMember(member.mother);
-        const spouse = findMember(member.married_to);
+        const father = findMember(member.father) || (member.father_name ? { dummyId: 'unconnected-father', name: member.father_name, surname: member.father_surname, isUnconnected: true, gender: 'male' } : null);
+        const mother = findMember(member.mother) || (member.mother_name ? { dummyId: 'unconnected-mother', name: member.mother_name, surname: member.mother_surname, isUnconnected: true, gender: 'female' } : null);
+        const spouse = findMember(member.married_to) || (member.married_to_name ? { dummyId: 'unconnected-spouse', name: member.married_to_name, surname: member.married_to_surname, isUnconnected: true, gender: member.gender === 'male' ? 'female' : 'male' } : null);
+        const secondSpouse = findMember(member.second_spouse) || (member.second_spouse_name ? { dummyId: 'unconnected-second-spouse', name: member.second_spouse_name, surname: member.second_spouse_surname, isUnconnected: true, gender: member.gender === 'male' ? 'female' : 'male' } : null);
 
         // Find children: members where father OR mother is the current member
         const children = safeAllMembers.filter(m => {
@@ -49,7 +50,7 @@ const FamilyTree = ({ member, allMembers = [] }) => {
             return sharedFather || sharedMother;
         });
 
-        return { father, mother, spouse, children, siblings };
+        return { father, mother, spouse, secondSpouse, children, siblings };
     }, [member, safeAllMembers]);
 
     const handleNavigate = (targetId) => {
@@ -58,7 +59,7 @@ const FamilyTree = ({ member, allMembers = [] }) => {
 
     // Render a single node
     const Node = ({ data, label, type = 'default', isMain = false, icon = null, idOverride = null }) => {
-        const nodeId = idOverride || (data ? `node-${data.member_id}` : `placeholder-${type}-${Math.random()}`);
+        const nodeId = idOverride || (data ? `node-${data.member_id || data.dummyId}` : `placeholder-${type}-${Math.random()}`);
 
         if (!data) return (
             <div id={nodeId} className={`tree-card placeholder ${type}`}>
@@ -74,26 +75,41 @@ const FamilyTree = ({ member, allMembers = [] }) => {
         return (
             <div
                 id={nodeId}
-                className={`tree-card ${type} ${isMain ? 'main-highlight' : ''}`}
-                onClick={() => handleNavigate(data.member_id)}
+                className={`tree-card ${type} ${isMain ? 'main-highlight' : ''} ${data.isUnconnected ? 'unconnected' : ''}`}
+                onClick={() => !data.isUnconnected && handleNavigate(data.member_id)}
                 title={data.name}
+                style={data.isUnconnected ? { border: '2px dashed #ff4d4f', cursor: 'default' } : {}}
             >
                 {isMain && <div className="crown-icon"><FaCrown /></div>}
                 <div className="card-content">
-                    <div className={`avatar ${data.gender || 'male'}`}>
+                    <div className={`avatar ${data.gender || 'male'}`} style={data.isUnconnected ? { background: '#ffe4e6', color: '#ff4d4f' } : {}}>
                         {icon || genderIcon}
                     </div>
                     <div className="info">
                         <span className="name">{data.name}</span>
                         {data.surname && <span className="surname">{data.surname}</span>}
                         <span className="role-badge">{label}</span>
+                        {data.isUnconnected && (
+                            <span className="unconnected-badge" style={{
+                                display: 'inline-block',
+                                background: '#ff4d4f',
+                                color: 'white',
+                                fontSize: '0.65rem',
+                                padding: '3px 6px',
+                                borderRadius: '4px',
+                                marginTop: '6px',
+                                fontWeight: 'bold'
+                            }}>
+                                Not Connected
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
         );
     };
 
-    const { father, mother, spouse, children, siblings } = relationships;
+    const { father, mother, spouse, secondSpouse, children, siblings } = relationships;
 
     // Line Styles
     const lineStyle = {
@@ -142,6 +158,7 @@ const FamilyTree = ({ member, allMembers = [] }) => {
                             <div className="couple-group">
                                 <Node data={member} label="You" type="main" isMain={true} idOverride="node-ego" />
                                 {spouse && <Node data={spouse} label="Spouse" type="spouse" idOverride="node-spouse" />}
+                                {secondSpouse && <Node data={secondSpouse} label="Second Spouse" type="spouse" idOverride="node-second-spouse" />}
                             </div>
                         </div>
 
@@ -187,6 +204,11 @@ const FamilyTree = ({ member, allMembers = [] }) => {
                         {/* Ego to Spouse */}
                         {spouse && (
                             <Xarrow start="node-ego" end="node-spouse" {...marriageLineStyle} />
+                        )}
+
+                        {/* Ego to Second Spouse */}
+                        {secondSpouse && (
+                            <Xarrow start="node-ego" end="node-second-spouse" {...marriageLineStyle} />
                         )}
 
                         {/* Ego/Spouse to Children */}

@@ -325,8 +325,10 @@
   /* max-width: 1600px; */
   /* Prevent overstretching on ultra-wide */
   margin: 0 auto;
-  width: 100%;
+  min-width: 0;
 }
+
+
 
 /* Header */
 header {
