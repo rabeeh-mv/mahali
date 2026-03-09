@@ -165,32 +165,54 @@ const MyActions = () => {
 
         setSyncing(true);
         try {
-            const { getFirestore, doc, setDoc, deleteDoc, getDoc } = await import('firebase/firestore');
+            const { getFirestore, doc, setDoc, updateDoc } = await import('firebase/firestore');
             const app = await getOrInitSyncApp(firebaseConfig);
             const db = getFirestore(app);
 
             let syncedCount = 0;
 
             // 1. Gather distinct House IDs to sync based on pending actions
-            const houseIdsToSync = new Set();
+            const houseIdsToFullSyncSet = new Set();
+            const houseIdsToPartialSyncSet = new Set();
+
             for (const action of pendingActions) {
                 if (action.model_name === 'House') {
-                    houseIdsToSync.add(action.object_id);
+                    houseIdsToFullSyncSet.add(action.object_id);
                 } else if (action.model_name === 'Member') {
                     try {
                         const mRes = await memberAPI.get(action.object_id);
                         if (mRes.data && mRes.data.house) {
                             const hId = typeof mRes.data.house === 'object' ? mRes.data.house.home_id : mRes.data.house;
-                            houseIdsToSync.add(hId);
+                            houseIdsToFullSyncSet.add(hId);
                         }
                     } catch (e) {
                         console.warn("Could not find member, ignoring", action.object_id);
                     }
+                } else if (action.model_name === 'Obligation') {
+                    // Optimized update! We only need to touch the obligations array in Firebase
+                    try {
+                        const oRes = await obligationAPI.get(action.object_id);
+                        if (oRes.data && oRes.data.member) {
+                            const mId = typeof oRes.data.member === 'object' ? oRes.data.member.member_id : oRes.data.member;
+                            const mRes = await memberAPI.get(mId);
+                            if (mRes.data && mRes.data.house) {
+                                const hId = typeof mRes.data.house === 'object' ? mRes.data.house.home_id : mRes.data.house;
+                                houseIdsToPartialSyncSet.add(hId);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Could not find obligation or member, ignoring", action.object_id);
+                    }
                 }
             }
 
+            const houseIdsToFullSync = Array.from(houseIdsToFullSyncSet);
+            // Only perform partial sync for houses that are NOT getting a full sync anyway
+            const houseIdsToPartialSync = Array.from(houseIdsToPartialSyncSet).filter(id => !houseIdsToFullSyncSet.has(id));
+            const allHouseIdsToProcess = [...houseIdsToFullSync, ...houseIdsToPartialSync];
+
             // 2. completely rebuild and reupload each pending house
-            for (const homeId of houseIdsToSync) {
+            for (const homeId of allHouseIdsToProcess) {
                 try {
                     let houseToSync = null;
                     try {
@@ -215,8 +237,15 @@ const MyActions = () => {
                         } else if (membersSearch.data && Array.isArray(membersSearch.data)) {
                             allHouseMembers = membersSearch.data;
                         }
-                        // Filter strictly by ID to ensure accuracy
-                        allHouseMembers = allHouseMembers.filter(m => String(m.house) === String(houseToSync.home_id) || m.house === houseToSync.id);
+
+                        // Fix for Django REST Framework object/ID responses:
+                        allHouseMembers = allHouseMembers.filter(m => {
+                            let mHouseId = m.house;
+                            if (m.house !== null && typeof m.house === 'object') {
+                                mHouseId = m.house.home_id || m.house.id;
+                            }
+                            return String(mHouseId) === String(houseToSync.home_id) || String(mHouseId) === String(houseToSync.id);
+                        });
                     } catch (e) { console.error("Members fetch failed", e); }
 
                     const guardian = allHouseMembers.find(m => m.isGuardian) || allHouseMembers[0] || {};
@@ -241,35 +270,52 @@ const MyActions = () => {
                         } catch (e) { }
                     }
 
-                    const memberList = allHouseMembers.map(m => ({
-                        member_id: m.member_id,
-                        name: `${m.name} ${m.surname}`.trim()
-                    }));
+                    const isPartialSync = houseIdsToPartialSync.includes(homeId);
 
-                    const payload = {
-                        houseId: houseToSync.home_id,
-                        houseName: houseToSync.house_name,
-                        guardianName: `${guardian.name || ''} ${guardian.surname || ''}`.trim(),
-                        guardianDob: guardian.date_of_birth || '',
-                        guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
-                        members: memberList
-                    };
+                    if (isPartialSync) {
+                        // User specifically requested Obligations be uploaded independently! 
+                        // This uses pure updateDoc to only target the Obligations array.
+                        await updateDoc(docRef, {
+                            obligations: pendingObligationsPayload
+                        }).catch(async (e) => {
+                            // If the document doesn't exist yet, updateDoc fails. Fallback to setDoc!
+                            console.warn("UpdateDoc failed, falling back to SetDoc", e);
+                            const memberList = allHouseMembers.map(m => ({
+                                member_id: m.member_id,
+                                name: `${m.name} ${m.surname}`.trim()
+                            }));
+                            await setDoc(docRef, {
+                                houseId: houseToSync.home_id,
+                                houseName: houseToSync.house_name,
+                                guardianName: `${guardian.name || ''} ${guardian.surname || ''}`.trim(),
+                                guardianDob: guardian.date_of_birth || '',
+                                guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
+                                members: memberList,
+                                obligations: pendingObligationsPayload
+                            });
+                        });
+                        console.log(`Partially Updated Obligations for Unit ${targetDocId} in 1 operation.`);
+                    } else {
+                        // Standard Full Sync for House or Member edits
+                        const memberList = allHouseMembers.map(m => ({
+                            member_id: m.member_id,
+                            name: `${m.name} ${m.surname}`.trim()
+                        }));
 
-                    if (pendingObligationsPayload.length > 0) {
-                        payload.obligations = pendingObligationsPayload;
+                        const payload = {
+                            houseId: houseToSync.home_id,
+                            houseName: houseToSync.house_name,
+                            guardianName: `${guardian.name || ''} ${guardian.surname || ''}`.trim(),
+                            guardianDob: guardian.date_of_birth || '',
+                            guardianAadhaarLast4: guardian.adhar ? guardian.adhar.slice(-4) : "",
+                            members: memberList,
+                            obligations: pendingObligationsPayload
+                        };
+
+                        // Optimized: Exactly 1 Write Operation, 0 Reads.
+                        await setDoc(docRef, payload);
+                        console.log(`Re-uploaded Full Unit ${targetDocId} to Cloud in 1 operation.`);
                     }
-
-                    // Explicitly delete and re-set to ensure old members are flushed
-                    try {
-                        const docSnap = await getDoc(docRef);
-                        if (docSnap.exists()) {
-                            await deleteDoc(docRef);
-                            console.log(`Deleted old Unit ${targetDocId} before update.`);
-                        }
-                    } catch (e) { }
-
-                    await setDoc(docRef, payload, { merge: false });
-                    console.log(`Re-uploaded Unit ${targetDocId} to Cloud.`);
 
                 } catch (innerErr) {
                     console.error(`Failed to sync house ${homeId}`, innerErr);
@@ -430,9 +476,12 @@ const MyActions = () => {
 
                 if (guardian.member_id && guardianObligationsMap[guardian.member_id]) {
                     payload.obligations = guardianObligationsMap[guardian.member_id];
+                } else {
+                    payload.obligations = [];
                 }
 
-                batch.set(docRef, payload, { merge: true });
+                // Overwrite the document completely, ensuring no deleted items linger
+                batch.set(docRef, payload);
                 count++;
                 totalProcessed++;
 

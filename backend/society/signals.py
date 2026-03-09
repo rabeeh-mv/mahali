@@ -4,9 +4,10 @@ from .models import House, Member, MemberObligation
 
 @receiver(pre_save, sender=House)
 @receiver(pre_save, sender=Member)
+@receiver(pre_save, sender=MemberObligation)
 def set_sync_pending_on_save(sender, instance, **kwargs):
     """
-    Whenever a Member or House is modified (and it's not simply clearing the sync flag itself),
+    Whenever a Member, House, or MemberObligation is modified,
     we enforce that sync_pending becomes True before it is saved.
     """
     update_fields = kwargs.get('update_fields')
@@ -28,12 +29,11 @@ def set_house_sync_pending_on_member_delete(sender, instance, **kwargs):
         instance.house.save(update_fields=['sync_pending'])
 
 
-@receiver(post_save, sender=MemberObligation)
 @receiver(post_delete, sender=MemberObligation)
-def set_house_sync_pending_on_obligation_change(sender, instance, **kwargs):
+def set_house_sync_pending_on_obligation_delete(sender, instance, **kwargs):
     """
-    Obligations are part of the Cloud Sync payload for the House's guardian.
-    If an obligation changes, we flag the associated House.
+    When an Obligation is completely deleted, we must flag the House to trigger a full
+    re-sync so the obligation is removed from the Cloud array.
     """
     if getattr(instance, 'member', None) and instance.member.house:
         instance.member.house.sync_pending = True

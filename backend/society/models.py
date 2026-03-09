@@ -201,6 +201,9 @@ class MemberObligation(models.Model):  # The through-table for member-subcollect
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, db_index=True)  # Denormalized for fast area queries
     amount = models.DecimalField(max_digits=10, decimal_places=2)  # Can override subcollection.amount
     paid_status = models.CharField(max_length=20, choices=PAID_STATUS_CHOICES, default='pending', db_index=True)  # Indexed for filters
+    
+    sync_pending = models.BooleanField(default=True, db_index=True)
+
     created_at = models.DateTimeField(auto_now_add=True)  # Full datetime; use .year for year-only
     updated_at = models.DateTimeField(auto_now=True)  # Assuming "updatedId" means timestamp
 

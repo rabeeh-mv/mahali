@@ -1016,11 +1016,12 @@ class DashboardViewSet(viewsets.ViewSet):
 
 class PendingSyncViewSet(viewsets.ViewSet):
     """
-    Viewset returning pending Houses and Members combined.
+    Viewset returning pending Houses, Members, and Obligations combined.
     """
     def list(self, request):
         houses = House.objects.filter(sync_pending=True)
         members = Member.objects.filter(sync_pending=True)
+        obligations = MemberObligation.objects.filter(sync_pending=True)
         
         results = []
         for h in houses:
@@ -1045,13 +1046,27 @@ class PendingSyncViewSet(viewsets.ViewSet):
                 'timestamp': m.updated_at.isoformat(),
             })
             
+        for o in obligations:
+            sub_name = o.subcollection.name if o.subcollection else "Unknown"
+            member_name = o.member.name if o.member else "Unknown"
+            
+            results.append({
+                'id': f"obligation_{o.id}",
+                'model_name': 'Obligation',
+                'object_id': o.id,
+                'description': f"Obligation pending sync: {sub_name} for {member_name}",
+                'is_sync_pending': True,
+                'action_type': 'UPDATE',
+                'timestamp': o.updated_at.isoformat(),
+            })
+            
         results.sort(key=lambda x: x['timestamp'], reverse=True)
         return Response(results)
 
     def partial_update(self, request, pk=None):
         """
         Marks item as not pending sync.
-        pk is like 'house_1001' or 'member_1001'.
+        pk is like 'house_1001', 'member_1001', or 'obligation_1001'.
         """
         if pk and pk.startswith('house_'):
             home_id = pk.replace('house_', '')
@@ -1059,6 +1074,9 @@ class PendingSyncViewSet(viewsets.ViewSet):
         elif pk and pk.startswith('member_'):
             member_id = pk.replace('member_', '')
             Member.objects.filter(member_id=member_id).update(sync_pending=False)
+        elif pk and pk.startswith('obligation_'):
+            obligation_id = pk.replace('obligation_', '')
+            MemberObligation.objects.filter(id=obligation_id).update(sync_pending=False)
             
         return Response({'status': 'success'})
 
