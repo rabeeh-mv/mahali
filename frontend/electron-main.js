@@ -4,6 +4,7 @@ import { spawn, exec } from 'child_process';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import net from 'net';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +12,24 @@ const __dirname = path.dirname(__filename);
 let mainWindow;
 let djangoProcess;
 let installWindow;
+let backendPort = 8000;
+
+function findFreePort(startPort) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.listen(startPort, () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(findFreePort(startPort + 1));
+      } else {
+        reject(err);
+      }
+    });
+  });
+}
 
 // Check if we're in development mode
 const isDev = !app.isPackaged;
@@ -620,39 +639,58 @@ function createMainWindow() {
     // In development mode, we assume Django is already running
     console.log('Development mode: Assuming Django server is already running on http://127.0.0.1:8000');
   } else {
-    // Show loading screen while Django starts
-    // Create a temporary file for the loading screen
-    const tempPath = path.join(app.getPath('temp'), 'mahall-loading.html');
-    fs.writeFileSync(tempPath, loadingHtml);
+    findFreePort(8000).then(port => {
+      backendPort = port;
 
-    // Load the loading screen from the temporary file
-    mainWindow.loadFile(tempPath);
+      // Inject the dynamic port into the loading html
+      const customLoadingHtml = loadingHtml.replace('http://127.0.0.1:8000/', `http://127.0.0.1:${port}/`);
 
-    // Listen for django-ready event from loading screen
-    ipcMain.on('django-ready', () => {
-      // Load the React frontend build
-      const frontendPath = path.join(__dirname, 'dist', 'index.html');
+      // Show loading screen while Django starts
+      // Create a temporary file for the loading screen
+      const tempPath = path.join(app.getPath('temp'), 'mahall-loading.html');
+      fs.writeFileSync(tempPath, customLoadingHtml);
 
-      // Check if the frontend build exists
-      if (fs.existsSync(frontendPath)) {
-        mainWindow.loadFile(frontendPath);
-      } else {
-        // If the build doesn't exist, serve from the development server
-        mainWindow.loadURL('http://localhost:5173');
-      }
+      // Load the loading screen from the temporary file
+      mainWindow.loadFile(tempPath);
 
-      // Clean up the temporary file
-      try {
-        fs.unlinkSync(tempPath);
-      } catch (error) {
-        console.error('Error cleaning up temporary file:', error);
-      }
+      // Listen for django-ready event from loading screen
+      ipcMain.removeAllListeners('django-ready');
+      ipcMain.on('django-ready', () => {
+        // Load the React frontend build
+        const frontendPath = path.join(__dirname, 'dist', 'index.html');
+
+        // Check if the frontend build exists
+        if (fs.existsSync(frontendPath)) {
+          mainWindow.loadFile(frontendPath);
+        } else {
+          // If the build doesn't exist, serve from the development server
+          mainWindow.loadURL('http://localhost:5173');
+        }
+
+        // Clean up the temporary file
+        try {
+          fs.unlinkSync(tempPath);
+        } catch (error) {
+          console.error('Error cleaning up temporary file:', error);
+        }
+      });
+
+      // Start Django server
+      startDjangoServer();
+    }).catch(err => {
+      console.error('Failed to find free port:', err);
     });
-
-    // Start Django server
-    startDjangoServer();
   }
 }
+
+// Add IPC handler for the frontend to retrieve the dynamic port
+ipcMain.handle('get-backend-port', () => {
+  return backendPort;
+});
+
+ipcMain.on('get-backend-port-sync', (event) => {
+  event.returnValue = backendPort;
+});
 
 function startDjangoServer(callback) {
   // Only start Django server in production mode
@@ -671,7 +709,9 @@ function startDjangoServer(callback) {
     APPDATA: app.getPath('appData') // This ensures Django can access the AppData directory
   });
 
-  djangoProcess = spawn(djangoExePath, ['runserver', '127.0.0.1:8000', '--noreload'], {
+  console.log(`Starting Django server on port ${backendPort}...`);
+
+  djangoProcess = spawn(djangoExePath, ['runserver', `127.0.0.1:${backendPort}`, '--noreload'], {
     cwd: djangoDir,
     stdio: 'pipe',
     env: env
@@ -698,10 +738,20 @@ function startDjangoServer(callback) {
 
   djangoProcess.on('error', (err) => {
     console.error('Django server failed to start:', err);
+    if (mainWindow) {
+      mainWindow.webContents.executeJavaScript(`
+            document.body.innerHTML = '<div style="font-family: Arial; padding: 50px; text-align: center; color: #dc3545;"><h2>Backend Failed to Start</h2><p>${err.message.replace(/'/g, "\\'")}</p><p>Please restart the application.</p></div>';
+        `);
+    }
   });
 
   djangoProcess.on('close', (code) => {
     console.log(`Django server exited with code ${code}`);
+    if (code !== 0 && code !== null && mainWindow) {
+      mainWindow.webContents.executeJavaScript(`
+            document.body.innerHTML = '<div style="font-family: Arial; padding: 50px; text-align: center; color: #dc3545;"><h2>Backend Process Exited Unexpectely</h2><p>The internal server closed with code ${code}.</p><p>Please check the logs in your AppData/Mahali folder and restart the application.</p></div>';
+        `);
+    }
   });
 }
 
@@ -778,26 +828,65 @@ ipcMain.handle('restore-backup', async (event, backupPath) => {
 
       // Execute the backup/restore tool with restore command
       const command = `"${backupExePath}" restore "${backupPath}"`;
-      const restoreProcess = exec(command, (error, stdout, stderr) => {
-        if (error) {
-          console.error('Restore process error:', error);
-          return { success: false, message: `Restore failed: ${error.message}` };
-        }
 
-        if (stderr) {
-          console.error('Restore stderr:', stderr);
-        }
-
-        console.log('Restore stdout:', stdout);
-        return { success: true, message: 'Backup restored successfully' };
+      return new Promise((resolve) => {
+        exec(command, (error, stdout, stderr) => {
+          if (error) {
+            console.error('Restore process error:', error);
+            resolve({ success: false, message: `Restore failed: ${error.message}` });
+            return;
+          }
+          if (stderr) console.error('Restore stderr:', stderr);
+          console.log('Restore stdout:', stdout);
+          resolve({ success: true, message: 'Backup restored successfully' });
+        });
       });
-
-      // For now, return success (in a real implementation, you'd wait for the process to complete)
-      return { success: true, message: 'Backup restore initiated successfully' };
     }
   } catch (error) {
     return { success: false, message: error.message };
   }
+});
+
+// Installation and Migration handlers
+ipcMain.handle('run-install-migrations', async () => {
+  try {
+    if (isDev) {
+      return { success: true, message: 'Simulated migrations in dev mode' };
+    }
+
+    return new Promise((resolve, reject) => {
+      const djangoExePath = path.join(process.resourcesPath, 'backend', 'django_server.exe');
+      const djangoDir = path.join(process.resourcesPath, 'backend');
+
+      const env = Object.assign({}, process.env, {
+        APPDATA: app.getPath('appData')
+      });
+
+      // Run the migrate command explicitly via the executable
+      exec(`"${djangoExePath}" migrate`, { cwd: djangoDir, env: env }, (error, stdout, stderr) => {
+        if (error) {
+          console.error('Migration error:', error);
+          if (stderr) console.error('Migration stderr:', stderr);
+          reject(new Error(`Migration failed: ${stderr || error.message}`));
+          return;
+        }
+        console.log('Migration stdout:', stdout);
+        resolve({ success: true, message: 'Migrations applied successfully' });
+      });
+    });
+  } catch (err) {
+    throw err;
+  }
+});
+
+ipcMain.handle('complete-installation', async () => {
+  if (installWindow) {
+    installWindow.close();
+  }
+  if (!mainWindow) {
+    createMainWindow();
+  }
+  return true;
 });
 
 // Function to check if this is the first run after installation

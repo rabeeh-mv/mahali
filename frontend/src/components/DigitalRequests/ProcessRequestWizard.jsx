@@ -553,7 +553,8 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                         const app = initializeApp(firebaseConfig, appName);
                         const db = getFirestore(app);
 
-                        await deleteDoc(doc(db, 'families', request.firebase_id));
+                        try { await deleteDoc(doc(db, 'families', request.firebase_id)); } catch (e) { }
+                        try { await deleteDoc(doc(db, 'portalRequests', request.firebase_id)); } catch (e) { }
                         console.log("Successfully deleted from Firebase.");
                     }
 

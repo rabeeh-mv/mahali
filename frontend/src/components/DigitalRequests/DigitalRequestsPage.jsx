@@ -57,16 +57,38 @@ const DigitalRequestsPage = () => {
             const app = initializeApp(firebaseConfig, appName);
             const db = getFirestore(app);
 
-            // Same query as the old component
-            const q = query(collection(db, 'families'), where("areaVerified", "==", true));
-            const querySnapshot = await getDocs(q);
             const items = [];
-            querySnapshot.forEach((doc) => {
-                items.push({ id: doc.id, ...doc.data() });
-            });
+
+            // 3a. Old Families
+            try {
+                const q = query(collection(db, 'families'), where("areaVerified", "==", true));
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach((doc) => {
+                    items.push({ id: doc.id, ...doc.data() });
+                });
+            } catch (err) {
+                console.error("Error fetching families", err);
+            }
+
+            // 3b. Portal Requests (House Transfers and Member Splits)
+            try {
+                const qPortal = query(collection(db, 'portalRequests'), where("status", "==", "pending"));
+                const querySnapshotP = await getDocs(qPortal);
+                querySnapshotP.forEach((doc) => {
+                    const data = doc.data();
+                    items.push({
+                        id: doc.id,
+                        type: data.type,
+                        requestStatus: data.status,
+                        ...data.data
+                    });
+                });
+            } catch (err) {
+                console.error("Error fetching portal requests", err);
+            }
 
             if (items.length === 0) {
-                alert("No verified requests found in Firebase.");
+                alert("No new verified requests found in Firebase.");
                 setLoading(false);
                 return;
             }
@@ -106,7 +128,8 @@ const DigitalRequestsPage = () => {
                         const app = initializeApp(firebaseConfig, appName);
                         const db = getFirestore(app);
 
-                        await deleteDoc(doc(db, 'families', request.firebase_id));
+                        try { await deleteDoc(doc(db, 'families', request.firebase_id)); } catch (e) { }
+                        try { await deleteDoc(doc(db, 'portalRequests', request.firebase_id)); } catch (e) { }
                         console.log("Deleted from Firebase:", request.firebase_id);
                     }
                 } catch (fbErr) {
@@ -133,7 +156,14 @@ const DigitalRequestsPage = () => {
     };
 
     const handleProcess = (request) => {
-        navigate(`/digital-requests/process/${request.request_id}`);
+        const type = request.data?.type;
+        if (type === 'house_transfer') {
+            navigate(`/digital-requests/process-transfer/${request.request_id}`);
+        } else if (type === 'member_split') {
+            navigate(`/digital-requests/process-split/${request.request_id}`);
+        } else {
+            navigate(`/digital-requests/process/${request.request_id}`);
+        }
     };
 
     if (loading) return <div className="loading">Loading requests...</div>;
@@ -163,13 +193,13 @@ const DigitalRequestsPage = () => {
                         {requests.map(req => {
                             const data = req.data || {};
                             // Adjust these fields based on actual Firebase data structure
-                            // Assuming: familyName, houseName, guardianName, members (array)
                             const memberCount = Array.isArray(data.members) ? data.members.length : 0;
+                            const typeStr = data.type === 'house_transfer' ? 'Transfer' : data.type === 'member_split' ? 'Split' : 'New';
 
                             return (
                                 <tr key={req.request_id}>
-                                    <td>{data.familyName || 'N/A'}</td>
-                                    <td>{data.houseName || 'N/A'}</td>
+                                    <td><strong style={{ color: '#059669' }}>{"[" + typeStr + "]"}</strong> {data.familyName || 'N/A'}</td>
+                                    <td>{data.houseName || data.oldHouseName || 'N/A'}</td>
                                     <td>{data.guardianName || 'N/A'}</td>
                                     <td>{memberCount}</td>
                                     <td>

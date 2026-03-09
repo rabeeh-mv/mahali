@@ -26,6 +26,8 @@ import MyActions from './MyActions'
 import Settings from './Settings'
 import DigitalRequestsPage from './DigitalRequests/DigitalRequestsPage'
 import ProcessRequestWizard from './DigitalRequests/ProcessRequestWizard'
+import ProcessTransferWizard from './DigitalRequests/ProcessTransferWizard'
+import ProcessSplitWizard from './DigitalRequests/ProcessSplitWizard'
 
 import '../App.css'
 
@@ -509,6 +511,8 @@ function AppWithRouter() {
 
                 <Route path="/digital-requests" element={<DigitalRequestsPage />} />
                 <Route path="/digital-requests/process/:id" element={<ProcessRequestWizard />} />
+                <Route path="/digital-requests/process-transfer/:id" element={<ProcessTransferWizard />} />
+                <Route path="/digital-requests/process-split/:id" element={<ProcessSplitWizard />} />
 
               </Routes>
             </AnimatedRoutesWrapper>

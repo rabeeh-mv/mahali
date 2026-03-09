@@ -14,8 +14,8 @@ router.register(r'settings', AppSettingsViewSet)
 router.register(r'dashboard', DashboardViewSet, basename='dashboard')
 router.register(r'digital-requests', DigitalRequestViewSet)
 
-from .views import RecentActionViewSet, GoogleDriveViewSet
-router.register(r'recent-actions', RecentActionViewSet)
+from .views import PendingSyncViewSet, GoogleDriveViewSet
+router.register(r'pending-syncs', PendingSyncViewSet, basename='pending-syncs')
 router.register(r'google-drive', GoogleDriveViewSet, basename='google-drive')
 
 

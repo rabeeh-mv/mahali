@@ -1,8 +1,60 @@
 import axios from 'axios';
 
+let backendPort = 8000;
+if (typeof window !== 'undefined' && window.require) {
+  try {
+    const { ipcRenderer } = window.require('electron');
+    const port = ipcRenderer.sendSync('get-backend-port-sync');
+    if (port) {
+      backendPort = port;
+    }
+  } catch (error) {
+    console.warn('Could not retrieve dynamic port from Electron:', error.message);
+  }
+}
+
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
+  baseURL: `http://127.0.0.1:${backendPort}/api`,
+  timeout: 30000,
 });
+
+// Global network error interceptor
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // If we have a network error or connection refused, and no response was ever received
+    if (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED' || !error.response) {
+      // Create a global notification banner exactly once
+      if (!document.getElementById('global-network-error-banner')) {
+        const errorBanner = document.createElement('div');
+        errorBanner.id = 'global-network-error-banner';
+        errorBanner.style.position = 'fixed';
+        errorBanner.style.bottom = '30px';
+        errorBanner.style.right = '30px';
+        errorBanner.style.backgroundColor = '#f8d7da';
+        errorBanner.style.color = '#842029';
+        errorBanner.style.border = '1px solid #f5c2c7';
+        errorBanner.style.padding = '16px 20px';
+        errorBanner.style.borderRadius = '8px';
+        errorBanner.style.boxShadow = '0 10px 15px rgba(0,0,0,0.1)';
+        errorBanner.style.zIndex = '999999';
+        errorBanner.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+        errorBanner.style.maxWidth = '400px';
+        errorBanner.innerHTML = `
+          <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+            <div>
+              <strong style="display: block; margin-bottom: 5px; font-size: 16px;">Backend Connection Lost</strong>
+              <span style="font-size: 14px;">The application has lost connection to the internal server. Network requests will fail until the application is restarted.</span>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: #842029; cursor: pointer; font-size: 24px; line-height: 1; padding: 0 0 0 15px;">&times;</button>
+          </div>
+        `;
+        document.body.appendChild(errorBanner);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const memberAPI = {
   getAll: (params) => api.get('/members/', { params }),
@@ -109,9 +161,9 @@ export const settingsAPI = {
   delete: (id) => api.delete(`/settings/${id}/`),
 };
 
-export const recentActionsAPI = {
-  getAll: (params) => api.get('/recent-actions/', { params }),
-  update: (id, data) => api.patch(`/recent-actions/${id}/`, data),
+export const pendingSyncsAPI = {
+  getAll: (params) => api.get('/pending-syncs/', { params }),
+  update: (id, data) => api.patch(`/pending-syncs/${id}/`, data),
 };
 
 export const digitalRequestAPI = {

@@ -1014,18 +1014,53 @@ class DashboardViewSet(viewsets.ViewSet):
         
         return Response(stats)
 
-from .models import RecentAction
-from .serializers import RecentActionSerializer
-
-class RecentActionViewSet(viewsets.ModelViewSet):
+class PendingSyncViewSet(viewsets.ViewSet):
     """
-    Viewset for recent actions. Allows updating status.
+    Viewset returning pending Houses and Members combined.
     """
+    def list(self, request):
+        houses = House.objects.filter(sync_pending=True)
+        members = Member.objects.filter(sync_pending=True)
+        
+        results = []
+        for h in houses:
+            results.append({
+                'id': f"house_{h.home_id}",
+                'model_name': 'House',
+                'object_id': h.home_id,
+                'description': f"House pending sync: {h.house_name} ({h.family_name})",
+                'is_sync_pending': True,
+                'action_type': 'UPDATE',
+                'timestamp': h.updated_at.isoformat(),
+            })
+            
+        for m in members:
+            results.append({
+                'id': f"member_{m.member_id}",
+                'model_name': 'Member',
+                'object_id': m.member_id,
+                'description': f"Member pending sync: {m.name} {m.surname}",
+                'is_sync_pending': True,
+                'action_type': 'UPDATE',
+                'timestamp': m.updated_at.isoformat(),
+            })
+            
+        results.sort(key=lambda x: x['timestamp'], reverse=True)
+        return Response(results)
 
-    queryset = RecentAction.objects.all()
-    serializer_class = RecentActionSerializer
-    ordering_fields = ['timestamp']
-    filterset_fields = ['model_name', 'action_type', 'is_sync_pending']
+    def partial_update(self, request, pk=None):
+        """
+        Marks item as not pending sync.
+        pk is like 'house_1001' or 'member_1001'.
+        """
+        if pk and pk.startswith('house_'):
+            home_id = pk.replace('house_', '')
+            House.objects.filter(home_id=home_id).update(sync_pending=False)
+        elif pk and pk.startswith('member_'):
+            member_id = pk.replace('member_', '')
+            Member.objects.filter(member_id=member_id).update(sync_pending=False)
+            
+        return Response({'status': 'success'})
 
 class GoogleDriveViewSet(viewsets.ViewSet):
     """

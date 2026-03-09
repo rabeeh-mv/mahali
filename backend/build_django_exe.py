@@ -46,8 +46,12 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mahall_backend.settings')
 django.setup()
 
 if __name__ == '__main__':
-    # Run the development server
-    execute_from_command_line(['manage.py', 'runserver', '127.0.0.1:8000', '--noreload'])
+    # Pass arguments from command line
+    args = ['manage.py'] + sys.argv[1:]
+    if len(args) == 1:
+        # Default fallback if no args provided
+        args = ['manage.py', 'runserver', '127.0.0.1:8000', '--noreload']
+    execute_from_command_line(args)
 ''')
     
     # Create backup/restore script

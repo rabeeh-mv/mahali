@@ -29,6 +29,8 @@ class House(models.Model):
     locality = models.CharField(max_length=100, blank=True)  # Specific Area/Locality name (e.g. Ramanatukara)
     area = models.ForeignKey(Area, on_delete=models.CASCADE, related_name='houses', db_index=True)  # Indexed
     address = models.TextField()
+    
+    sync_pending = models.BooleanField(default=True, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -96,6 +98,8 @@ class Member(models.Model):
     phone = models.CharField(max_length=15, null=True, blank=True)
     whatsapp = models.CharField(max_length=15, null=True, blank=True)
     isGuardian = models.BooleanField(default=False)
+    
+    sync_pending = models.BooleanField(default=True, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -297,29 +301,6 @@ class DigitalRequest(models.Model):
         return f"Request {self.firebase_id} ({self.status})"
 
 
-class RecentAction(models.Model):
-    ACTION_TYPES = [
-        ('CREATE', 'Created'),
-        ('UPDATE', 'Updated'),
-        ('DELETE', 'Deleted'),
-    ]
-
-    model_name = models.CharField(max_length=50)  # 'House', 'Member', 'Obligation'
-    object_id = models.CharField(max_length=50)
-    action_type = models.CharField(max_length=10, choices=ACTION_TYPES)
-    description = models.TextField()  # Human readable
-    fields_changed = models.JSONField(default=dict)  # {"field": {"old": "val", "new": "val"}}
-    
-    # For sync status
-    is_sync_pending = models.BooleanField(default=True)
-    
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-timestamp']
-
-    def __str__(self):
-        return f"{self.action_type} {self.model_name} ({self.object_id})"
 
 
 # --- Signals for File Cleanup ---

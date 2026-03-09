@@ -194,12 +194,3 @@ class DigitalRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = DigitalRequest
         fields = '__all__'
-
-
-from .models import RecentAction
-
-class RecentActionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RecentAction
-        fields = '__all__'
-
