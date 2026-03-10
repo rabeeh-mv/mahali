@@ -245,6 +245,7 @@ class Todo(models.Model):
     
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    category = models.CharField(max_length=100, blank=True, null=True, default='General')
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
     completed = models.BooleanField(default=False)
     due_date = models.DateField(null=True, blank=True)

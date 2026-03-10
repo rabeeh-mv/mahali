@@ -14,6 +14,13 @@ const ProcessSplitWizard = () => {
     const [error, setError] = useState(null);
     const [areas, setAreas] = useState([]);
     const [selectedAreaId, setSelectedAreaId] = useState('');
+    const [selectedGuardianId, setSelectedGuardianId] = useState('');
+    const [guardianData, setGuardianData] = useState({
+        aadhaar: '',
+        phone: '',
+        whatsapp: '',
+        dob: ''
+    });
 
     useEffect(() => {
         if (id) {
@@ -39,6 +46,23 @@ const ProcessSplitWizard = () => {
                 if (match) setSelectedAreaId(match.id);
             }
 
+            // Auto-fill Guardian Details if provided from the front-facing app
+            if (reqData.data?.guardianData) {
+                const gd = reqData.data.guardianData;
+                setGuardianData({
+                    aadhaar: gd.aadhaar || '',
+                    phone: gd.phone || '',
+                    whatsapp: gd.whatsapp || '',
+                    dob: gd.dob || ''
+                });
+                if (gd.name && reqData.data.members) {
+                    const matchMember = reqData.data.members.find(m => m.name === gd.name);
+                    if (matchMember && matchMember.member_id) {
+                        setSelectedGuardianId(String(matchMember.member_id));
+                    }
+                }
+            }
+
             setLoading(false);
         } catch (err) {
             console.error("Failed to load split request", err);
@@ -62,6 +86,16 @@ const ProcessSplitWizard = () => {
                     setProcessing(false);
                     return;
                 }
+                if (!selectedGuardianId) {
+                    alert("Please select a Guardian for the new House.");
+                    setProcessing(false);
+                    return;
+                }
+                if (!guardianData.aadhaar || !guardianData.phone || !guardianData.whatsapp || !guardianData.dob) {
+                    alert("Please fill in all required Guardian fields (Aadhaar, Phone, WhatsApp, Date of Birth).");
+                    setProcessing(false);
+                    return;
+                }
                 const newHouseData = {
                     house_name: data.houseName,
                     family_name: data.familyName,
@@ -79,8 +113,22 @@ const ProcessSplitWizard = () => {
             for (let member of membersList) {
                 if (member.member_id) {
                     try {
+                        let updatePayload = { house: targetHouseId };
+                        if (!data.movingHouseId && selectedGuardianId && String(member.member_id) === String(selectedGuardianId)) {
+                            updatePayload = {
+                                ...updatePayload,
+                                isGuardian: true,
+                                adhar: guardianData.aadhaar,
+                                phone: guardianData.phone,
+                                whatsapp: guardianData.whatsapp,
+                                date_of_birth: guardianData.dob
+                            };
+                        } else if (!data.movingHouseId) {
+                            updatePayload.isGuardian = false;
+                        }
+
                         // Attempt to update directly using ID from Firebase payload (which might be outdated)
-                        await memberAPI.partialUpdate(member.member_id, { house: targetHouseId });
+                        await memberAPI.partialUpdate(member.member_id, updatePayload);
                     } catch (mErr) {
                         // If it fails (e.g. 404 Not Found due to stale member_id), use fallback lookup by Name
                         console.warn(`Id ${member.member_id} failed for ${member.name}. Attempting to lookup by name...`);
@@ -102,7 +150,22 @@ const ProcessSplitWizard = () => {
                                 // Just pick the first closest match
                                 const realId = potentialMatches[0].member_id;
                                 console.log(`Found real ID for ${member.name}: ${realId}. Re-attempting transfer.`);
-                                await memberAPI.partialUpdate(realId, { house: targetHouseId });
+
+                                let updatePayload = { house: targetHouseId };
+                                if (!data.movingHouseId && selectedGuardianId && String(member.member_id) === String(selectedGuardianId)) {
+                                    updatePayload = {
+                                        ...updatePayload,
+                                        isGuardian: true,
+                                        adhar: guardianData.aadhaar,
+                                        phone: guardianData.phone,
+                                        whatsapp: guardianData.whatsapp,
+                                        date_of_birth: guardianData.dob
+                                    };
+                                } else if (!data.movingHouseId) {
+                                    updatePayload.isGuardian = false;
+                                }
+
+                                await memberAPI.partialUpdate(realId, updatePayload);
                             } else {
                                 throw new Error("Member strictly not found by name.");
                             }
@@ -207,6 +270,69 @@ const ProcessSplitWizard = () => {
                                         {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                                     </select>
                                 </div>
+                                <div style={{ marginTop: '10px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Guardian (Required) <span style={{ color: 'red' }}>*</span></label>
+                                    <select
+                                        style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                                        value={selectedGuardianId}
+                                        onChange={(e) => setSelectedGuardianId(e.target.value)}
+                                        required
+                                    >
+                                        <option value="">-- Select Guardian --</option>
+                                        {membersList.map(m => <option key={m.member_id} value={m.member_id}>{m.name}</option>)}
+                                    </select>
+                                </div>
+                                {selectedGuardianId && (
+                                    <div style={{ marginTop: '15px', padding: '15px', border: '1px solid #e2e8f0', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
+                                        <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#333' }}>Guardian Details</h4>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '15px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Aadhaar (Last 4 Digits) <span style={{ color: 'red' }}>*</span></label>
+                                                <input
+                                                    type="text"
+                                                    maxLength="4"
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                                                    value={guardianData.aadhaar}
+                                                    onChange={(e) => setGuardianData({ ...guardianData, aadhaar: e.target.value })}
+                                                    placeholder="e.g. 1234"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Phone Number <span style={{ color: 'red' }}>*</span></label>
+                                                <input
+                                                    type="tel"
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                                                    value={guardianData.phone}
+                                                    onChange={(e) => setGuardianData({ ...guardianData, phone: e.target.value })}
+                                                    placeholder="Phone Number"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>WhatsApp Number <span style={{ color: 'red' }}>*</span></label>
+                                                <input
+                                                    type="tel"
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                                                    value={guardianData.whatsapp}
+                                                    onChange={(e) => setGuardianData({ ...guardianData, whatsapp: e.target.value })}
+                                                    placeholder="WhatsApp Number"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Date of Birth <span style={{ color: 'red' }}>*</span></label>
+                                                <input
+                                                    type="date"
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                                                    value={guardianData.dob}
+                                                    onChange={(e) => setGuardianData({ ...guardianData, dob: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
