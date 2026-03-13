@@ -161,6 +161,8 @@ const DigitalRequestsPage = () => {
             navigate(`/digital-requests/process-transfer/${request.request_id}`);
         } else if (type === 'member_split') {
             navigate(`/digital-requests/process-split/${request.request_id}`);
+        } else if (type === 'parent_connection') {
+            navigate(`/digital-requests/process-connection/${request.request_id}`);
         } else {
             navigate(`/digital-requests/process/${request.request_id}`);
         }
@@ -194,11 +196,11 @@ const DigitalRequestsPage = () => {
                             const data = req.data || {};
                             // Adjust these fields based on actual Firebase data structure
                             const memberCount = Array.isArray(data.members) ? data.members.length : 0;
-                            const typeStr = data.type === 'house_transfer' ? 'Transfer' : data.type === 'member_split' ? 'Split' : 'New';
+                            const typeStr = data.type === 'house_transfer' ? 'Transfer' : data.type === 'member_split' ? 'Split' : data.type === 'parent_connection' ? 'Connect' : 'New';
 
                             return (
                                 <tr key={req.request_id}>
-                                    <td><strong style={{ color: '#059669' }}>{"[" + typeStr + "]"}</strong> {data.familyName || 'N/A'}</td>
+                                    <td><strong style={{ color: '#059669' }}>{"[" + typeStr + "]"}</strong> {data.familyName || data.requesterMemberName || 'N/A'}</td>
                                     <td>{data.houseName || data.oldHouseName || 'N/A'}</td>
                                     <td>{data.guardianName || 'N/A'}</td>
                                     <td>{memberCount}</td>

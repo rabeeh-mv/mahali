@@ -275,6 +275,14 @@ class AppSettings(models.Model):
     google_drive_refresh_token = models.TextField(blank=True, null=True)
     google_drive_folder_id = models.CharField(max_length=100, blank=True, null=True)
     last_backup_at = models.DateTimeField(null=True, blank=True)
+    
+    # Validation Rules
+    rule_one_guardian_per_house = models.BooleanField(default=True, help_text="All houses must have exactly one Guardian.")
+    rule_no_duplicate_obligations = models.BooleanField(default=True, help_text="Do not allow a member in the same obligation twice.")
+    rule_guardian_requires_details = models.BooleanField(default=True, help_text="Guardian data requires mobile number, aadhaar number, date of birth.")
+    rule_track_duplicate_members = models.BooleanField(default=True, help_text="Track duplicate members using date of birth and mobile number.")
+    rule_house_must_have_members = models.BooleanField(default=True, help_text="A house cannot be without any members.")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

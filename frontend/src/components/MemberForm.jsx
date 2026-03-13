@@ -4,6 +4,7 @@ import { FaUser, FaArrowLeft, FaSave, FaTimes, FaSearch, FaUpload, FaTrash } fro
 import { memberAPI, houseAPI } from '../api';
 import { compressImage } from '../utils/imageUtils';
 import MemberSearchPanel from './MemberSearchPanel';
+import ErrorPopup from './ErrorPopup';
 import './MemberForm.css';
 
 const MemberForm = () => {
@@ -723,7 +724,7 @@ const MemberForm = () => {
                     )}
                 </div>
 
-                {error && <div className="status-banner error">{error}</div>}
+                <ErrorPopup message={error} onClose={() => setError(null)} />
 
                 <div className="form-actions">
                     <button type="button" className="btn-secondary" onClick={() => navigate('/members')} disabled={loading}>

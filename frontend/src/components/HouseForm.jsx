@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaHome, FaArrowLeft, FaSave, FaTimes } from 'react-icons/fa';
 import { houseAPI, areaAPI } from '../api';
+import ErrorPopup from './ErrorPopup';
 
 const HouseForm = () => {
     const [formData, setFormData] = useState({
@@ -224,11 +225,7 @@ const HouseForm = () => {
                     </div>
                 </div>
 
-                {error && (
-                    <div className="status-banner error">
-                        {error}
-                    </div>
-                )}
+                <ErrorPopup message={error} onClose={() => setError(null)} />
 
                 <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                     <button

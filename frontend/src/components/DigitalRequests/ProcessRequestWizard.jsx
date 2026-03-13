@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { digitalRequestAPI, houseAPI, memberAPI, areaAPI, todoAPI } from '../../api';
 import './DigitalRequests.css';
 import { FaAddressCard, FaHome, FaUsers, FaArrowRight, FaArrowLeft, FaCheck, FaExclamationTriangle, FaMale, FaFemale, FaHeart, FaLink, FaSearch, FaChevronDown, FaChevronUp } from 'react-icons/fa';
-
-
+import ErrorPopup from '../ErrorPopup';
 
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -16,6 +15,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [apiError, setApiError] = useState(null);
 
     // Unlinked Members Modal State
     const [showUnlinkedModal, setShowUnlinkedModal] = useState(false);
@@ -591,9 +591,9 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                 } else {
                     errorMsg += JSON.stringify(errorData);
                 }
-                alert(errorMsg);
+                setApiError(errorMsg);
             } else {
-                alert("Error processing request: " + err.message);
+                setApiError("Error processing request: " + err.message);
             }
         } finally {
             setLoading(false);
@@ -1319,6 +1319,8 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     </div>
                 </div>
             )}
+
+            <ErrorPopup message={apiError} onClose={() => setApiError(null)} />
         </div>
     );
 };

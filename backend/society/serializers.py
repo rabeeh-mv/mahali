@@ -128,6 +128,58 @@ class MemberSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('member_id',)
 
+    def validate(self, data):
+        settings = AppSettings.objects.first()
+        is_guardian = data.get('isGuardian', False)
+        
+        if self.instance:
+            is_guardian = data.get('isGuardian', self.instance.isGuardian)
+            
+        if settings:
+            # Rule 1: One Guardian per house
+            if settings.rule_one_guardian_per_house and is_guardian:
+                house = data.get('house')
+                if self.instance and 'house' not in data:
+                    house = self.instance.house
+                if house:
+                    existing_guardians = Member.objects.filter(house=house, isGuardian=True)
+                    if self.instance:
+                        existing_guardians = existing_guardians.exclude(pk=self.instance.pk)
+                    if existing_guardians.exists():
+                        raise serializers.ValidationError({"isGuardian": "This house already has a guardian. Only one guardian is allowed per house."})
+            
+            # Rule 3: Guardian needs aadhar, phone, dob
+            if settings.rule_guardian_requires_details and is_guardian:
+                adhar = data.get('adhar')
+                phone = data.get('phone')
+                dob = data.get('date_of_birth')
+                
+                if self.instance:
+                    adhar = adhar if 'adhar' in data else self.instance.adhar
+                    phone = phone if 'phone' in data else self.instance.phone
+                    dob = dob if 'date_of_birth' in data else self.instance.date_of_birth
+                
+                if not adhar or not phone or not dob:
+                    raise serializers.ValidationError("Guardian must have Aadhaar, Phone number, and Date of Birth.")
+
+            # Rule 4: Track duplicate members using dob and phone
+            if settings.rule_track_duplicate_members:
+                phone = data.get('phone')
+                dob = data.get('date_of_birth')
+                
+                if self.instance:
+                    phone = phone if 'phone' in data else self.instance.phone
+                    dob = dob if 'date_of_birth' in data else self.instance.date_of_birth
+                
+                if phone and dob:
+                    duplicates = Member.objects.filter(phone=phone, date_of_birth=dob)
+                    if self.instance:
+                        duplicates = duplicates.exclude(pk=self.instance.pk)
+                    if duplicates.exists():
+                        raise serializers.ValidationError("A member with this Date of Birth and Phone number already exists.")
+
+        return super().validate(data)
+
 
 class MemberDetailSerializer(serializers.ModelSerializer):
     """Serializer that includes full house details for member listing"""
@@ -164,6 +216,26 @@ class MemberObligationSerializer(serializers.ModelSerializer):
     class Meta:
         model = MemberObligation
         fields = '__all__'
+
+    def validate(self, data):
+        settings = AppSettings.objects.first()
+        if settings and settings.rule_no_duplicate_obligations:
+            subcollection = data.get('subcollection')
+            member = data.get('member')
+            
+            if self.instance:
+                subcollection = subcollection if 'subcollection' in data else self.instance.subcollection
+                member = member if 'member' in data else self.instance.member
+                
+            if subcollection and member:
+                duplicates = MemberObligation.objects.filter(subcollection=subcollection, member=member)
+                if self.instance:
+                    duplicates = duplicates.exclude(pk=self.instance.pk)
+                
+                if duplicates.exists():
+                    raise serializers.ValidationError("This member is already assigned to this obligation.")
+                    
+        return super().validate(data)
 
 
 class MemberObligationDetailSerializer(serializers.ModelSerializer):

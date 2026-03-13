@@ -12,7 +12,8 @@ import {
   FaFileExport,
   FaFileImport,
   FaKey,
-  FaSave
+  FaSave,
+  FaCheckSquare
 } from 'react-icons/fa';
 import './Settings.css';
 
@@ -31,6 +32,15 @@ const Settings = ({ exportData, importData, exportProgress, importProgress, disa
   // Network State
   const [firebaseConfig, setFirebaseConfig] = useState('');
   const [firebaseEnabled, setFirebaseEnabled] = useState(true);
+
+  // Rules State
+  const [rules, setRules] = useState({
+    rule_one_guardian_per_house: true,
+    rule_no_duplicate_obligations: true,
+    rule_guardian_requires_details: true,
+    rule_track_duplicate_members: true,
+    rule_house_must_have_members: true
+  });
 
   // Google Drive State
   const [googleDriveEnabled, setGoogleDriveEnabled] = useState(false);
@@ -60,6 +70,13 @@ const Settings = ({ exportData, importData, exportProgress, importProgress, disa
         setGoogleDriveEnabled(settings.google_drive_enabled || false);
         setGoogleDriveClientId(settings.google_drive_client_id || '');
         setGoogleDriveClientSecret(settings.google_drive_client_secret || '');
+        setRules({
+          rule_one_guardian_per_house: settings.rule_one_guardian_per_house !== undefined ? settings.rule_one_guardian_per_house : true,
+          rule_no_duplicate_obligations: settings.rule_no_duplicate_obligations !== undefined ? settings.rule_no_duplicate_obligations : true,
+          rule_guardian_requires_details: settings.rule_guardian_requires_details !== undefined ? settings.rule_guardian_requires_details : true,
+          rule_track_duplicate_members: settings.rule_track_duplicate_members !== undefined ? settings.rule_track_duplicate_members : true,
+          rule_house_must_have_members: settings.rule_house_must_have_members !== undefined ? settings.rule_house_must_have_members : true,
+        });
       } else {
         // Create defaults if none exist
         const response = await settingsAPI.create({ theme: 'light' });
@@ -166,6 +183,7 @@ const Settings = ({ exportData, importData, exportProgress, importProgress, disa
 
       const payload = {
         ...appSettings,
+        ...rules,
         theme,
         firebase_config: firebaseConfig,
         firebase_enabled: firebaseEnabled,
@@ -528,6 +546,84 @@ const Settings = ({ exportData, importData, exportProgress, importProgress, disa
     </div>
   );
 
+  const handleRuleToggle = (ruleKey) => {
+    setRules(prev => ({ ...prev, [ruleKey]: !prev[ruleKey] }));
+  };
+
+  const renderRulesSettings = () => (
+    <div className="settings-content animate-in">
+      <div className="settings-card">
+        <div className="settings-header">
+          <h3>Validation Rules System</h3>
+          <p>Enable or disable core system validation rules.</p>
+        </div>
+
+        <div className="settings-list">
+          <div className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+            <div>
+              <strong>One Guardian Per House</strong>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>All houses must have exactly one Guardian. Two guardians are not allowed.</div>
+            </div>
+            <label className="switch">
+              <input type="checkbox" checked={rules.rule_one_guardian_per_house} onChange={() => handleRuleToggle('rule_one_guardian_per_house')} />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          <div className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+            <div>
+              <strong>Prevent Duplicate Obligations</strong>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Do not allow a member to be assigned to the same obligation twice.</div>
+            </div>
+            <label className="switch">
+              <input type="checkbox" checked={rules.rule_no_duplicate_obligations} onChange={() => handleRuleToggle('rule_no_duplicate_obligations')} />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          <div className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+            <div>
+              <strong>Strict Guardian Details</strong>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Guardian data requires mobile number, aadhaar number, and date of birth.</div>
+            </div>
+            <label className="switch">
+              <input type="checkbox" checked={rules.rule_guardian_requires_details} onChange={() => handleRuleToggle('rule_guardian_requires_details')} />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          <div className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+            <div>
+              <strong>Track Duplicate Members</strong>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Track duplicate members using date of birth and mobile number.</div>
+            </div>
+            <label className="switch">
+              <input type="checkbox" checked={rules.rule_track_duplicate_members} onChange={() => handleRuleToggle('rule_track_duplicate_members')} />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          <div className="settings-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+            <div>
+              <strong>House Must Have Members</strong>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>A house cannot be saved without any members.</div>
+            </div>
+            <label className="switch">
+              <input type="checkbox" checked={rules.rule_house_must_have_members} onChange={() => handleRuleToggle('rule_house_must_have_members')} />
+              <span className="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'right', marginTop: '20px' }}>
+          <button className="btn-save" onClick={saveSettings} disabled={loading}>
+            <FaSave /> {loading ? 'Saving...' : 'Save Rules'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="settings-container">
       {/* Sidebar */}
@@ -552,6 +648,12 @@ const Settings = ({ exportData, importData, exportProgress, importProgress, disa
           >
             <FaNetworkWired /> Network Integration
           </button>
+          <button
+            className={`nav-item ${activeTab === 'rules' ? 'active' : ''}`}
+            onClick={() => setActiveTab('rules')}
+          >
+            <FaCheckSquare /> Rules System
+          </button>
         </nav>
 
         {/* Global Message Banner if active */}
@@ -568,6 +670,7 @@ const Settings = ({ exportData, importData, exportProgress, importProgress, disa
         {activeTab === 'visual' && renderVisualSettings()}
         {activeTab === 'data' && renderDataSettings()}
         {activeTab === 'network' && renderNetworkSettings()}
+        {activeTab === 'rules' && renderRulesSettings()}
       </main>
     </div>
   );

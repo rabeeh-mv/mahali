@@ -28,6 +28,7 @@ import DigitalRequestsPage from './DigitalRequests/DigitalRequestsPage'
 import ProcessRequestWizard from './DigitalRequests/ProcessRequestWizard'
 import ProcessTransferWizard from './DigitalRequests/ProcessTransferWizard'
 import ProcessSplitWizard from './DigitalRequests/ProcessSplitWizard'
+import ProcessParentConnectionWizard from './DigitalRequests/ProcessParentConnectionWizard'
 
 import '../App.css'
 
@@ -513,6 +514,7 @@ function AppWithRouter() {
                 <Route path="/digital-requests/process/:id" element={<ProcessRequestWizard />} />
                 <Route path="/digital-requests/process-transfer/:id" element={<ProcessTransferWizard />} />
                 <Route path="/digital-requests/process-split/:id" element={<ProcessSplitWizard />} />
+                <Route path="/digital-requests/process-connection/:id" element={<ProcessParentConnectionWizard />} />
 
               </Routes>
             </AnimatedRoutesWrapper>
