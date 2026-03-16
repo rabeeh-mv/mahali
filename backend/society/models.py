@@ -9,8 +9,12 @@ from django.db.models.signals import post_delete, pre_save
 
 class Area(models.Model):
     id = models.AutoField(primary_key=True)  # Starts from 1 by default
+    firebase_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)
     name = models.CharField(max_length=100, unique=True, db_index=True)  # Indexed for fast lookups
     description = models.TextField(blank=True)
+    head_person = models.CharField(max_length=100, blank=True, null=True)
+    password = models.CharField(max_length=100, blank=True, null=True)
+    sync_pending = models.BooleanField(default=True, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -23,6 +27,7 @@ class Area(models.Model):
 class House(models.Model):
     home_id = models.CharField(max_length=50, unique=True, db_index=True)  # Custom sequential ID, indexed
     firebase_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)  # Link to Firestore document
+    old_mahall_code = models.CharField(max_length=50, blank=True, null=True)  # Added old mahall code
     house_name = models.CharField(max_length=100)
     family_name = models.CharField(max_length=100)
     location_name = models.CharField(max_length=100)

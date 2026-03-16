@@ -1,10 +1,12 @@
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
-from .models import House, Member, MemberObligation
+from .models import House, Member, MemberObligation, Area
+from .firebase_service import sync_area_to_firebase
 
 @receiver(pre_save, sender=House)
 @receiver(pre_save, sender=Member)
 @receiver(pre_save, sender=MemberObligation)
+@receiver(pre_save, sender=Area)
 def set_sync_pending_on_save(sender, instance, **kwargs):
     """
     Whenever a Member, House, or MemberObligation is modified,

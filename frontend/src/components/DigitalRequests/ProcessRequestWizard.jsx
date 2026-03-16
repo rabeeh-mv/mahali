@@ -104,22 +104,18 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
         }
 
         setMembersData(membersList.map((m, i) => {
-            const normRel = (m.relationToGuardian || m.relation || 'member').toLowerCase();
             const isGuardian = m.isGuardian || false;
+            const normRel = (m.relationToGuardian || m.relation || 'member').toLowerCase().trim().replace(/[-]/g, ' ');
 
             // Auto-infer gender logic
             let inferredGender = m.gender || '';
             if (!inferredGender) {
                 if (isGuardian) inferredGender = 'male';
-                else if (['wife', 'mother', 'daughter', 'sister', 'grandmother', 'aunt', 'niece'].includes(normRel)) inferredGender = 'female';
-                else if (['husband', 'father', 'son', 'brother', 'grandfather', 'uncle', 'nephew'].includes(normRel)) inferredGender = 'male';
-                else if (normRel === 'partner') inferredGender = 'female'; // Assuming 'wife/partner' context from request
-                else if (normRel === 'child') inferredGender = 'male'; // Per user request: "if Guardian's child set that auto male"
-                else if (normRel === 'spouse') inferredGender = 'female'; // Default spouse to female (wife) if ambiguous, or check head?
+                else if (['wife', 'mother', 'daughter', 'sister', 'grandmother', 'aunt', 'niece', 'daughter in law', 'daughter-in-law'].includes(normRel)) inferredGender = 'female';
+                else if (['husband', 'father', 'son', 'brother', 'grandfather', 'uncle', 'nephew', 'son in law', 'son-in-law'].includes(normRel)) inferredGender = 'male';
+                else if (normRel.includes('wife') || normRel.includes('partner') || normRel.includes('spouse')) inferredGender = 'female';
+                else if (normRel === 'child') inferredGender = 'male'; 
             }
-
-            // Per specific user request "if Guardian's wife/patner set member female"
-            // This is covered by 'wife'/'partner' check above.
 
             return {
                 ...m,
@@ -189,12 +185,24 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
         try {
             const res = await areaAPI.getAll();
             setAreas(res.data);
-            if (request?.data?.locality) {
-                const match = res.data.find(a => a.name.toLowerCase() === request.data.locality.toLowerCase());
-                if (match) setHouseData(prev => ({ ...prev, area: match.id }));
-            }
         } catch (err) { console.error(err); }
     };
+
+    // Auto-select Area when data is loaded
+    useEffect(() => {
+        if (areas.length > 0 && request?.data) {
+            const firebaseLocality = request.data.locality || request.data.area;
+            if (firebaseLocality && !houseData.area) {
+                const match = areas.find(a => 
+                    a.name.toLowerCase() === firebaseLocality.toLowerCase()
+                );
+                if (match) {
+                    console.log("[Auto-Select] Matched Area:", match.name, "ID:", match.id);
+                    setHouseData(prev => ({ ...prev, area: match.id }));
+                }
+            }
+        }
+    }, [areas, request]);
 
     // --- STAGE 1: HOUSE LOGIC ---
     useEffect(() => {
@@ -249,7 +257,6 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
         updated[index] = { ...updated[index], [field]: value };
         // Normalize specific aliases for UI consistency
         if (field === 'dob') updated[index].date_of_birth = value;
-        if (field === 'phone') updated[index].mobile_number = value;
 
         setMembersData(updated);
     };
@@ -413,6 +420,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
             // 2. Members
             const createdMembers = []; // store { index, id, name } for later use
 
+            try {
             for (let i = 0; i < membersData.length; i++) {
                 const m = membersData[i];
                 // Rel map might have external IDs
@@ -431,7 +439,7 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                     date_of_birth: m.dob || m.dateOfBirth || m.date_of_birth || new Date().toISOString().split('T')[0],
                     gender: (m.gender || 'male').toLowerCase(), // Normalize
                     isGuardian: !!m.isGuardian,
-                    mobile_number: m.phone || m.mobile || m.mobileNumber || m.mobile_number || '',
+                    phone: m.phone || m.mobile || m.mobileNumber || m.mobile_number || '',
                     whatsapp: m.whatsapp || '',
                     adhar: m.adhar || m.aadhaar || '',
 
@@ -576,6 +584,21 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
 
             if (onComplete) onComplete();
             else navigate('/digital-requests');
+
+            } catch (memberErr) {
+                if (!selectedExistingHouse && finalizedHouseId) {
+                    console.error("Member processing failed. Rolling back house creation...", finalizedHouseId);
+                    try {
+                        await houseAPI.delete(finalizedHouseId);
+                        for (const cm of createdMembers) {
+                            if (cm.id) await memberAPI.delete(cm.id);
+                        }
+                    } catch (rbErr) {
+                        console.error("Rollback failed:", rbErr);
+                    }
+                }
+                throw memberErr;
+            }
 
         } catch (err) {
             console.error(err);
@@ -918,81 +941,114 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
 
                     console.log(`Auto - Connect: Detected FatherIdx = ${fatherIdx}, MotherIdx = ${motherIdx} `);
 
-                    // --- 2. Apply Links ---
+                    // --- 2. Apply Links (Direct Children of Head) ---
                     let linksCount = 0;
 
+                    // Helper for robust relation matching
+                    const isRel = (val, keywords) => {
+                        const r = norm(val);
+                        return keywords.some(k => r === k || r.includes(k));
+                    };
+
+                    const sonKeywords = ['son', 'male child'];
+                    const daughterKeywords = ['daughter', 'female child'];
+                    const dilKeywords = ['daughter-in-law', 'dil', 'sons wife', "son's wife", 'daughter in law', 'son wife', "child's spouse", 'child spouse'];
+                    const silKeywords = ['son-in-law', 'sil', 'daughters husband', "daughter's husband", 'son in law', 'daughter husband', "sibling's spouse", 'sibling spouse'];
+
                     membersData.forEach((m, idx) => {
-                        // Skip parents themselves for child-linking
                         if (idx === fatherIdx || idx === motherIdx) return;
+                        const rel = m.relationToGuardian;
 
-                        const rel = norm(m.relationToGuardian);
-
-                        // Link Children
-                        if (['son', 'daughter', 'child'].includes(rel)) {
-                            // Link Father
+                        // A. Link Children to Head/Spouse
+                        if (isRel(rel, [...sonKeywords, ...daughterKeywords, 'child'])) {
                             if (fatherIdx !== -1) {
-                                newMap[idx] = {
-                                    ...newMap[idx],
-                                    fatherId: `NEW_${fatherIdx}`,
-                                    fatherName: membersData[fatherIdx].name
-                                };
+                                newMap[idx] = { ...newMap[idx], fatherId: `NEW_${fatherIdx}`, fatherName: membersData[fatherIdx].name };
                                 linksCount++;
                             }
-                            // Link Mother
                             if (motherIdx !== -1) {
-                                newMap[idx] = {
-                                    ...newMap[idx],
-                                    motherId: `NEW_${motherIdx}`,
-                                    motherName: membersData[motherIdx].name
-                                };
+                                newMap[idx] = { ...newMap[idx], motherId: `NEW_${motherIdx}`, motherName: membersData[motherIdx].name };
                                 linksCount++;
-                            }
-                        }
-
-                        // Link Spouses (Reciprocal)
-                        // If we identified a couple (Father & Mother), link them to each other
-                        if (fatherIdx !== -1 && motherIdx !== -1) {
-                            if (idx === motherIdx) {
-                                newMap[idx] = {
-                                    ...newMap[idx],
-                                    spouseId: `NEW_${fatherIdx}`,
-                                    spouseName: membersData[fatherIdx].name
-                                };
                             }
                         }
                     });
 
-                    // Explicitly link the Father to the Mother separately to ensure bidirectional
+                    // --- 3. Link Secondary Families (Spouses of Children/Siblings) ---
+                    membersData.forEach((m, idx) => {
+                        const rel = m.relationToGuardian;
+                        const mNorm = norm(m.name);
+                        
+                        // A. Check for known in-law relations (DIL/SIL)
+                        if (isRel(rel, [...dilKeywords, ...silKeywords])) {
+                            const partnerName = norm(m.spouse_name || m.husbandName || m.wifeName || m.spouseName || m.married_to_name || m.husband_name || m.wife_name || m.relativeName || m.relative_name);
+                            if (partnerName) {
+                                let spouseIdx = membersData.findIndex((sm, sIdx) => {
+                                    if (sIdx === idx) return false;
+                                    const sName = norm(sm.name);
+                                    const isMaybeChild = isRel(sm.relationToGuardian, [...sonKeywords, ...daughterKeywords, 'child', 'sibling']);
+                                    return isMaybeChild && (sName.includes(partnerName) || partnerName.includes(sName));
+                                });
+                                
+                                if (spouseIdx !== -1) {
+                                    console.log(`Auto-Connect: Linking In-law ${m.name} to ${membersData[spouseIdx].name}`);
+                                    newMap[idx] = { ...newMap[idx], spouseId: `NEW_${spouseIdx}`, spouseName: membersData[spouseIdx].name };
+                                    newMap[spouseIdx] = { ...newMap[spouseIdx], spouseId: `NEW_${idx}`, spouseName: membersData[idx].name };
+                                    linksCount += 2;
+                                }
+                            }
+                        }
+                        
+                        // B. Check for "Other" relations that might be spouses of Children
+                        // If m is a "Child" and is married, try to find their "Other" spouse
+                        if (isRel(rel, ['child', 'son', 'daughter', 'sibling'])) {
+                            const recordedSpouseName = norm(m.spouseName || m.spouse_name || m.married_to_name || m.husbandName || m.wifeName);
+                            if (recordedSpouseName && !newMap[idx]?.spouseId) {
+                                // Find another member (usually "Other") who is married to this child
+                                let spouseIdx = membersData.findIndex((sm, sIdx) => {
+                                    if (sIdx === idx) return false;
+                                    const smName = norm(sm.name || sm.fullName);
+                                    const smRecordedSpouse = norm(sm.spouseName || sm.spouse_name || sm.married_to_name);
+                                    
+                                    // Match if their name is the child's spouse OR their spouse is the child
+                                    const nameMatch = smName.includes(recordedSpouseName) || recordedSpouseName.includes(smName);
+                                    const reciprocalMatch = smRecordedSpouse && (mNorm.includes(smRecordedSpouse) || smRecordedSpouse.includes(mNorm));
+                                    
+                                    // Usually the spouse is marked as "Other" or "Partner" or "Member"
+                                    const isMaybeSpouseRel = isRel(sm.relationToGuardian, ['other', 'member', 'partner', 'spouse']);
+                                    
+                                    return isMaybeSpouseRel && (nameMatch || reciprocalMatch);
+                                });
+                                
+                                if (spouseIdx !== -1) {
+                                    console.log(`Auto-Connect: Linking Child/Sibling ${m.name} to Spouse ${membersData[spouseIdx].name} (via name match)`);
+                                    newMap[idx] = { ...newMap[idx], spouseId: `NEW_${spouseIdx}`, spouseName: membersData[spouseIdx].name };
+                                    newMap[spouseIdx] = { ...newMap[spouseIdx], spouseId: `NEW_${idx}`, spouseName: membersData[idx].name };
+                                    linksCount += 2;
+                                }
+                            }
+                        }
+                    });
+
+                    // --- 4. Finalize ---
                     if (fatherIdx !== -1 && motherIdx !== -1) {
-                        newMap[fatherIdx] = {
-                            ...newMap[fatherIdx],
-                            spouseId: `NEW_${motherIdx}`,
-                            spouseName: membersData[motherIdx].name
-                        };
-                        newMap[motherIdx] = {
-                            ...newMap[motherIdx],
-                            spouseId: `NEW_${fatherIdx}`,
-                            spouseName: membersData[fatherIdx].name
-                        };
+                        newMap[fatherIdx] = { ...newMap[fatherIdx], spouseId: `NEW_${motherIdx}`, spouseName: membersData[motherIdx].name };
+                        newMap[motherIdx] = { ...newMap[motherIdx], spouseId: `NEW_${fatherIdx}`, spouseName: membersData[fatherIdx].name };
+                    }
 
-                        // --- AUTO-FILL MISSING DATA ---
-                        // If Father's spouse data is empty, fill it with Mother's data
-                        // We must update membersData directly for this to persist
-                        const newData = [...membersData];
-                        let madeChanges = false;
+                    // AUTO-FILL MISSING DATA in membersData
+                    const newData = [...membersData];
+                    let madeChanges = false;
 
+                    // A. Fill Head Couple
+                    if (fatherIdx !== -1 && motherIdx !== -1) {
                         const f = newData[fatherIdx];
                         const m = newData[motherIdx];
-
-                        // Fill Father's "Married To" fields if empty
                         if (!f.spouse_name && !f.spouseName && !f.married_to_name) {
                             f.spouse_name = m.name;
-                            f.spouseName = m.name; // Keep consistent keys
+                            f.spouseName = m.name;
                             f.married_to_name = m.name;
                             f.married_to_surname = m.surname;
                             madeChanges = true;
                         }
-                        // Fill Mother's "Married To" fields if empty
                         if (!m.spouse_name && !m.spouseName && !m.married_to_name) {
                             m.spouse_name = f.name;
                             m.spouseName = f.name;
@@ -1000,9 +1056,26 @@ const ProcessRequestWizard = ({ request: initialRequest, onBack, onComplete }) =
                             m.married_to_surname = f.surname;
                             madeChanges = true;
                         }
-
-                        if (madeChanges) setMembersData(newData);
                     }
+
+                    // B. Fill Secondary Spouses
+                    Object.entries(newMap).forEach(([idxStr, rels]) => {
+                        const idx = parseInt(idxStr);
+                        if (rels.spouseId && rels.spouseId.startsWith('NEW_')) {
+                            const sIdx = parseInt(rels.spouseId.split('_')[1]);
+                            const current = newData[idx];
+                            const spouse = newData[sIdx];
+                            if (current && spouse && !current.spouse_name && !current.spouseName && !current.married_to_name) {
+                                current.spouse_name = spouse.name;
+                                current.spouseName = spouse.name;
+                                current.married_to_name = spouse.name;
+                                current.married_to_surname = spouse.surname || '';
+                                madeChanges = true;
+                            }
+                        }
+                    });
+
+                    if (madeChanges) setMembersData(newData);
 
                     setRelationshipMap(newMap);
                     alert(`Auto - connected family members!(Linked ~${linksCount} relations based on '${membersData[headIdx]?.name || 'Unknown'}' as Head)`);

@@ -41,8 +41,9 @@ const ProcessSplitWizard = () => {
             setAreas(areaList);
 
             // Try to auto-select Area if it matches Locality
-            if (reqData.data?.areaLocality) {
-                const match = areaList.find(a => a.name.toLowerCase() === reqData.data.areaLocality.toLowerCase());
+            const firebaseArea = reqData.data?.areaLocality || reqData.data?.locality || reqData.data?.area;
+            if (firebaseArea) {
+                const match = areaList.find(a => a.name.toLowerCase() === firebaseArea.toLowerCase());
                 if (match) setSelectedAreaId(match.id);
             }
 

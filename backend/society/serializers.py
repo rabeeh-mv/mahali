@@ -6,10 +6,11 @@ from typing import Any
 class AreaSerializer(serializers.ModelSerializer):
     total_houses = serializers.SerializerMethodField()
     total_live_members = serializers.SerializerMethodField()
+    firebase_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
     class Meta:
         model = Area
-        fields = ['id', 'name', 'description', 'created_at', 'updated_at', 'total_houses', 'total_live_members']
+        fields = ['id', 'firebase_id', 'name', 'description', 'head_person', 'password', 'sync_pending', 'created_at', 'updated_at', 'total_houses', 'total_live_members']
     
     def get_total_houses(self, obj: Any) -> int:
         return obj.houses.count()
@@ -34,7 +35,7 @@ class HouseListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = House
-        fields = ['home_id', 'house_name', 'family_name', 'location_name', 'area_name', 'member_count']
+        fields = ['home_id', 'house_name', 'family_name', 'location_name', 'area_name', 'member_count', 'old_mahall_code']
     
     def get_area_name(self, obj):
         try:
@@ -52,7 +53,7 @@ class HouseDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = House
-        fields = ['home_id', 'house_name', 'family_name', 'location_name', 'area_name']
+        fields = ['home_id', 'house_name', 'family_name', 'location_name', 'area_name', 'old_mahall_code']
 
     def get_area_name(self, obj):
         try:

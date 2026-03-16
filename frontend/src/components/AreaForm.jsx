@@ -6,7 +6,9 @@ import { areaAPI } from '../api';
 const AreaForm = () => {
     const [formData, setFormData] = useState({
         name: '',
-        description: ''
+        description: '',
+        head_person: '',
+        password: ''
     });
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(false);
@@ -30,7 +32,9 @@ const AreaForm = () => {
             if (area) {
                 setFormData({
                     name: area.name,
-                    description: area.description || ''
+                    description: area.description || '',
+                    head_person: area.head_person || '',
+                    password: area.password || ''
                 });
             } else {
                 setError('Area not found');
@@ -120,7 +124,33 @@ const AreaForm = () => {
                         value={formData.description}
                         onChange={handleChange}
                         placeholder="Enter area description (optional)"
-                        rows="4"
+                        rows="3"
+                        className="form-input"
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="head_person">Head Person</label>
+                    <input
+                        type="text"
+                        id="head_person"
+                        name="head_person"
+                        value={formData.head_person}
+                        onChange={handleChange}
+                        placeholder="Enter head person name"
+                        className="form-input"
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        placeholder="Enter area password"
                         className="form-input"
                     />
                 </div>

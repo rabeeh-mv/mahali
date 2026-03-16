@@ -156,3 +156,40 @@ def sync_member_to_firebase(member_instance):
         
     except Exception as e:
         return False, str(e)
+
+def sync_area_to_firebase(area_instance):
+    db = get_firestore_db()
+    if not db:
+        return False, "Firebase DB not initialized"
+    
+    try:
+        # Check if we should sync this area (e.g. if it has a firebase_id or we want to create one)
+        # If it doesn't have a firebase_id, we might create the document in Firebase
+        # The user mentioned "this automaticaly uplode to firbase when clicke the 'Create Area' and 'Update Area'"
+        
+        doc_ref = None
+        if area_instance.firebase_id:
+            doc_ref = db.collection('area_accounts').document(area_instance.firebase_id)
+        else:
+            # Create new document if it doesn't exist
+            # We use the area name as ID or a random one? 
+            # Usually better to let Firestore generate one and save it back.
+            doc_ref = db.collection('area_accounts').document()
+            area_instance.firebase_id = doc_ref.id
+            # We don't save the instance here to avoid infinite recursion if using signals
+            # But we can update it in the signal handler or using update_fields
+        
+        data = {
+            'name': area_instance.name,
+            'description': area_instance.description,
+            'headPerson': area_instance.head_person,
+            'password': area_instance.password,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        }
+        
+        doc_ref.set(data, merge=True)
+        return True, "Synced Area"
+    except Exception as e:
+        logger.error(f"Error syncing area {area_instance.name}: {e}")
+        return False, str(e)
+

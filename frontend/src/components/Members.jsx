@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaUser, FaEdit, FaTrash, FaEye, FaRedo, FaFilter } from 'react-icons/fa'
+import { FaUser, FaEdit, FaTrash, FaEye, FaRedo, FaFilter, FaCog, FaFileExcel, FaColumns, FaGripVertical } from 'react-icons/fa'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import { memberAPI, areaAPI } from '../api'
+import * as XLSX from 'xlsx'
 import './Members.css'
 
 const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
@@ -40,6 +41,113 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     dob: ''
   })
 
+  // Column Management State
+  const defaultColumns = [
+    { id: 'member_id', label: 'ID', visible: true, width: '80px' },
+    { id: 'name', label: 'Name', visible: true, width: '150px' },
+    { id: 'surname', label: 'Surname', visible: true, width: '150px' },
+    { id: 'house_name', label: 'House Name', visible: true, width: '150px' },
+    { id: 'father_name', label: "Father's Name", visible: true, width: '150px' },
+    { id: 'whatsapp', label: 'Whatsapp', visible: true, width: '120px' },
+    { id: 'phone', label: 'Phone Number', visible: true, width: '120px' },
+    { id: 'area', label: 'Area', visible: true, width: '100px' },
+    { id: 'role', label: 'Role', visible: true, width: '100px' },
+    { id: 'status', label: 'Status', visible: true, width: '100px' },
+    { id: 'gender', label: 'Gender', visible: true, width: '100px' },
+    { id: 'adhar', label: 'Aadhaar', visible: true, width: '120px' },
+    { id: 'dob', label: 'DOB', visible: true, width: '100px' }
+  ];
+
+  const [columnsConfig, setColumnsConfig] = useState(() => {
+    const saved = localStorage.getItem('membersColumnConfig')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        return defaultColumns.map(def => {
+          const found = parsed.find(p => p.id === def.id)
+          return found ? { ...def, visible: found.visible } : def
+        });
+      } catch (e) {
+        return defaultColumns
+      }
+    }
+    return defaultColumns
+  })
+
+  const [showColumnManager, setShowColumnManager] = useState(false)
+  const columnManagerRef = useRef(null)
+  
+  // Drag and Drop refs
+  const dragItem = useRef(null)
+  const dragOverItem = useRef(null)
+  const [dragTick, setDragTick] = useState(0) // Used to safely trigger minimal re-renders for highlighting
+  
+  const handleDragStart = (e, index) => {
+    dragItem.current = index;
+    setDragTick(t => t + 1);
+  };
+
+  const handleDragEnter = (e, index) => {
+    e.preventDefault();
+    if (dragOverItem.current !== index) {
+      dragOverItem.current = index;
+      setDragTick(t => t + 1);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault(); // allow drop
+  };
+
+  const handleDrop = (e, index) => {
+    e.preventDefault();
+    if (dragItem.current !== null && index !== null && dragItem.current !== index) {
+      setColumnsConfig(prev => {
+        const newConfig = [...prev];
+        const draggedItem = newConfig.splice(dragItem.current, 1)[0];
+        newConfig.splice(index, 0, draggedItem);
+        return newConfig;
+      });
+    }
+    dragItem.current = null;
+    dragOverItem.current = null;
+    setDragTick(t => t + 1);
+  };
+
+  const handleDragEnd = () => {
+    dragItem.current = null;
+    dragOverItem.current = null;
+    setDragTick(t => t + 1);
+  };
+
+  useEffect(() => {
+    localStorage.setItem('membersColumnConfig', JSON.stringify(columnsConfig))
+  }, [columnsConfig])
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (columnManagerRef.current && !columnManagerRef.current.contains(event.target)) {
+        setShowColumnManager(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const toggleColumnVisibility = (colId) => {
+    setColumnsConfig(prev => prev.map(c => c.id === colId ? { ...c, visible: !c.visible } : c))
+  }
+
+  const moveColumn = (index, direction) => {
+    if (index + direction < 0 || index + direction >= columnsConfig.length) return;
+    setColumnsConfig(prev => {
+      const newConfig = [...prev];
+      const temp = newConfig[index];
+      newConfig[index] = newConfig[index + direction];
+      newConfig[index + direction] = temp;
+      return newConfig;
+    });
+  };
 
   // Filter states
   const [showFilterMenu, setShowFilterMenu] = useState(false)
@@ -96,21 +204,13 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
         params.is_guardian = 'false';
       }
 
-      // Add search and global filter parameters (legacy support or combined)
       if (searchTerm) {
         params.search = searchTerm;
       }
 
-      if (filterCriteria.area) { // Support legacy prop if still used, or remove if fully migrated
+      if (filterCriteria.area) { 
         params.area = filterCriteria.area;
       }
-
-      // Ensure column filters that match API specific params are mapped if needed,
-      // generally generic keys in columnFilters are already spread into params above (...columnFilters).
-      // But 'role' needed special handling as above.
-
-      // Check for other explicit param mappings if backend expects different names
-      // Status, Gender, Area match standard fields or are handled by backend filter mapping.
 
       const response = await memberAPI.search(params);
       const newMembers = response.data.results || response.data;
@@ -211,22 +311,6 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     })
   }
 
-  // Helper to get label for active filters
-  const getFilterLabel = (key, value) => {
-    if (!value) return null;
-    switch (key) {
-      case 'area':
-        const area = areas.find(a => a.id.toString() === value.toString());
-        return area ? `Area: ${area.name}` : `Area ID: ${value}`;
-      case 'status':
-        return `Status: ${value.charAt(0).toUpperCase() + value.slice(1)}`;
-      case 'role':
-        return `Role: ${value === 'guardian' ? 'Guardian' : 'Non-Guardian'}`;
-      default:
-        return `${key}: ${value}`;
-    }
-  }
-
   const hasActiveFilters = searchTerm || Object.values(filterCriteria).some(val => val !== '');
 
   // Selection Logic
@@ -258,17 +342,12 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
   const confirmBulkDelete = async () => {
     setIsBulkDeleting(true);
     try {
-      // Loop through selected IDs and delete them one by one
-      // In a real production app, you'd want a bulk delete API endpoint.
       for (const id of selectedMembers) {
         await memberAPI.delete(id);
       }
-
-      // Cleanup
       setSelectedMembers([]);
       setIsDeleteModalOpen(false);
-      loadMembers(1, false); // Reload list
-
+      loadMembers(1, false); 
     } catch (error) {
       console.error("Error deleting members:", error);
       alert("Failed to delete some members. Please try again.");
@@ -277,7 +356,153 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
     }
   };
 
-  // FilterHeader component removed in favor of inline filter row
+  const handleExportExcel = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: 1,
+        page_size: 10000, 
+        ...columnFilters
+      };
+
+      if (columnFilters.role === 'guardian') params.is_guardian = 'true';
+      else if (columnFilters.role === 'non-guardian') params.is_guardian = 'false';
+      if (searchTerm) params.search = searchTerm;
+      if (filterCriteria.area) params.area = filterCriteria.area;
+
+      const response = await memberAPI.search(params);
+      const allData = response.data.results || response.data;
+      const activeCols = columnsConfig.filter(c => c.visible);
+
+      const exportData = allData.map(member => {
+        const row = {};
+        activeCols.forEach(col => {
+          let val = '';
+          switch (col.id) {
+            case 'member_id': val = member.member_id; break;
+            case 'name': val = member.name; break;
+            case 'surname': val = member.surname; break;
+            case 'house_name': val = member.house?.house_name || member.house_details?.house_name || (typeof member.house === 'string' ? member.house : '') || ''; break;
+            case 'father_name': val = member.father_name || member.father?.name || ''; break;
+            case 'whatsapp': val = member.whatsapp; break;
+            case 'phone': val = member.phone; break;
+            case 'area': val = member.house?.area_name || member.house_details?.area_name || ''; break;
+            case 'role': val = member.isGuardian ? 'Guardian' : ''; break;
+            case 'status': val = member.status || ''; break;
+            case 'gender': val = member.gender || ''; break;
+            case 'adhar': val = member.adhar || ''; break;
+            case 'dob': val = member.date_of_birth || ''; break;
+            default: break;
+          }
+          row[col.label] = val;
+        });
+        return row;
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Members");
+
+      XLSX.writeFile(workbook, "Members_Export.xlsx");
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderFilterInput = (colId) => {
+    switch(colId) {
+      case 'member_id':
+      case 'name':
+      case 'surname':
+      case 'house_name':
+      case 'father_name':
+      case 'whatsapp':
+      case 'phone':
+      case 'adhar':
+      case 'dob':
+        return (
+          <input
+            type="text"
+            placeholder="Filter..."
+            value={columnFilters[colId] || ''}
+            onChange={(e) => setColumnFilters(prev => ({ ...prev, [colId]: e.target.value }))}
+            className="table-filter-input"
+          />
+        );
+      case 'area':
+        return (
+          <select
+            value={columnFilters.area || ''}
+            onChange={(e) => setColumnFilters(prev => ({ ...prev, area: e.target.value }))}
+            className="table-filter-select"
+          >
+            <option value="">All</option>
+            {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        );
+      case 'role':
+        return (
+          <select
+            value={columnFilters.role || ''}
+            onChange={(e) => setColumnFilters(prev => ({ ...prev, role: e.target.value }))}
+            className="table-filter-select"
+          >
+            <option value="">All</option>
+            <option value="guardian">Guardian</option>
+            <option value="non-guardian">Non-Guardian</option>
+          </select>
+        );
+      case 'status':
+        return (
+          <select
+            value={columnFilters.status || ''}
+            onChange={(e) => setColumnFilters(prev => ({ ...prev, status: e.target.value }))}
+            className="table-filter-select"
+          >
+            <option value="">All</option>
+            <option value="live">Live</option>
+            <option value="dead">Deceased</option>
+            <option value="terminated">Terminated</option>
+          </select>
+        );
+      case 'gender':
+        return (
+          <select
+            value={columnFilters.gender || ''}
+            onChange={(e) => setColumnFilters(prev => ({ ...prev, gender: e.target.value }))}
+            className="table-filter-select"
+          >
+            <option value="">All</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const renderCellData = (colId, member) => {
+    switch (colId) {
+      case 'member_id': return <span className="is-id-cell">{member.member_id}</span>;
+      case 'name': return <span className="font-semibold">{member.name}</span>;
+      case 'surname': return <span className="font-semibold">{member.surname}</span>;
+      case 'house_name': return member.house?.house_name || member.house_details?.house_name || (typeof member.house === 'string' ? member.house : null) || 'N/A';
+      case 'father_name': return member.father_name || member.father?.name || '-';
+      case 'whatsapp': return member.whatsapp || '-';
+      case 'phone': return member.phone || '-';
+      case 'area': return member.house?.area_name || member.house_details?.area_name || '-';
+      case 'role': return member.isGuardian ? <span className="guardian-badge">Guardian</span> : '-';
+      case 'status': return <span className={`status-badge-${member.status?.toLowerCase()}`}>{member.status}</span>;
+      case 'gender': return member.gender || '-';
+      case 'adhar': return member.adhar || '-';
+      case 'dob': return member.date_of_birth || '-';
+      default: return null;
+    }
+  };
 
   return (
     <div className="members-page-container animate-in">
@@ -296,6 +521,80 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
               <FaTrash /> Delete ({selectedMembers.length})
             </button>
           )}
+
+          <div style={{ position: 'relative' }} ref={columnManagerRef}>
+            <button onClick={() => setShowColumnManager(!showColumnManager)} className="reload-btn" title="Manage Columns">
+              <FaColumns /> Columns
+            </button>
+            {showColumnManager && (
+              <div className="column-manager-dropdown animate-in" style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: '8px',
+                background: 'white', border: '1px solid #ddd', borderRadius: '8px',
+                padding: '12px', minWidth: '220px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '8px'
+              }}>
+                <h4 style={{ margin: '0 0 8px', fontSize: '14px', borderBottom: '1px solid #eee', paddingBottom: '8px' }}>Visible Columns</h4>
+                <div style={{maxHeight:'250px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'8px', paddingRight: '4px'}}>
+                  {columnsConfig.map((col, index) => (
+                    <div 
+                      key={col.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragEnter={(e) => handleDragEnter(e, index)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, index)}
+                      onDragEnd={handleDragEnd}
+                      style={{ 
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', 
+                        fontSize: '14px', whiteSpace: 'nowrap', padding: '6px', 
+                        background: dragOverItem.current === index ? '#e0f2fe' : '#f8fafc',
+                        border: dragOverItem.current === index ? '1px dashed #0284c7' : '1px solid #e2e8f0',
+                        opacity: dragItem.current === index ? 0.3 : 1,
+                        borderRadius: '4px', cursor: 'grab', userSelect: 'none',
+                        transition: 'all 0.1s ease'
+                      }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FaGripVertical style={{ color: '#cbd5e1', cursor: 'grab' }} />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={col.visible} 
+                            onChange={() => toggleColumnVisibility(col.id)}
+                          />
+                          {col.label}
+                        </label>
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button 
+                          className="icon-only-btn" 
+                          style={{ padding: '2px 6px', fontSize: '10px', minWidth: 'auto', background: index === 0 ? '#f9f9f9' : '#e2e8f0', color: index === 0 ? '#ccc' : '#333' }}
+                          onClick={() => moveColumn(index, -1)}
+                          disabled={index === 0}
+                          title="Move Up"
+                        >
+                          ▲
+                        </button>
+                        <button 
+                          className="icon-only-btn" 
+                          style={{ padding: '2px 6px', fontSize: '10px', minWidth: 'auto', background: index === columnsConfig.length - 1 ? '#f9f9f9' : '#e2e8f0', color: index === columnsConfig.length - 1 ? '#ccc' : '#333' }}
+                          onClick={() => moveColumn(index, 1)}
+                          disabled={index === columnsConfig.length - 1}
+                          title="Move Down"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button onClick={handleExportExcel} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Export via Excel">
+             <FaFileExcel /> Export
+          </button>
+
           <button onClick={handleReloadData} className="reload-btn icon-only-btn" title="Reload Data">
             <FaRedo />
           </button>
@@ -320,151 +619,18 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                   checked={isAllSelected}
                 />
               </th>
-
-              <th className="col-id">ID</th>
-              <th className="col-name">Name</th>
-              <th className="col-surname">Surname</th>
-              <th style={{ minWidth: '150px' }}>House Name</th>
-              <th style={{ minWidth: '150px' }}>Father's Name</th>
-              <th style={{ minWidth: '120px' }}>Whatsapp</th>
-              <th style={{ minWidth: '120px' }}>Phone Number</th>
-              <th style={{ minWidth: '100px' }}>Area</th>
-              <th style={{ minWidth: '100px' }}>Role</th>
-              <th style={{ minWidth: '100px' }}>Status</th>
-              <th style={{ minWidth: '100px' }}>Gender</th>
-              <th style={{ minWidth: '120px' }}>Aadhaar</th>
-              <th style={{ minWidth: '100px' }}>DOB</th>
+              {columnsConfig.filter(c => c.visible).map(col => (
+                <th key={col.id} style={{ minWidth: col.width }}>{col.label}</th>
+              ))}
             </tr>
 
             {/* Row 2: Filters */}
             <tr className="filter-row">
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.member_id}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, member_id: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.name}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, name: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.surname}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, surname: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.house_name}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, house_name: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.father_name}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, father_name: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.whatsapp}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, whatsapp: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.phone}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, phone: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
-              <th>
-                <select
-                  value={columnFilters.area}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, area: e.target.value }))}
-                  className="table-filter-select"
-                >
-                  <option value="">All</option>
-                  {areas.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </th>
-              <th>
-                <select
-                  value={columnFilters.role}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, role: e.target.value }))}
-                  className="table-filter-select"
-                >
-                  <option value="">All</option>
-                  <option value="guardian">Guardian</option>
-                  <option value="non-guardian">Non-Guardian</option>
-                </select>
-              </th>
-              <th>
-                <select
-                  value={columnFilters.status}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, status: e.target.value }))}
-                  className="table-filter-select"
-                >
-                  <option value="">All</option>
-                  <option value="live">Live</option>
-                  <option value="dead">Deceased</option>
-                  <option value="terminated">Terminated</option>
-                </select>
-              </th>
-              <th>
-                <select
-                  value={columnFilters.gender}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, gender: e.target.value }))}
-                  className="table-filter-select"
-                >
-                  <option value="">All</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
-              </th>
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.adhar}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, adhar: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={columnFilters.dob}
-                  onChange={(e) => setColumnFilters(prev => ({ ...prev, dob: e.target.value }))}
-                  className="table-filter-input"
-                />
-              </th>
+              {columnsConfig.filter(c => c.visible).map(col => (
+                <th key={`filter-${col.id}`}>
+                  {renderFilterInput(col.id)}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -482,48 +648,22 @@ const Members = ({ members, setEditing, deleteItem, loadDataForTab }) => {
                       onChange={(e) => handleSelectMember(e, member.member_id)}
                     />
                   </td>
-                  <td className="col-id is-id-cell">{member.member_id}</td>
-                  <td className="col-name font-semibold">{member.name}</td>
-                  <td className="col-surname font-semibold">{member.surname}</td>
-
-                  <td>
-                    {member.house?.house_name /* Nested object from search */ ||
-                      member.house_details?.house_name /* Nested field from list */ ||
-                      (typeof member.house === 'string' ? member.house : null) /* String ID */ ||
-                      'N/A'}
-                  </td>
-                  <td>{member.father_name || member.father?.name || '-'}</td>
-                  <td>{member.whatsapp || '-'}</td>
-                  <td>{member.phone || '-'}</td>
-                  <td>
-                    {member.house?.area_name /* Nested object from search */ ||
-                      member.house_details?.area_name /* Nested field from list */ ||
-                      '-'}
-                  </td>
-
-                  <td>{member.isGuardian ? <span className="guardian-badge">Guardian</span> : '-'}</td>
-
-                  <td className="text-center">
-                    <span className={`status-badge-${member.status?.toLowerCase()}`}>
-                      {member.status}
-                    </span>
-                  </td>
-
-                  <td>{member.gender}</td>
-                  <td>{member.adhar || '-'}</td>
-                  <td>{member.date_of_birth || '-'}</td>
-
+                  {columnsConfig.filter(c => c.visible).map(col => (
+                    <td key={`cell-${member.member_id}-${col.id}`}>
+                      {renderCellData(col.id, member)}
+                    </td>
+                  ))}
                 </tr>
               ))
             ) : !loading && (
               <tr>
-                <td colSpan="13" className="text-center py-10">
+                <td colSpan={columnsConfig.filter(c => c.visible).length + 1} className="text-center py-10">
                   <p className="text-gray-500">No members found.</p>
                 </td>
               </tr>
             )}
             {loading && (
-              <tr><td colSpan="13" className="text-center p-4">Loading...</td></tr>
+              <tr><td colSpan={columnsConfig.filter(c => c.visible).length + 1} className="text-center p-4">Loading...</td></tr>
             )}
           </tbody>
         </table>

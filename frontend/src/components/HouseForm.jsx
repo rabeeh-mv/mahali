@@ -10,7 +10,8 @@ const HouseForm = () => {
         family_name: '',
         area: '',
         location_name: '',
-        address: ''
+        address: '',
+        old_mahall_code: ''
     });
     const [areas, setAreas] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -65,7 +66,8 @@ const HouseForm = () => {
                     family_name: house.family_name,
                     area: house.area?.id || house.area || '',
                     location_name: house.location_name || '',
-                    address: house.address || ''
+                    address: house.address || '',
+                    old_mahall_code: house.old_mahall_code || ''
                 });
             } catch (e) {
                 // Fallback if get(id) fails or doesn't exist, try list
@@ -77,7 +79,8 @@ const HouseForm = () => {
                         family_name: house.family_name,
                         area: house.area?.id || house.area || '',
                         location_name: house.location_name || '',
-                        address: house.address || ''
+                        address: house.address || '',
+                        old_mahall_code: house.old_mahall_code || ''
                     });
                 } else {
                     setError('House not found');
@@ -172,6 +175,21 @@ const HouseForm = () => {
                             required
                             className='form-input'
                             placeholder="Enter family name"
+                        />
+                    </div>
+                </div>
+
+                <div className="form-row">
+                    <div className="form-group">
+                        <label htmlFor="old_mahall_code">Old Mahall Code</label>
+                        <input
+                            type="text"
+                            id="old_mahall_code"
+                            name="old_mahall_code"
+                            value={formData.old_mahall_code}
+                            onChange={handleChange}
+                            className='form-input'
+                            placeholder="Enter old mahall code"
                         />
                     </div>
                 </div>

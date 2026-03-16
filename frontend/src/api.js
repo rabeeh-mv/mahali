@@ -93,6 +93,7 @@ export const areaAPI = {
   get: (id) => api.get(`/areas/${id}/`),
   create: (data) => api.post('/areas/', data),
   update: (id, data) => api.put(`/areas/${id}/`, data),
+  partialUpdate: (id, data) => api.patch(`/areas/${id}/`, data),
   delete: (id) => api.delete(`/areas/${id}/`),
 };
 
