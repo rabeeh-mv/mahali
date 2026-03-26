@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { memberAPI, houseAPI, areaAPI, obligationAPI, subcollectionAPI } from '../api';
+import { memberAPI, houseAPI, areaAPI, obligationAPI, subcollectionAPI, receiptAPI } from '../api';
 import { FaUser, FaHome, FaMapMarkerAlt, FaPhone, FaBirthdayCake, FaEdit, FaTrash, FaArrowLeft, FaUsers, FaArrowRight, FaWhatsapp } from 'react-icons/fa';
 
 import DeleteConfirmModal from './DeleteConfirmModal';
@@ -23,6 +23,9 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
 
   const [obligations, setObligations] = useState([]);
   const [subcollections, setSubcollections] = useState([]);
+  const [isPaying, setIsPaying] = useState(false);
+  const [selectedForPayment, setSelectedForPayment] = useState([]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   // Use useMemo to ensure we have a stable reference to memberId
   const stableMemberId = useMemo(() => memberId, [memberId]);
@@ -143,6 +146,71 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
     return name.includes(searchTerm.toLowerCase());
   });
 
+  const pendingObligations = obligations.filter(obs => obs.paid_status !== 'paid');
+
+  const handleTogglePaying = () => {
+    setIsPaying(!isPaying);
+    if (!isPaying) {
+      // Default select all pending obligations when opening billing
+      setSelectedForPayment(pendingObligations.map(ob => ob.id));
+    }
+  };
+
+  const handleSelectObligation = (id) => {
+    if (selectedForPayment.includes(id)) {
+      setSelectedForPayment(selectedForPayment.filter(obId => obId !== id));
+    } else {
+      setSelectedForPayment([...selectedForPayment, id]);
+    }
+  };
+
+  const handleCompletePayment = async () => {
+    if (selectedForPayment.length === 0) {
+      alert('Please select at least one obligation to pay.');
+      return;
+    }
+
+    try {
+      setPaymentLoading(true);
+      const receiptsData = selectedForPayment.map(id => {
+        const obligation = obligations.find(ob => ob.id === id);
+        return {
+          obligation: id,
+          amount_paid: obligation.amount,
+          payment_method: 'cash',
+          remarks: `Paid from Member Details: ${member.name}`
+        };
+      });
+
+      await receiptAPI.bulkCreate({ receipts: receiptsData });
+      
+      // Refresh member data
+      const memberResponse = await memberAPI.get(stableMemberId);
+      setMember(memberResponse.data);
+      
+      const obligationsResponse = await obligationAPI.getAll();
+      const memberObligations = obligationsResponse.data.filter(obligation =>
+        obligation.member === memberResponse.data.member_id ||
+        (typeof obligation.member === 'object' && obligation.member.member_id === memberResponse.data.member_id)
+      );
+      setObligations(memberObligations);
+      
+      setIsPaying(false);
+      setSelectedForPayment([]);
+      alert('Payment completed successfully!');
+    } catch (error) {
+      console.error('Payment failed:', error);
+      alert('Failed to complete payment: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const totalSelectedAmount = selectedForPayment.reduce((sum, id) => {
+    const ob = obligations.find(o => o.id === id);
+    return sum + (ob ? parseFloat(ob.amount) : 0);
+  }, 0);
+
   if (loading) {
     return (
       <div className="data-section">
@@ -174,7 +242,7 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
   };
 
   return (
-    <div className="member-details-wrapper animate-in">
+    <div className={`member-details-wrapper animate-in ${isPaying ? 'with-billing' : ''}`}>
       {/* Left Column: Personal Details */}
       <div className="left-column">
         <div className="detail-card personal-details-card">
@@ -290,7 +358,6 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
 
       {/* Right Column */}
       <div className="right-column">
-
         {/* Top Section: House & Family Tabs */}
         <div className="detail-card top-section-card">
           <div className="tabs-header">
@@ -323,7 +390,6 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
                         <div className="info-label">Family Name</div>
                         <div className="info-value">{house.family_name}</div>
                       </div>
-
                     </div>
 
                     <div className="house-info-box">
@@ -397,6 +463,13 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
           <div className="card-header-actions">
             <h3 className="card-title">Payment History & Obligations</h3>
             <div className="filter-controls">
+              <button 
+                className="btn-primary" 
+                style={{ background: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onClick={handleTogglePaying}
+              >
+                <FaUsers /> Pay
+              </button>
               <input
                 type="text"
                 placeholder="Search..."
@@ -404,11 +477,6 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <select className="search-input" style={{ width: 'auto' }}>
-                <option value="all">All</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-              </select>
             </div>
           </div>
 
@@ -446,14 +514,81 @@ const MemberDetailsPage = ({ members: initialMembers, houses, areas, setEditing,
                 </tbody>
               </table>
             ) : (
-              <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--text-muted)' }}>
+              <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '150px', color: 'var(--text-muted)' }}>
                 <p>No obligations found.</p>
               </div>
             )}
           </div>
         </div>
-
       </div>
+
+      {/* Billing Sidebar */}
+      {isPaying && (
+        <div className="billing-sidebar animate-in">
+          <div className="billing-header">
+            <h3>Receipt Billing</h3>
+            <button className="icon-btn" onClick={() => setIsPaying(false)}>&times;</button>
+          </div>
+          
+          <div className="billing-content">
+            <div className="billing-member-info">
+              <div className="mini-avatar">{getInitials(member.name)}</div>
+              <div>
+                <strong>{member.name}</strong>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ID: {member.member_id}</div>
+              </div>
+            </div>
+            
+            <h4 style={{ margin: '20px 0 12px', fontSize: '0.9rem' }}>Select Obligations to Pay</h4>
+            
+            {pendingObligations.length > 0 ? (
+              <div className="billing-list">
+                {pendingObligations.map(obs => {
+                  const sub = subcollections.find(sc => sc.id === (typeof obs.subcollection === 'object' ? obs.subcollection.id : obs.subcollection));
+                  const isSelected = selectedForPayment.includes(obs.id);
+                  return (
+                    <div 
+                      key={obs.id} 
+                      className={`billing-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handleSelectObligation(obs.id)}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={isSelected}
+                        onChange={() => {}} // Handle through parent div click
+                        style={{ pointerEvents: 'none' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{sub ? sub.name : 'Obligation'}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ref: #{obs.id}</div>
+                      </div>
+                      <div style={{ fontWeight: 700, color: 'var(--primary)' }}>₹{obs.amount}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="empty-state">No pending obligations to pay.</p>
+            )}
+          </div>
+          
+          <div className="billing-footer">
+            <div className="total-row">
+              <span style={{ color: 'var(--text-muted)' }}>{selectedForPayment.length} Items Selected</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 800 }}>Total: ₹{totalSelectedAmount.toLocaleString()}</span>
+            </div>
+            
+            <button 
+              className="btn-primary" 
+              style={{ width: '100%', marginTop: '16px', height: '48px', fontSize: '1rem' }}
+              onClick={handleCompletePayment}
+              disabled={paymentLoading || selectedForPayment.length === 0}
+            >
+              {paymentLoading ? 'Processing...' : 'Complete Payment'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <DeleteConfirmModal
         isOpen={isDeleteModalOpen}

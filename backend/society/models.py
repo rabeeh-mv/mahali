@@ -241,6 +241,52 @@ class MemberObligation(models.Model):  # The through-table for member-subcollect
         super().save(*args, **kwargs)
 
 
+class Receipt(models.Model):
+    PAYMENT_METHOD_CHOICES = [
+        ('cash', 'Cash'),
+        ('upi', 'UPI'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('cheque', 'Cheque'),
+        ('other', 'Other'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    obligation = models.ForeignKey(MemberObligation, on_delete=models.CASCADE, related_name='receipts')
+    receipt_number = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_date = models.DateTimeField(auto_now_add=True)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
+    remarks = models.TextField(blank=True, null=True)
+    
+    sync_pending = models.BooleanField(default=True, db_index=True)
+
+    def __str__(self):
+        return f"Receipt {self.receipt_number or self.id} - {self.obligation.member.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.receipt_number:
+            # Auto-generate receipt number: R-YYYY-MM-DD-XXXX
+            from django.utils import timezone
+            import random
+            today = timezone.now().strftime('%Y%m%d')
+            random_suffix = ''.join([str(random.randint(0, 9)) for _ in range(4)])
+            self.receipt_number = f"R-{today}-{random_suffix}"
+            
+        super().save(*args, **kwargs)
+        
+        # After saving receipt, update the obligation status if needed
+        # (This is a simplified logic, could be more complex based on total paid vs obligation amount)
+        obligation = self.obligation
+        total_paid = obligation.receipts.aggregate(total=models.Sum('amount_paid'))['total'] or 0
+        
+        if total_paid >= obligation.amount:
+            obligation.paid_status = 'paid'
+        elif total_paid > 0:
+            obligation.paid_status = 'partial'
+        
+        obligation.save(update_fields=['paid_status'])
+
+
 class Todo(models.Model):
     PRIORITY_CHOICES = [
         ('low', 'Low'),
@@ -356,4 +402,22 @@ def auto_delete_file_on_change(sender, instance, **kwargs):
                 os.remove(old_file.path)
             except Exception as e:
                 print(f"Error deleting old file: {e}")
+
+
+@receiver(post_delete, sender=Receipt)
+def update_obligation_status_on_receipt_delete(sender, instance, **kwargs):
+    """
+    Recalculates and updates MemberObligation status when a Receipt is deleted.
+    """
+    obligation = instance.obligation
+    total_paid = obligation.receipts.aggregate(total=models.Sum('amount_paid'))['total'] or 0
+    
+    if total_paid >= obligation.amount:
+        obligation.paid_status = 'paid'
+    elif total_paid > 0:
+        obligation.paid_status = 'partial'
+    else:
+        obligation.paid_status = 'pending'
+    
+    obligation.save(update_fields=['paid_status'])
 

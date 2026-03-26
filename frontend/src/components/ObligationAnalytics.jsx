@@ -82,7 +82,7 @@ const ObligationAnalytics = forwardRef(({ obligations, selectedSubcollection }, 
           <div className="analytics-card-content">
             <div className="analytics-card-title">Paid</div>
             <div className="analytics-card-value">{analytics.paid.count}</div>
-            <div className="analytics-card-subvalue">₹{analytics.paid.amount.toFixed(2)}</div>
+            <div className="analytics-card-subvalue">₹{analytics.paid.amount.toLocaleString()}</div>
           </div>
         </div>
         
@@ -93,20 +93,26 @@ const ObligationAnalytics = forwardRef(({ obligations, selectedSubcollection }, 
           <div className="analytics-card-content">
             <div className="analytics-card-title">Pending / Overdue</div>
             <div className="analytics-card-value">{analytics.pending_overdue.count}</div>
-            <div className="analytics-card-subvalue">₹{analytics.pending_overdue.amount.toFixed(2)}</div>
+            <div className="analytics-card-subvalue">₹{analytics.pending_overdue.amount.toLocaleString()}</div>
           </div>
         </div>
         
         <div className="analytics-card collection-progress">
           <div className="analytics-card-content">
-            <div className="analytics-card-title">Collection Progress</div>
-            <div className="analytics-card-value">{analytics.collection_progress.percentage}%</div>
-            <div className="analytics-card-subvalue">₹{analytics.collection_progress.paid_amount.toFixed(2)} of ₹{analytics.collection_progress.total_amount.toFixed(2)}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2px' }}>
+              <div className="analytics-card-title" style={{ marginBottom: 0 }}>Progress</div>
+              <div className="analytics-card-value" style={{ fontSize: '1.1rem' }}>{Math.round(analytics.collection_progress.percentage)}%</div>
+            </div>
+            
             <div className="progress-bar">
               <div 
                 className="progress-fill" 
                 style={{ width: `${analytics.collection_progress.percentage}%` }}
               ></div>
+            </div>
+            
+            <div className="analytics-card-subvalue" style={{ marginTop: '4px', fontSize: '0.75rem', textAlign: 'right' }}>
+              ₹{analytics.collection_progress.paid_amount.toLocaleString()} of ₹{analytics.collection_progress.total_amount.toLocaleString()}
             </div>
           </div>
         </div>

@@ -134,6 +134,16 @@ export const obligationAPI = {
   }),
 }
 
+export const receiptAPI = {
+  getAll: (params) => api.get('/receipts/', { params }),
+  get: (id) => api.get(`/receipts/${id}/`),
+  create: (data) => api.post('/receipts/', data),
+  bulkCreate: (data) => api.post('/receipts/bulk_create/', data),
+  update: (id, data) => api.put(`/receipts/${id}/`, data),
+  delete: (id) => api.delete(`/receipts/${id}/`),
+  search: (params) => api.get('/receipts/search/', { params }),
+}
+
 export const eventAPI = {
   getAll: () => api.get('/events/'),
   get: (id) => api.get(`/events/${id}/`),

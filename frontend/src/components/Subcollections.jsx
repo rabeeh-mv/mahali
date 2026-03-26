@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { subcollectionAPI } from '../api'
-import { FaArrowLeft, FaPlus, FaRupeeSign, FaEdit, FaTrash, FaRedo, FaTimes } from 'react-icons/fa'
+import { FaArrowLeft, FaPlus, FaRupeeSign, FaEdit, FaTrash, FaRedo, FaTimes, FaCalendarAlt } from 'react-icons/fa'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import './Collections.css'
 
 const Subcollections = ({
   subcollections,
@@ -26,8 +27,10 @@ const Subcollections = ({
   const [success, setSuccess] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [subcollectionToDelete, setSubcollectionToDelete] = useState(null);
+  const [editingSubcollection, setEditingSubcollection] = useState(null);
 
-  // Load subcollections data on initial mount
+  const navigate = useNavigate();
+
   useEffect(() => {
     loadDataForTab('subcollections', false)
   }, [loadDataForTab])
@@ -38,7 +41,7 @@ const Subcollections = ({
   }
 
   const handleReloadData = () => {
-    loadDataForTab('subcollections', true) // Force reload
+    loadDataForTab('subcollections', true)
   }
 
   const handleBack = () => {
@@ -69,7 +72,6 @@ const Subcollections = ({
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (error) setError(null);
     if (success) setSuccess(null);
   };
@@ -81,7 +83,6 @@ const Subcollections = ({
     setSuccess(null);
 
     try {
-      // Validate required fields
       if (!formData.name.trim()) {
         throw new Error('Subcollection name is required');
       }
@@ -101,16 +102,13 @@ const Subcollections = ({
       }
 
       if (editingSubcollection) {
-        // Update existing subcollection
         await subcollectionAPI.update(editingSubcollection.id, submissionData);
         setSuccess('Subcollection updated successfully!');
       } else {
-        // Create new subcollection
         await subcollectionAPI.create(submissionData);
         setSuccess('Subcollection created successfully!');
       }
 
-      // Reset form
       setFormData({
         name: '',
         year: new Date().getFullYear(),
@@ -119,8 +117,6 @@ const Subcollections = ({
       });
       setEditingSubcollection(null);
       setShowAddForm(false);
-
-      // Reload subcollections
       loadDataForTab('subcollections', true);
     } catch (err) {
       setError(err.message || 'Failed to save subcollection');
@@ -129,10 +125,6 @@ const Subcollections = ({
       setLoading(false);
     }
   };
-
-  const [editingSubcollection, setEditingSubcollection] = useState(null);
-
-  const navigate = useNavigate();
 
   const handleFormClose = () => {
     setShowAddForm(false);
@@ -155,58 +147,30 @@ const Subcollections = ({
       amount: subcollection.amount,
       due_date: subcollection.due_date || ''
     });
-    setShowAddForm(true); // Show the form
+    setShowAddForm(true);
     setError(null);
     setSuccess(null);
   };
 
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
+  const filteredSubcollections = subcollections.filter(
+    sc => sc.collection === selectedCollection?.id
+  );
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return null;
     try {
-      // Validate required fields
-      if (!formData.name.trim()) {
-        throw new Error('Subcollection name is required');
-      }
-      if (!formData.amount) {
-        throw new Error('Amount is required');
-      }
-
-      // Update the subcollection
-      await subcollectionAPI.update(editingSubcollection.id, {
-        ...formData,
-        collection: selectedCollection?.id
+      return new Date(dateStr).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
       });
-
-      // Reset form
-      setFormData({
-        name: '',
-        year: new Date().getFullYear(),
-        amount: '',
-        due_date: ''
-      });
-      setEditingSubcollection(null);
-      setShowAddForm(false);
-      setSuccess('Subcollection updated successfully!');
-
-      // Reload subcollections
-      loadDataForTab('subcollections', true);
-    } catch (err) {
-      setError(err.message || 'Failed to update subcollection');
-      console.error('Error updating subcollection:', err);
-    } finally {
-      setLoading(false);
+    } catch {
+      return dateStr;
     }
   };
 
-  // This function is now redundant since handleFormSubmit handles both create and update
-  // Keeping it for consistency but it's not used directly now
-
   return (
-    <div className="data-section animate-in">
+    <div className="data-section animate-in subcollections-page">
       <div className="section-header">
         <div className="header-content-wrapper">
           <button onClick={handleBack} className="back-btn" title="Back to Collections">
@@ -216,7 +180,7 @@ const Subcollections = ({
             <div className="header-icon-wrapper">
               <FaRupeeSign />
             </div>
-            Sub-vaults: {selectedCollection?.name}
+            {selectedCollection?.name || 'Subcollections'}
           </h2>
         </div>
         <div className="header-actions">
@@ -227,153 +191,212 @@ const Subcollections = ({
             + New Subcollection
           </button>
         </div>
-
-        {/* Subcollection Form Modal */}
-        {showAddForm && (
-          <div className="modal-overlay">
-            <div className="modal-content animate-in">
-              <div className="modal-header">
-                <h2>{editingSubcollection ? 'Edit Period Entry' : 'New Period Entry'}</h2>
-                <button className="close-btn" onClick={handleFormClose}>×</button>
-              </div>
-              <form onSubmit={handleFormSubmit} className="modal-body">
-                <div className="form-group">
-                  <label htmlFor="subcollectionName">Entry Label</label>
-                  <div className="input-wrapper">
-                    <input
-                      type="text"
-                      id="subcollectionName"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleFormChange}
-                      required
-                      disabled={loading}
-                      placeholder="e.g. Monthly Dues Jan"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="subcollectionYear">Fiscal Year</label>
-                    <div className="input-wrapper">
-                      <input
-                        type="number"
-                        id="subcollectionYear"
-                        name="year"
-                        value={formData.year}
-                        onChange={handleFormChange}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="subcollectionAmount">Base Amount (₹)</label>
-                    <div className="input-wrapper">
-                      <input
-                        type="number"
-                        id="subcollectionAmount"
-                        name="amount"
-                        value={formData.amount}
-                        onChange={handleFormChange}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="subcollectionDueDate">Settlement Deadline</label>
-                  <div className="input-wrapper">
-                    <input
-                      type="date"
-                      id="subcollectionDueDate"
-                      name="due_date"
-                      value={formData.due_date}
-                      onChange={handleFormChange}
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-
-                {(error || success) && (
-                  <div className={`status-banner ${error ? 'error' : 'success'}`}>
-                    <div className="status-icon">{error ? '⚠️' : '✅'}</div>
-                    <p>{error || success}</p>
-                  </div>
-                )}
-
-                <div className="modal-footer">
-                  <button type="button" className="btn-secondary" onClick={handleFormClose}>Cancel</button>
-                  <button type="submit" className="btn-primary" disabled={loading}>
-                    {loading ? 'Processing...' : 'Save Record'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
 
-      <div className="subcollection-cards-container">
-        {subcollections
-          .filter(sc => sc.collection === selectedCollection?.id)
-          .map(subcollection => (
-            <div
-              key={subcollection.id}
-              className="subcollection-card"
-              onClick={() => handleSubcollectionClick(subcollection)}
-            >
-              <div className="subcollection-card-icon">
+      {/* Premium Cards Grid */}
+      <div className="subcollection-cards-grid">
+        {filteredSubcollections.map(subcollection => (
+          <div
+            key={subcollection.id}
+            className="coll-card"
+            onClick={() => handleSubcollectionClick(subcollection)}
+          >
+            <div className="coll-card-body">
+              <div className="coll-card-icon rupee">
                 <FaRupeeSign />
               </div>
-              <div className="subcollection-card-name">
-                {subcollection.name}
-              </div>
-              <div className="subcollection-card-details">
-                <div className="subcollection-card-year">
-                  {subcollection.year}
-                </div>
-                <div className="subcollection-card-amount">
-                  ₹ {subcollection.amount}
-                </div>
-              </div>
-              <div className="subcollection-card-actions">
-                <button
-                  className="btn-secondary"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleEditClick(subcollection)
-                  }}
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  className="delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDeleteSubcollection(subcollection)
-                  }}
-                >
-                  <FaTrash />
-                </button>
+              <div className="coll-card-info">
+                <div className="coll-card-name">{subcollection.name}</div>
+                {subcollection.due_date && (
+                  <div className="coll-card-desc">
+                    Due: {formatDate(subcollection.due_date)}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
+            <div className="coll-card-meta">
+              <span className="meta-chip year">{subcollection.year}</span>
+              <span className="meta-chip amount">₹ {subcollection.amount}</span>
+              {subcollection.due_date && (
+                <span className="meta-chip due">
+                  <FaCalendarAlt style={{ fontSize: '0.7rem' }} />
+                  {formatDate(subcollection.due_date)}
+                </span>
+              )}
+            </div>
+            <div className="coll-card-actions">
+              <button
+                className="action-icon-btn edit"
+                title="Edit"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleEditClick(subcollection)
+                }}
+              >
+                <FaEdit />
+              </button>
+              <button
+                className="action-icon-btn delete"
+                title="Delete"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDeleteSubcollection(subcollection)
+                }}
+              >
+                <FaTrash />
+              </button>
+            </div>
+          </div>
+        ))}
 
-        {/* Add New Subcollection Card */}
-        <div className="add-btn-card" onClick={() => setShowAddForm(true)}>
-          <div className="add-btn-card-icon"><FaPlus /></div>
-          <div className="add-btn-card-text">New Period</div>
+        {/* Add Card */}
+        <div className="coll-add-card" onClick={() => setShowAddForm(true)}>
+          <div className="coll-add-card-icon">
+            <FaPlus />
+          </div>
+          <div className="coll-add-card-text">New Period</div>
         </div>
       </div>
 
-      {subcollections.filter(sc => sc.collection === selectedCollection?.id).length === 0 && (
-        <div className="empty-state">
-          <p>This vault is currently empty.</p>
+      {filteredSubcollections.length === 0 && (
+        <div className="coll-empty-state">
+          <div className="coll-empty-state-icon">💰</div>
+          <p>No subcollections yet. Create a new period to start tracking obligations.</p>
+        </div>
+      )}
+
+      {/* Premium Modal */}
+      {showAddForm && (
+        <div className="premium-modal-overlay" onClick={handleFormClose}>
+          <div className="premium-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="premium-modal-header">
+              <div className="premium-modal-title">
+                <div className="premium-modal-title-icon subcollection">
+                  <FaRupeeSign />
+                </div>
+                <div>
+                  <h2>{editingSubcollection ? 'Edit Subcollection' : 'New Subcollection'}</h2>
+                  <div className="modal-subtitle">
+                    {editingSubcollection
+                      ? `Editing "${editingSubcollection.name}"`
+                      : `Under: ${selectedCollection?.name || 'Collection'}`
+                    }
+                  </div>
+                </div>
+              </div>
+              <button className="premium-modal-close" onClick={handleFormClose}>
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleFormSubmit}>
+              <div className="premium-modal-body">
+                <div className="premium-form-group">
+                  <label className="premium-form-label">
+                    Subcollection Name
+                    <span className="required-dot"></span>
+                  </label>
+                  <input
+                    type="text"
+                    className="premium-form-input"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleFormChange}
+                    required
+                    disabled={loading}
+                    placeholder="e.g. Monthly Dues January"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="premium-form-row">
+                  <div className="premium-form-group">
+                    <label className="premium-form-label">
+                      Year
+                      <span className="required-dot"></span>
+                    </label>
+                    <input
+                      type="number"
+                      className="premium-form-input"
+                      name="year"
+                      value={formData.year}
+                      onChange={handleFormChange}
+                      required
+                      disabled={loading}
+                      min="2000"
+                      max="2100"
+                    />
+                  </div>
+
+                  <div className="premium-form-group">
+                    <label className="premium-form-label">
+                      Amount (₹)
+                      <span className="required-dot"></span>
+                    </label>
+                    <input
+                      type="number"
+                      className="premium-form-input"
+                      name="amount"
+                      value={formData.amount}
+                      onChange={handleFormChange}
+                      required
+                      disabled={loading}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                <div className="premium-form-group">
+                  <label className="premium-form-label">
+                    Due Date
+                    <span className="label-hint">Optional</span>
+                  </label>
+                  <input
+                    type="date"
+                    className="premium-form-input"
+                    name="due_date"
+                    value={formData.due_date}
+                    onChange={handleFormChange}
+                    disabled={loading}
+                  />
+                </div>
+
+                {(error || success) && (
+                  <div className={`premium-status-msg ${error ? 'error' : 'success'}`}>
+                    <span className="status-icon">{error ? '⚠️' : '✅'}</span>
+                    <span>{error || success}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="premium-modal-footer">
+                <button
+                  type="button"
+                  className="premium-btn cancel"
+                  onClick={handleFormClose}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="premium-btn primary"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Saving...
+                    </>
+                  ) : (
+                    editingSubcollection ? 'Update Subcollection' : 'Create Subcollection'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

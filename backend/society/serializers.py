@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Member, Area, House, Collection, SubCollection, MemberObligation, Todo, AppSettings, DigitalRequest
+from .models import Member, Area, House, Collection, SubCollection, MemberObligation, Todo, AppSettings, DigitalRequest, Receipt
 from typing import Any
 
 
@@ -246,6 +246,41 @@ class MemberObligationDetailSerializer(serializers.ModelSerializer):
         model = MemberObligation
         fields = '__all__'
         depth = 1
+
+
+class ReceiptSerializer(serializers.ModelSerializer):
+    member_name = serializers.SerializerMethodField()
+    obligation_amount = serializers.SerializerMethodField()
+    subcollection_name = serializers.SerializerMethodField()
+    member_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Receipt
+        fields = '__all__'
+
+    def get_member_name(self, obj):
+        try:
+            return obj.obligation.member.name
+        except Exception:
+            return 'Unknown Member'
+
+    def get_member_id(self, obj):
+        try:
+            return obj.obligation.member.member_id
+        except Exception:
+            return 'N/A'
+
+    def get_obligation_amount(self, obj):
+        try:
+            return obj.obligation.amount
+        except Exception:
+            return 0
+
+    def get_subcollection_name(self, obj):
+        try:
+            return obj.obligation.subcollection.name
+        except Exception:
+            return 'N/A'
 
 
 class TodoSerializer(serializers.ModelSerializer):

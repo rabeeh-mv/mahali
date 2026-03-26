@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { collectionAPI } from '../api'
 import { FaFolder, FaPlus, FaEdit, FaTrash, FaRedo, FaTimes } from 'react-icons/fa'
 import DeleteConfirmModal from './DeleteConfirmModal'
+import './Collections.css'
 
 const Collections = ({
   collections,
@@ -18,10 +19,10 @@ const Collections = ({
   const [success, setSuccess] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [collectionToDelete, setCollectionToDelete] = useState(null);
+  const [editingCollection, setEditingCollection] = useState(null);
 
   const navigate = useNavigate();
 
-  // Load collections data on initial mount
   useEffect(() => {
     loadDataForTab('collections', false)
   }, [loadDataForTab])
@@ -31,14 +32,8 @@ const Collections = ({
     navigate('/subcollections')
   }
 
-  const handleOpenCollection = (collection, e) => {
-    e.stopPropagation()
-    setSelectedCollection(collection)
-    navigate('/subcollections')
-  }
-
   const handleReloadData = () => {
-    loadDataForTab('collections', true) // Force reload
+    loadDataForTab('collections', true)
   }
 
   const handleDeleteCollection = (collection) => {
@@ -54,7 +49,7 @@ const Collections = ({
         setCollectionToDelete(null);
       } catch (error) {
         console.error('Failed to delete collection:', error)
-        throw error; // Let the modal handle the error display
+        throw error;
       }
     }
   }
@@ -65,7 +60,6 @@ const Collections = ({
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (error) setError(null);
     if (success) setSuccess(null);
   };
@@ -77,27 +71,21 @@ const Collections = ({
     setSuccess(null);
 
     try {
-      // Validate required fields
       if (!formData.name.trim()) {
         throw new Error('Collection name is required');
       }
 
       if (editingCollection) {
-        // Update existing collection
         await collectionAPI.update(editingCollection.id, formData);
         setSuccess('Collection updated successfully!');
       } else {
-        // Create new collection
         await collectionAPI.create(formData);
         setSuccess('Collection created successfully!');
       }
 
-      // Reset form
       setFormData({ name: '', description: '' });
       setEditingCollection(null);
       setShowAddForm(false);
-
-      // Reload collections
       loadDataForTab('collections', true);
     } catch (err) {
       setError(err.message || 'Failed to save collection');
@@ -106,8 +94,6 @@ const Collections = ({
       setLoading(false);
     }
   };
-
-  const [editingCollection, setEditingCollection] = useState(null);
 
   const handleFormClose = () => {
     setShowAddForm(false);
@@ -128,41 +114,8 @@ const Collections = ({
     setSuccess(null);
   };
 
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      // Validate required fields
-      if (!formData.name.trim()) {
-        throw new Error('Collection name is required');
-      }
-
-      // Update the collection
-      await collectionAPI.update(editingCollection.id, formData);
-
-      // Reset form
-      setFormData({ name: '', description: '' });
-      setEditingCollection(null);
-      setShowAddForm(false);
-      setSuccess('Collection updated successfully!');
-
-      // Reload collections
-      loadDataForTab('collections', true);
-    } catch (err) {
-      setError(err.message || 'Failed to update collection');
-      console.error('Error updating collection:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-
   return (
-    <div className="data-section animate-in">
+    <div className="data-section animate-in collections-page">
       <div className="section-header">
         <h2>
           <div className="header-icon-wrapper">
@@ -178,100 +131,31 @@ const Collections = ({
             + Create New Collection
           </button>
         </div>
-
-        {/* Collection Form Modal */}
-        {showAddForm && (
-          <div className="modal-overlay">
-            <div className="modal-content animate-in">
-              <div className="modal-header">
-                <h2>{editingCollection ? 'Modify Collection' : 'Register Collection'}</h2>
-                <button className="close-btn" onClick={handleFormClose}>×</button>
-              </div>
-              <form onSubmit={handleFormSubmit} className="modal-body">
-                <div className="form-group">
-                  <label htmlFor="collectionName">Internal Unique Name</label>
-                  <div className="input-wrapper">
-                    <input
-                      type="text"
-                      id="collectionName"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleFormChange}
-                      required
-                      disabled={loading}
-                      placeholder="e.g. Annual Fund 2024"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="collectionDescription">Public Description</label>
-                  <div className="input-wrapper">
-                    <textarea
-                      id="collectionDescription"
-                      name="description"
-                      value={formData.description}
-                      onChange={handleFormChange}
-                      disabled={loading}
-                      placeholder="Details about intended usage..."
-                      rows="3"
-                    />
-                  </div>
-                </div>
-
-                {(error || success) && (
-                  <div className={`status-banner ${error ? 'error' : 'success'}`}>
-                    <div className="status-icon">{error ? '⚠️' : '✅'}</div>
-                    <p>{error || success}</p>
-                  </div>
-                )}
-
-                <div className="modal-footer">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleFormClose}
-                    disabled={loading}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <div className="btn-content">
-                        <span className="spinner-small"></span>
-                        <span>Saving...</span>
-                      </div>
-                    ) : (
-                      editingCollection ? 'Update' : 'Confirm'
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
 
-      <div className="collection-cards-container">
+      {/* Premium Cards Grid */}
+      <div className="collection-cards-grid">
         {collections.map(collection => (
           <div
             key={collection.id}
-            className="collection-card"
+            className="coll-card"
             onClick={() => handleCollectionClick(collection)}
           >
-            <div className="collection-card-icon">
-              <FaFolder />
+            <div className="coll-card-body">
+              <div className="coll-card-icon folder">
+                <FaFolder />
+              </div>
+              <div className="coll-card-info">
+                <div className="coll-card-name">{collection.name}</div>
+                {collection.description && (
+                  <div className="coll-card-desc">{collection.description}</div>
+                )}
+              </div>
             </div>
-            <div className="collection-card-name">
-              {collection.name}
-            </div>
-            <div className="collection-card-actions">
+            <div className="coll-card-actions">
               <button
-                className="btn-secondary"
+                className="action-icon-btn edit"
+                title="Edit"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleEditClick(collection)
@@ -280,7 +164,8 @@ const Collections = ({
                 <FaEdit />
               </button>
               <button
-                className="delete-btn"
+                className="action-icon-btn delete"
+                title="Delete"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleDeleteCollection(collection)
@@ -292,23 +177,113 @@ const Collections = ({
           </div>
         ))}
 
-        {/* Add New Collection Card */}
-        <div
-          className="add-btn-card"
-          onClick={() => setShowAddForm(true)}
-        >
-          <div className="add-btn-card-icon">
+        {/* Add Card */}
+        <div className="coll-add-card" onClick={() => setShowAddForm(true)}>
+          <div className="coll-add-card-icon">
             <FaPlus />
           </div>
-          <div className="add-btn-card-text">
-            Register Collection
-          </div>
+          <div className="coll-add-card-text">New Collection</div>
         </div>
       </div>
 
       {collections.length === 0 && (
-        <div className="empty-state">
-          <p>The collection vault is empty. Start by registering a new one.</p>
+        <div className="coll-empty-state">
+          <div className="coll-empty-state-icon">📂</div>
+          <p>No collections yet. Create your first collection to start organizing finances.</p>
+        </div>
+      )}
+
+      {/* Premium Modal */}
+      {showAddForm && (
+        <div className="premium-modal-overlay" onClick={handleFormClose}>
+          <div className="premium-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="premium-modal-header">
+              <div className="premium-modal-title">
+                <div className="premium-modal-title-icon collection">
+                  <FaFolder />
+                </div>
+                <div>
+                  <h2>{editingCollection ? 'Edit Collection' : 'New Collection'}</h2>
+                  <div className="modal-subtitle">
+                    {editingCollection ? 'Update details for this collection' : 'Create a new financial collection'}
+                  </div>
+                </div>
+              </div>
+              <button className="premium-modal-close" onClick={handleFormClose}>
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleFormSubmit}>
+              <div className="premium-modal-body">
+                <div className="premium-form-group">
+                  <label className="premium-form-label">
+                    Collection Name
+                    <span className="required-dot"></span>
+                  </label>
+                  <input
+                    type="text"
+                    className="premium-form-input"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleFormChange}
+                    required
+                    disabled={loading}
+                    placeholder="e.g. Annual Fund 2024"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="premium-form-group">
+                  <label className="premium-form-label">
+                    Description
+                    <span className="label-hint">Optional</span>
+                  </label>
+                  <textarea
+                    className="premium-form-input"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleFormChange}
+                    disabled={loading}
+                    placeholder="Describe the purpose of this collection..."
+                    rows="3"
+                  />
+                </div>
+
+                {(error || success) && (
+                  <div className={`premium-status-msg ${error ? 'error' : 'success'}`}>
+                    <span className="status-icon">{error ? '⚠️' : '✅'}</span>
+                    <span>{error || success}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="premium-modal-footer">
+                <button
+                  type="button"
+                  className="premium-btn cancel"
+                  onClick={handleFormClose}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="premium-btn primary"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Saving...
+                    </>
+                  ) : (
+                    editingCollection ? 'Update Collection' : 'Create Collection'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

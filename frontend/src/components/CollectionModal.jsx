@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaFolder, FaTimes } from 'react-icons/fa';
+import './Collections.css';
 
 const CollectionModal = ({ isOpen, onClose, onSubmit, initialData }) => {
   const [formData, setFormData] = useState({
@@ -25,7 +26,6 @@ const CollectionModal = ({ isOpen, onClose, onSubmit, initialData }) => {
         });
       }
 
-      // Reset status messages when modal opens
       setError(null);
       setSuccess(null);
     }
@@ -46,20 +46,15 @@ const CollectionModal = ({ isOpen, onClose, onSubmit, initialData }) => {
     setSuccess(null);
 
     try {
-      // Validate required fields
       if (!formData.name.trim()) {
         throw new Error('Collection name is required');
       }
 
-      // Prepare the data to submit
       const submitData = { ...formData };
-
-      // Call the onSubmit function
       await onSubmit(submitData, initialData);
 
       setSuccess('Collection saved successfully!');
 
-      // Close modal after a short delay
       setTimeout(() => {
         onClose();
       }, 1500);
@@ -74,55 +69,73 @@ const CollectionModal = ({ isOpen, onClose, onSubmit, initialData }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content animate-in">
-        <div className="modal-header">
-          <h2>
-            <div className="header-icon-wrapper">
+    <div className="premium-modal-overlay" onClick={onClose}>
+      <div className="premium-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="premium-modal-header">
+          <div className="premium-modal-title">
+            <div className="premium-modal-title-icon collection">
               <FaFolder />
             </div>
-            {initialData ? 'Edit Collection' : 'Add New Collection'}
-          </h2>
-          <button className="close-btn" onClick={onClose}><FaTimes /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="modal-body">
-          <div className="input-wrapper">
-            <label htmlFor="name">Collection Name *</label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              disabled={loading}
-              placeholder="Enter collection name"
-            />
-          </div>
-
-          <div className="input-wrapper">
-            <label htmlFor="description">Description</label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              disabled={loading}
-              placeholder="Enter collection description (optional)"
-              rows="3"
-            />
-          </div>
-
-          {(error || success) && (
-            <div className={`status-banner ${error ? 'error' : 'success'}`}>
-              {error || success}
+            <div>
+              <h2>{initialData ? 'Edit Collection' : 'New Collection'}</h2>
+              <div className="modal-subtitle">
+                {initialData ? 'Update collection details' : 'Create a new financial collection'}
+              </div>
             </div>
-          )}
+          </div>
+          <button className="premium-modal-close" onClick={onClose}>
+            <FaTimes />
+          </button>
+        </div>
 
-          <div className="form-actions" style={{ marginTop: '24px' }}>
+        <form onSubmit={handleSubmit}>
+          <div className="premium-modal-body">
+            <div className="premium-form-group">
+              <label className="premium-form-label">
+                Collection Name
+                <span className="required-dot"></span>
+              </label>
+              <input
+                type="text"
+                className="premium-form-input"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                disabled={loading}
+                placeholder="Enter collection name"
+                autoFocus
+              />
+            </div>
+
+            <div className="premium-form-group">
+              <label className="premium-form-label">
+                Description
+                <span className="label-hint">Optional</span>
+              </label>
+              <textarea
+                className="premium-form-input"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                disabled={loading}
+                placeholder="Describe the purpose of this collection..."
+                rows="3"
+              />
+            </div>
+
+            {(error || success) && (
+              <div className={`premium-status-msg ${error ? 'error' : 'success'}`}>
+                <span className="status-icon">{error ? '⚠️' : '✅'}</span>
+                <span>{error || success}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="premium-modal-footer">
             <button
               type="button"
-              className="btn-secondary"
+              className="premium-btn cancel"
               onClick={onClose}
               disabled={loading}
             >
@@ -130,12 +143,12 @@ const CollectionModal = ({ isOpen, onClose, onSubmit, initialData }) => {
             </button>
             <button
               type="submit"
-              className="btn-primary"
+              className="premium-btn primary"
               disabled={loading}
             >
               {loading ? (
                 <>
-                  <span className="spinner"></span>
+                  <span className="btn-spinner"></span>
                   {initialData ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
@@ -146,7 +159,6 @@ const CollectionModal = ({ isOpen, onClose, onSubmit, initialData }) => {
         </form>
       </div>
     </div>
-
   );
 };
 

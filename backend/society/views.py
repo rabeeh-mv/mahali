@@ -6,8 +6,8 @@ from django.db.models import Q, Sum, Count
 from django.http import HttpResponse, Http404
 from django.conf import settings
 from django.core.management import execute_from_command_line
-from .models import Member, Area, House, Collection, SubCollection, MemberObligation, Todo, AppSettings, DigitalRequest
-from .serializers import MemberSerializer, AreaSerializer, HouseSerializer, CollectionSerializer, SubCollectionSerializer, MemberObligationSerializer, MemberObligationDetailSerializer, TodoSerializer, AppSettingsSerializer, DigitalRequestSerializer
+from .models import Member, Area, House, Collection, SubCollection, MemberObligation, Todo, AppSettings, DigitalRequest, Receipt
+from .serializers import MemberSerializer, AreaSerializer, HouseSerializer, CollectionSerializer, SubCollectionSerializer, MemberObligationSerializer, MemberObligationDetailSerializer, TodoSerializer, AppSettingsSerializer, DigitalRequestSerializer, ReceiptSerializer
 import os
 import zipfile
 import tempfile
@@ -619,8 +619,13 @@ class MemberObligationViewSet(viewsets.ModelViewSet):
         
         # Calculate amounts
         total_amount = obligations.aggregate(total=Sum('amount'))['total'] or 0
-        paid_amount = obligations.filter(paid_status='paid').aggregate(total=Sum('amount'))['total'] or 0
-        pending_amount = obligations.filter(Q(paid_status='pending') | Q(paid_status='overdue')).aggregate(total=Sum('amount'))['total'] or 0
+        
+        # Calculate paid amount based on actual receipts
+        paid_amount = Receipt.objects.filter(obligation__subcollection=subcollection).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        # Calculate pending amount (total - paid)
+        # Or you can do it based on status if you prefer, but total_amount - paid_amount is more accurate for partials
+        pending_amount = total_amount - paid_amount
         
         # Calculate collection progress percentage
         progress_percentage = (paid_amount / total_amount * 100) if total_amount > 0 else 0
@@ -637,7 +642,8 @@ class MemberObligationViewSet(viewsets.ModelViewSet):
             },
             'partial': {
                 'count': partial_count,
-                'amount': float(obligations.filter(paid_status='partial').aggregate(total=Sum('amount'))['total'] or 0)
+                'amount': float(obligations.filter(paid_status='partial').count()), # Change to count
+                'amount_value': float(obligations.filter(paid_status='partial').aggregate(total=Sum('amount'))['total'] or 0)
             },
             'collection_progress': {
                 'percentage': round(progress_percentage, 2),
@@ -717,6 +723,57 @@ class MemberObligationViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ReceiptViewSet(viewsets.ModelViewSet):
+    queryset = Receipt.objects.all().order_by('-payment_date')
+    serializer_class = ReceiptSerializer
+    
+    def get_queryset(self):
+        queryset = Receipt.objects.all().order_by('-payment_date')
+        
+        # Filter by obligation if provided
+        obligation_id = self.request.query_params.get('obligation', None)
+        if obligation_id:
+            queryset = queryset.filter(obligation=obligation_id)
+            
+        # Filter by subcollection
+        subcollection_id = self.request.query_params.get('subcollection', None)
+        if subcollection_id:
+            queryset = queryset.filter(obligation__subcollection=subcollection_id)
+            
+        # Search by member name or ID
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(obligation__member__name__icontains=search) | 
+                Q(obligation__member__member_id__icontains=search) |
+                Q(receipt_number__icontains=search)
+            )
+            
+        return queryset
+
+    @action(detail=False, methods=['post'])
+    def bulk_create(self, request):
+        """Create multiple receipts at once"""
+        receipts_data = request.data.get('receipts', [])
+        if not receipts_data:
+            return Response({'error': 'No receipts data provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        created_receipts = []
+        errors = []
+        
+        for data in receipts_data:
+            serializer = self.get_serializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                created_receipts.append(serializer.data)
+            else:
+                errors.append({'data': data, 'errors': serializer.errors})
+        
+        return Response({
+            'created_count': len(created_receipts),
+            'errors': errors
+        }, status=status.HTTP_201_CREATED)
 
 class TodoViewSet(viewsets.ModelViewSet):
     queryset = Todo.objects.all()
